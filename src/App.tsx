@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   AppBar,
   Box,
@@ -28,6 +28,10 @@ const HandleGrip = styled("span")(({ theme }) => ({
 
 const App = () => {
   const [mode, setMode] = useState<"light" | "dark">(readInitialMode());
+  const [currentProjectPath, setCurrentProjectPath] = useState<string | null>(null);
+  const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
+  const openFileHandlerRef = useRef<((filePath: string) => Promise<void>) | null>(null);
+
   const theme = useMemo(
     () =>
       createTheme({
@@ -37,7 +41,6 @@ const App = () => {
       }),
     [mode]
   );
-
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -51,6 +54,16 @@ const App = () => {
 
   const handleToggleMode = () => {
     setMode((prevMode) => (prevMode === "light" ? "dark" : "light"));
+  };
+
+  const handleFileOpen = async (filePath: string) => {
+    if (openFileHandlerRef.current) {
+      await openFileHandlerRef.current(filePath);
+    }
+  };
+
+  const handleCodeEditorReady = (handler: (filePath: string) => Promise<void>) => {
+    openFileHandlerRef.current = handler;
   };
 
   return (
@@ -98,7 +111,11 @@ const App = () => {
 
             >
               <Box display="flex" height="100%">
-                <ProjectTree />
+                <ProjectTree 
+                  onFileOpen={handleFileOpen} 
+                  onProjectPathChange={setCurrentProjectPath}
+                  activeFilePath={activeFilePath}
+                />
               </Box>
             </Panel>
 
@@ -108,7 +125,11 @@ const App = () => {
 
             <Panel defaultSize={52} minSize={35}>
               <Box display="flex" height="100%">
-                <CodeEditorPanel />
+                <CodeEditorPanel 
+                  onFileOpenRequest={handleCodeEditorReady}
+                  currentProjectPath={currentProjectPath}
+                  onActiveFileChange={setActiveFilePath}
+                />
               </Box>
             </Panel>
 
