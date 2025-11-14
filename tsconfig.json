@@ -9,7 +9,12 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@src/*": ["src/*"]
+      "@src/*": ["src/*"],
+      "@utils/*": ["src/utils/*"],
+      "@types/*": ["src/types/*"],
+      "@components/*": ["src/components/*"],
+      "@hooks/*": ["src/hooks/*"],
+      "@hooks": ["src/hooks"],
     },
     "outDir": "dist",
     "moduleResolution": "node",

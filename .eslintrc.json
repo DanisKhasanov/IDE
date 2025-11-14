@@ -16,7 +16,9 @@
   "settings": {
     "import/resolver": {
       "typescript": {
-        "project": "./tsconfig.json"
+        "alwaysTryTypes": true,
+        "project": "./tsconfig.json",
+        "resolveFullPaths": true
       },
       "node": {
         "extensions": [
@@ -24,7 +26,8 @@
           ".jsx",
           ".ts",
           ".tsx"
-        ]
+        ],
+        "moduleDirectory": ["node_modules", "src"]
       }
     }
   }

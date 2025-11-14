@@ -7,6 +7,7 @@ export interface ProjectState {
   expandedFolders: string[];
   openedFiles: Array<{ path: string; id: string }>;
   activeFileId: string | null;
+  isTerminalVisible?: boolean;
 }
 
 export interface IDEConfig {
@@ -66,6 +67,7 @@ export const saveProjectState = async (
     expandedFolders: [],
     openedFiles: [],
     activeFileId: null,
+    isTerminalVisible: false,
   };
 
   config.projects[projectPath] = { ...currentState, ...state };

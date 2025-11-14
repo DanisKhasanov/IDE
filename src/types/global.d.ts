@@ -2,28 +2,10 @@ export {};
 
 import type { ProjectTreeNode } from './project';
 
-type OpenedFilePayload = {
-  path: string;
-  name: string;
-  content: string;
-};
-
-type FileOpenErrorPayload = {
-  message: string;
-};
-
 type OpenedProjectPayload = {
   path: string;
   name: string;
   tree: ProjectTreeNode;
-};
-
-type ProjectOpenErrorPayload = {
-  message: string;
-};
-
-type ProjectRemovedPayload = {
-  path: string;
 };
 
 type ProjectState = {
@@ -51,14 +33,20 @@ declare global {
       switchProject: (projectPath: string) => Promise<OpenedProjectPayload>;
       closeProject: (projectPath: string) => Promise<{ success: boolean }>;
       loadOpenProjects: () => Promise<OpenedProjectPayload[]>;
-      // Старые методы (для обратной совместимости)
-      onFileOpened: (callback: (payload: OpenedFilePayload) => void) => () => void;
-      onFileOpenError: (callback: (payload: FileOpenErrorPayload) => void) => () => void;
-      onProjectOpened: (callback: (payload: OpenedProjectPayload) => void) => () => void;
-      onProjectOpenError: (callback: (payload: ProjectOpenErrorPayload) => void) => () => void;
-      onProjectRemoved: (callback: (payload: ProjectRemovedPayload) => void) => () => void;
-      openFileByPath: (filePath: string) => Promise<void>;
-      removeProject: (projectPath: string) => Promise<void>;
+      // Методы для работы с терминалом
+      saveTerminalState: (projectPath: string, isVisible: boolean) => Promise<{ success: boolean }>;
+      getTerminalState: (projectPath: string) => Promise<boolean>;
+      onToggleTerminal: (callback: () => void) => () => void;
+      // Обработчики событий меню
+      onMenuOpenProject: (callback: () => void) => () => void;
+      onMenuNewFile: (callback: () => void) => () => void;
+      onMenuSaveFile: (callback: () => void) => () => void;
+      onMenuSaveFileAs: (callback: () => void) => () => void;
+      // Обработчик изменения списка проектов
+      onProjectListChanged: (callback: () => void) => () => void;
+      // Методы для сохранения файлов
+      saveFile: (filePath: string, content: string) => Promise<{ success: boolean }>;
+      saveFileAs: (currentFilePath: string, content: string) => Promise<{ success: boolean; filePath: string } | null>;
     };
   }
 }

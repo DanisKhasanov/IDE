@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useState } from "react";
 import {
   AppBar,
   Box,
@@ -8,63 +8,31 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
-import { createTheme, styled } from "@mui/material/styles";
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
-import CodeEditorPanel from "@src/components/CodeEditorPanel";
-import InfoPanel from "@src/components/InfoPanel";
-import ProjectTree from "@src/components/ProjectTree";
+import CodeEditorPanel from "@components/CodeEditorPanel";
+import InfoPanel from "@components/InfoPanel";
+import ProjectTree from "@components/ProjectTree";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
-import { readInitialMode, themeStorageKey } from "./utils/readInitialMode";
-
-const HandleGrip = styled("span")(({ theme }) => ({
-  width: 2,
-  height: "40%",
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: theme.palette.divider,
-}));
-
-
+import TerminalIcon from "@mui/icons-material/Terminal";
+import { HandleGrip } from "@utils/HandleGrip";
+import { useTheme, useTerminal, useProjectMenu, useFileHandler } from "@hooks";
 
 const App = () => {
-  const [mode, setMode] = useState<"light" | "dark">(readInitialMode());
-  const [currentProjectPath, setCurrentProjectPath] = useState<string | null>(null);
-  const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
-  const openFileHandlerRef = useRef<((filePath: string) => Promise<void>) | null>(null);
-
-  const theme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          mode,
-        },
-      }),
-    [mode]
+  const [currentProjectPath, setCurrentProjectPath] = useState<string | null>(
+    null
   );
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage?.setItem(themeStorageKey, mode);
-      } catch {
-        return;
-      }
-    }
-  }, [mode]);
-
-  const handleToggleMode = () => {
-    setMode((prevMode) => (prevMode === "light" ? "dark" : "light"));
-  };
-
-  const handleFileOpen = async (filePath: string) => {
-    if (openFileHandlerRef.current) {
-      await openFileHandlerRef.current(filePath);
-    }
-  };
-
-  const handleCodeEditorReady = (handler: (filePath: string) => Promise<void>) => {
-    openFileHandlerRef.current = handler;
-  };
+  const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
+  //Выбор темы
+  const { mode, theme, toggleMode } = useTheme();
+  //Выбор видимости терминала
+  const { isTerminalVisible, toggleTerminal } = useTerminal({
+    currentProjectPath,
+  });
+  //Обработка открытия файлов
+  const { handleFileOpen, setFileHandler } = useFileHandler();
+  //Обработка открытия проекта
+  useProjectMenu({ onProjectOpen: setCurrentProjectPath });
 
   return (
     <ThemeProvider theme={theme}>
@@ -75,15 +43,28 @@ const App = () => {
         height="100vh"
         bgcolor={theme.palette.background.default}
       >
-        <AppBar position="static" >
+        <AppBar position="static">
           <Toolbar>
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
               IDE Prototype
             </Typography>
             <IconButton
               color="inherit"
-              onClick={handleToggleMode}
-              aria-label={mode === "light" ? "Включить тёмную тему" : "Включить светлую тему"}
+              onClick={toggleTerminal}
+              aria-label={
+                isTerminalVisible ? "Скрыть терминал" : "Показать терминал"
+              }
+            >
+              <TerminalIcon />
+            </IconButton>
+            <IconButton
+              color="inherit"
+              onClick={toggleMode}
+              aria-label={
+                mode === "light"
+                  ? "Включить тёмную тему"
+                  : "Включить светлую тему"
+              }
             >
               {mode === "light" ? <DarkModeIcon /> : <LightModeIcon />}
             </IconButton>
@@ -104,15 +85,11 @@ const App = () => {
               display: "flex",
             }}
           >
-            <Panel
-              defaultSize={14}
-              minSize={15}
-              maxSize={40}
-
-            >
+            {/* Дерево проектов */}
+            <Panel defaultSize={14} minSize={15} maxSize={40}>
               <Box display="flex" height="100%">
-                <ProjectTree 
-                  onFileOpen={handleFileOpen} 
+                <ProjectTree
+                  onFileOpen={handleFileOpen}
                   onProjectPathChange={setCurrentProjectPath}
                   activeFilePath={activeFilePath}
                 />
@@ -123,12 +100,15 @@ const App = () => {
               <HandleGrip />
             </PanelResizeHandle>
 
+            {/* Редактор кода */}
             <Panel defaultSize={52} minSize={35}>
               <Box display="flex" height="100%">
-                <CodeEditorPanel 
-                  onFileOpenRequest={handleCodeEditorReady}
+                <CodeEditorPanel
+                  onFileOpenRequest={setFileHandler}
                   currentProjectPath={currentProjectPath}
                   onActiveFileChange={setActiveFilePath}
+                  isTerminalVisible={isTerminalVisible}
+                  onTerminalClose={toggleTerminal}
                 />
               </Box>
             </Panel>
@@ -136,6 +116,8 @@ const App = () => {
             <PanelResizeHandle>
               <HandleGrip />
             </PanelResizeHandle>
+
+            {/* Информация о проекте */}
             <Panel defaultSize={24} minSize={15} maxSize={45}>
               <Box display="flex" height="100%">
                 <InfoPanel />

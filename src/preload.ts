@@ -72,7 +72,12 @@ const getProjectState = async (projectPath: string) => {
 };
 
 // Сохранение состояния проекта
-const saveProjectState = async (projectPath: string, state: any) => {
+const saveProjectState = async (projectPath: string, state: Partial<{
+  expandedFolders: string[];
+  openedFiles: Array<{ path: string; id: string }>;
+  activeFileId: string | null;
+  isTerminalVisible?: boolean;
+}>) => {
   try {
     return await ipcRenderer.invoke('save-project-state', projectPath, state);
   } catch (error) {
@@ -141,48 +146,117 @@ const loadOpenProjects = async () => {
   }
 };
 
+// Сохранение состояния терминала
+const saveTerminalState = async (projectPath: string, isVisible: boolean) => {
+  try {
+    return await ipcRenderer.invoke('save-terminal-state', projectPath, isVisible);
+  } catch (error) {
+    console.error('Ошибка в saveTerminalState:', error);
+    throw error;
+  }
+};
+
+// Получение состояния терминала
+const getTerminalState = async (projectPath: string) => {
+  try {
+    return await ipcRenderer.invoke('get-terminal-state', projectPath);
+  } catch (error) {
+    console.error('Ошибка в getTerminalState:', error);
+    throw error;
+  }
+};
+
+// Подписка на событие переключения терминала
+const onToggleTerminal = (callback: () => void) => {
+  ipcRenderer.on('toggle-terminal', callback);
+  // Возвращаем функцию для отписки
+  return () => {
+    ipcRenderer.removeListener('toggle-terminal', callback);
+  };
+};
+
+// Подписка на события меню
+const onMenuOpenProject = (callback: () => void) => {
+  ipcRenderer.on('menu-open-project', callback);
+  return () => {
+    ipcRenderer.removeListener('menu-open-project', callback);
+  };
+};
+
+// Подписка на событие создания нового файла
+const onMenuNewFile = (callback: () => void) => {
+  ipcRenderer.on('menu-new-file', callback);
+  return () => {
+    ipcRenderer.removeListener('menu-new-file', callback);
+  };
+};
+
+// Подписка на событие сохранения файла
+const onMenuSaveFile = (callback: () => void) => {
+  ipcRenderer.on('menu-save-file', callback);
+  return () => {
+    ipcRenderer.removeListener('menu-save-file', callback);
+  };
+};
+
+// Подписка на событие сохранения файла как
+const onMenuSaveFileAs = (callback: () => void) => {
+  ipcRenderer.on('menu-save-file-as', callback);
+  return () => {
+    ipcRenderer.removeListener('menu-save-file-as', callback);
+  };
+};
+
+// Подписка на событие изменения списка проектов
+const onProjectListChanged = (callback: () => void) => {
+  ipcRenderer.on('project-list-changed', callback);
+  return () => {
+    ipcRenderer.removeListener('project-list-changed', callback);
+  };
+};
+
+// Сохранение файла
+const saveFile = async (filePath: string, content: string) => {
+  try {
+    return await ipcRenderer.invoke('save-file', filePath, content);
+  } catch (error) {
+    console.error('Ошибка в saveFile:', error);
+    throw error;
+  }
+};
+
+// Сохранение файла как
+const saveFileAs = async (currentFilePath: string, content: string) => {
+  try {
+    return await ipcRenderer.invoke('save-file-as', currentFilePath, content);
+  } catch (error) {
+    console.error('Ошибка в saveFileAs:', error);
+    throw error;
+  }
+};
+
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Новые методы для работы с проектом
   selectProjectFolder,
   createFile,
   createFolder,
   readFile,
   getProjectTree,
-  // Методы для работы с конфигурацией
   getProjectState,
   saveProjectState,
   getLastProjectPath,
   loadLastProject,
-  // Методы для работы с несколькими проектами
   getOpenProjects,
   switchProject,
   closeProject,
   loadOpenProjects,
-  // Старые методы (для обратной совместимости)
-  onFileOpened: (callback: (payload: { path: string; name: string; content: string }) => void) => {
-    const unsubscribe = () => {};
-    return unsubscribe;
-  },
-  onFileOpenError: (callback: (payload: { message: string }) => void) => {
-    const unsubscribe = () => {};
-    return unsubscribe;
-  },
-  onProjectOpened: (callback: (payload: any) => void) => {
-    const unsubscribe = () => {};
-    return unsubscribe;
-  },
-  onProjectOpenError: (callback: (payload: { message: string }) => void) => {
-    const unsubscribe = () => {};
-    return unsubscribe;
-  },
-  onProjectRemoved: (callback: (payload: { path: string }) => void) => {
-    const unsubscribe = () => {};
-    return unsubscribe;
-  },
-  openFileByPath: async (filePath: string): Promise<void> => {
-    // Реализация может быть добавлена позже
-  },
-  removeProject: async (projectPath: string): Promise<void> => {
-    // Реализация может быть добавлена позже
-  },
+  saveTerminalState,
+  getTerminalState,
+  onToggleTerminal,
+  onMenuOpenProject,
+  onMenuNewFile,
+  onMenuSaveFile,
+  onMenuSaveFileAs,
+  onProjectListChanged,
+  saveFile,
+  saveFileAs,
 });

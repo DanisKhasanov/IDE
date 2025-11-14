@@ -35,7 +35,11 @@ type OpenProject = {
   tree: ProjectTreeNode;
 };
 
-const ProjectTree = ({ onFileOpen, onProjectPathChange, activeFilePath }: ProjectTreeProps) => {
+const ProjectTree = ({
+  onFileOpen,
+  onProjectPathChange,
+  activeFilePath,
+}: ProjectTreeProps) => {
   const [openProjects, setOpenProjects] = useState<OpenProject[]>([]);
   const [activeProjectPath, setActiveProjectPath] = useState<string | null>(
     null
@@ -109,6 +113,28 @@ const ProjectTree = ({ onFileOpen, onProjectPathChange, activeFilePath }: Projec
     loadOpenProjects();
   }, [loadOpenProjects]);
 
+  // Подписка на событие изменения списка проектов
+  useEffect(() => {
+    const handleProjectListChanged = () => {
+      loadOpenProjects();
+    };
+
+    const unsubscribe = window.electronAPI.onProjectListChanged(
+      handleProjectListChanged
+    );
+
+    // Также слушаем кастомное событие из App.tsx
+    window.addEventListener("project-list-changed", handleProjectListChanged);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener(
+        "project-list-changed",
+        handleProjectListChanged
+      );
+    };
+  }, [loadOpenProjects]);
+
   // Сохранение раскрытых папок при изменении
   useEffect(() => {
     const saveExpandedFolders = async () => {
@@ -140,8 +166,8 @@ const ProjectTree = ({ onFileOpen, onProjectPathChange, activeFilePath }: Projec
     }
 
     // Находим проект, которому принадлежит активный файл
-    const project = openProjects.find(p => activeFilePath.startsWith(p.path));
-    if (!project || project.tree.type !== 'directory') {
+    const project = openProjects.find((p) => activeFilePath.startsWith(p.path));
+    if (!project || project.tree.type !== "directory") {
       return;
     }
 
@@ -156,9 +182,12 @@ const ProjectTree = ({ onFileOpen, onProjectPathChange, activeFilePath }: Projec
         return currentPath;
       }
 
-      if (node.type === 'directory' && node.children) {
+      if (node.type === "directory" && node.children) {
         for (const child of node.children) {
-          const result = findPathToFile(child, targetPath, [...currentPath, node.id]);
+          const result = findPathToFile(child, targetPath, [
+            ...currentPath,
+            node.id,
+          ]);
           if (result) {
             return result;
           }
@@ -171,11 +200,11 @@ const ProjectTree = ({ onFileOpen, onProjectPathChange, activeFilePath }: Projec
     const pathToFile = findPathToFile(project.tree, activeFilePath);
     if (pathToFile) {
       // Раскрываем все родительские папки
-      setExpandedFolders(prev => {
+      setExpandedFolders((prev) => {
         const newMap = new Map(prev);
         const currentFolders = newMap.get(project.path) || new Set<string>();
         const newFolders = new Set(currentFolders);
-        pathToFile.forEach(folderId => newFolders.add(folderId));
+        pathToFile.forEach((folderId) => newFolders.add(folderId));
         newMap.set(project.path, newFolders);
         return newMap;
       });
@@ -564,14 +593,18 @@ const ProjectTree = ({ onFileOpen, onProjectPathChange, activeFilePath }: Projec
             }}
           >
             <Typography variant="body2" color="text.secondary" align="center">
-              Проект не открыт
+              Папка еще не открыта
             </Typography>
             <Button
               variant="outlined"
-              size="small"
+              size="large"
+              
               onClick={handleSelectProject}
+              sx={{
+                textTransform: "none",
+              }}
             >
-              Открыть проект
+              Открыть папку
             </Button>
           </Box>
         ) : (
@@ -642,11 +675,24 @@ const ProjectTree = ({ onFileOpen, onProjectPathChange, activeFilePath }: Projec
                       }}
                     >
                       <ListItemIcon sx={{ minWidth: 24 }}>
-                        {isExpanded ? (
-                          <ExpandMoreIcon fontSize="small" />
-                        ) : (
-                          <ChevronRightIcon fontSize="small" />
-                        )}
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                          }}
+                        >
+                          {isExpanded ? (
+                            <FolderOpenIcon fontSize="small" />
+                          ) : (
+                            <FolderIcon fontSize="small" />
+                          )}
+                          {isExpanded ? (
+                            <ExpandMoreIcon fontSize="small" />
+                          ) : (
+                            <ChevronRightIcon fontSize="small" />
+                          )}
+                        </Box>
                       </ListItemIcon>
                       <ListItemText
                         primary={project.name}
@@ -658,25 +704,23 @@ const ProjectTree = ({ onFileOpen, onProjectPathChange, activeFilePath }: Projec
                           whiteSpace: "nowrap",
                         }}
                       />
-                      {openProjects.length > 1 && (
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleCloseProject(project.path, e)}
-                          sx={{
-                            ml: 0.5,
-                            p: 0.25,
-                            opacity: 0.6,
-                            "&:hover": {
-                              opacity: 1,
-                              backgroundColor: "error.main",
-                              color: "error.contrastText",
-                            },
-                          }}
-                          title="Закрыть проект"
-                        >
-                          <CloseIcon fontSize="small" />
-                        </IconButton>
-                      )}
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleCloseProject(project.path, e)}
+                        sx={{
+                          ml: 0.5,
+                          p: 0.25,
+                          opacity: 0.6,
+                          "&:hover": {
+                            opacity: 1,
+                            backgroundColor: "error.main",
+                            color: "error.contrastText",
+                          },
+                        }}
+                        title="Закрыть проект"
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
                     </ListItemButton>
                   </ListItem>
 
@@ -710,7 +754,7 @@ const ProjectTree = ({ onFileOpen, onProjectPathChange, activeFilePath }: Projec
                   <AddIcon fontSize="small" />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Открыть проект"
+                  primary="Добавить папку"
                   primaryTypographyProps={{
                     fontSize: "0.8125rem",
                     color: "text.secondary",
@@ -721,6 +765,8 @@ const ProjectTree = ({ onFileOpen, onProjectPathChange, activeFilePath }: Projec
           </List>
         )}
       </CardContent>
+
+      {/* Контекстное меню для создания файла и папки */}
       <Menu
         open={contextMenu !== null}
         onClose={handleCloseContextMenu}
