@@ -175,6 +175,60 @@ const onToggleTerminal = (callback: () => void) => {
   };
 };
 
+// Создание терминала
+const createTerminal = async (cwd?: string) => {
+  try {
+    return await ipcRenderer.invoke('create-terminal', cwd);
+  } catch (error) {
+    console.error('Ошибка в createTerminal:', error);
+    throw error;
+  }
+};
+
+// Запись данных в терминал
+const writeTerminal = async (terminalId: number, data: string) => {
+  try {
+    return await ipcRenderer.invoke('write-terminal', terminalId, data);
+  } catch (error) {
+    console.error('Ошибка в writeTerminal:', error);
+    throw error;
+  }
+};
+
+// Изменение размера терминала
+const resizeTerminal = async (terminalId: number, cols: number, rows: number) => {
+  try {
+    return await ipcRenderer.invoke('resize-terminal', terminalId, cols, rows);
+  } catch (error) {
+    console.error('Ошибка в resizeTerminal:', error);
+    throw error;
+  }
+};
+
+// Уничтожение терминала
+const destroyTerminal = async (terminalId: number) => {
+  try {
+    return await ipcRenderer.invoke('destroy-terminal', terminalId);
+  } catch (error) {
+    console.error('Ошибка в destroyTerminal:', error);
+    throw error;
+  }
+};
+
+// Подписка на данные терминала
+const onTerminalData = (terminalId: number, callback: (data: string) => void) => {
+  const handler = (_event: Electron.IpcRendererEvent, id: number, data: string) => {
+    if (id === terminalId) {
+      callback(data);
+    }
+  };
+  ipcRenderer.on('terminal-data', handler);
+  // Возвращаем функцию для отписки
+  return () => {
+    ipcRenderer.removeListener('terminal-data', handler);
+  };
+};
+
 // Подписка на события меню
 const onMenuOpenProject = (callback: () => void) => {
   ipcRenderer.on('menu-open-project', callback);
@@ -252,6 +306,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveTerminalState,
   getTerminalState,
   onToggleTerminal,
+  createTerminal,
+  writeTerminal,
+  resizeTerminal,
+  destroyTerminal,
+  onTerminalData,
   onMenuOpenProject,
   onMenuNewFile,
   onMenuSaveFile,

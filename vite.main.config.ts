@@ -13,4 +13,15 @@ export default defineConfig({
     },
     extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
   },
+  build: {
+    rollupOptions: {
+      external: [
+        // Нативные модули должны быть внешними зависимостями
+        'node-pty',
+        // Другие нативные модули Electron
+        'electron',
+        'electron-squirrel-startup',
+      ],
+    },
+  },
 });

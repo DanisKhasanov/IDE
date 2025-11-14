@@ -6,6 +6,7 @@
   "main": ".vite/build/main.js",
   "scripts": {
     "start": "electron-forge start",
+    "fix-sandbox": "./fix-sandbox.sh",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
@@ -47,6 +48,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "@xterm/xterm": "^5.5.0",
     "electron-squirrel-startup": "^1.0.1",
+    "node-pty": "^1.0.0",
     "monaco-editor": "^0.52.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

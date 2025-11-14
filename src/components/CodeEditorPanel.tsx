@@ -412,6 +412,7 @@ const CodeEditorPanel = ({
         <TerminalPanel
           isVisible={isTerminalVisible}
           onClose={onTerminalClose}
+          currentProjectPath={currentProjectPath}
         />
       </PanelGroup>
     </Card>

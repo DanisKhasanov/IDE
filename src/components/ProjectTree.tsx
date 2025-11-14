@@ -519,7 +519,7 @@ const ProjectTree = ({
               }
             }}
             sx={{
-              py: 0.5,
+              py: 0.25,
               backgroundColor: isActive ? "action.selected" : "transparent",
               "&:hover": {
                 backgroundColor: isActive ? "action.selected" : "action.hover",
@@ -540,7 +540,6 @@ const ProjectTree = ({
             <ListItemText
               primary={node.name}
               primaryTypographyProps={{
-                fontSize: "0.875rem",
                 fontWeight: isActive ? 600 : 400,
                 color: isActive ? "primary.main" : "inherit",
               }}
@@ -598,7 +597,6 @@ const ProjectTree = ({
             <Button
               variant="outlined"
               size="large"
-              
               onClick={handleSelectProject}
               sx={{
                 textTransform: "none",
@@ -613,20 +611,6 @@ const ProjectTree = ({
               flexGrow: 1,
               overflow: "auto",
               py: 0,
-              scrollBehavior: "smooth",
-              "&::-webkit-scrollbar": {
-                width: "6px",
-              },
-              "&::-webkit-scrollbar-track": {
-                backgroundColor: "transparent",
-              },
-              "&::-webkit-scrollbar-thumb": {
-                backgroundColor: "rgba(109, 108, 108, 0.2)",
-                borderRadius: "4px",
-                "&:hover": {
-                  backgroundColor: "rgba(109, 108, 108, 0.3)",
-                },
-              },
             }}
           >
             {/* Список проектов вертикально */}
@@ -669,9 +653,9 @@ const ProjectTree = ({
                         }
                       }}
                       sx={{
-                        py: 0.5,
+                        py: 0.25,
                         px: 1,
-                        minHeight: 32,
+                        minHeight: 24,
                       }}
                     >
                       <ListItemIcon sx={{ minWidth: 24 }}>
@@ -697,7 +681,7 @@ const ProjectTree = ({
                       <ListItemText
                         primary={project.name}
                         primaryTypographyProps={{
-                          fontSize: "0.8125rem",
+                          fontSize: "0.75rem",
                           fontWeight: isActive ? 600 : 400,
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -743,9 +727,9 @@ const ProjectTree = ({
               <ListItemButton
                 onClick={handleSelectProject}
                 sx={{
-                  py: 0.5,
+                  py: 0.25,
                   px: 1,
-                  minHeight: 32,
+                  minHeight: 24,
                   borderTop: 1,
                   borderColor: "divider",
                 }}
@@ -756,7 +740,7 @@ const ProjectTree = ({
                 <ListItemText
                   primary="Добавить папку"
                   primaryTypographyProps={{
-                    fontSize: "0.8125rem",
+                    fontSize: "0.75rem",
                     color: "text.secondary",
                   }}
                 />

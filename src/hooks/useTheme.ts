@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { createTheme, Theme } from "@mui/material/styles";
 import { readInitialMode, themeStorageKey } from "@utils/ReadInitialMode";
+import { getMuiThemeOptions } from "@utils/MuiTheme";
 
 export const useTheme = () => {
   const [mode, setMode] = useState<"light" | "dark">(readInitialMode());
 
   const theme = useMemo<Theme>(
-    () =>
-      createTheme({
-        palette: {
-          mode,
-        },
-      }),
+    () => createTheme(getMuiThemeOptions(mode)),
     [mode]
   );
 
@@ -35,6 +31,7 @@ export const useTheme = () => {
     toggleMode,
   };
 };
+
 
 
 

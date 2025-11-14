@@ -11,6 +11,7 @@ import path from "node:path";
 import fs from "fs/promises";
 import { existsSync } from "fs";
 import started from "electron-squirrel-startup";
+import * as pty from "node-pty";
 import {
   getProjectState,
   saveProjectState,
@@ -29,6 +30,13 @@ import {
   type OpenProjectData,
 } from "@utils/ProjectUtils";
 
+// Отключаем sandbox для Linux (решает проблему с SUID sandbox helper)
+// Должно быть вызвано ДО app.ready() и ДО любых других операций с app
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('--no-sandbox');
+  app.commandLine.appendSwitch('--disable-setuid-sandbox');
+}
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
@@ -38,6 +46,9 @@ let currentProjectPath: string | null = null;
 let mainWindow: BrowserWindow | null = null;
 // Map для хранения открытых проектов: путь -> данные проекта
 const openProjects = new Map<string, OpenProjectData>();
+// Map для хранения терминалов: id -> экземпляр pty
+const terminals = new Map<number, pty.IPty>();
+let nextTerminalId = 1;
 
 // Функция для регистрации всех IPC обработчиков
 const registerIpcHandlers = () => {
@@ -60,6 +71,10 @@ const registerIpcHandlers = () => {
     "load-open-projects",
     "save-terminal-state",
     "get-terminal-state",
+    "create-terminal",
+    "write-terminal",
+    "resize-terminal",
+    "destroy-terminal",
     "save-file",
     "save-file-as",
   ];
@@ -494,6 +509,87 @@ const registerIpcHandlers = () => {
     }
   });
 
+  // Создание терминала
+  ipcMain.handle("create-terminal", async (_event, cwd?: string) => {
+    try {
+      const shell = process.platform === "win32" ? "powershell.exe" : process.env.SHELL || "/bin/bash";
+      const terminalId = nextTerminalId++;
+      
+      const ptyProcess = pty.spawn(shell, [], {
+        name: "xterm-color",
+        cols: 80,
+        rows: 24,
+        cwd: cwd || process.cwd(),
+        env: process.env as { [key: string]: string },
+      });
+
+      terminals.set(terminalId, ptyProcess);
+
+      // Отправка данных из терминала в рендерер
+      ptyProcess.onData((data) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("terminal-data", terminalId, data);
+        }
+      });
+
+      // Обработка закрытия терминала
+      ptyProcess.onExit(() => {
+        terminals.delete(terminalId);
+      });
+
+      return terminalId;
+    } catch (error) {
+      console.error("Ошибка создания терминала:", error);
+      throw error;
+    }
+  });
+
+  // Запись данных в терминал
+  ipcMain.handle("write-terminal", (_event, terminalId: number, data: string) => {
+    try {
+      const ptyProcess = terminals.get(terminalId);
+      if (ptyProcess) {
+        ptyProcess.write(data);
+        return { success: true };
+      }
+      throw new Error(`Терминал с id ${terminalId} не найден`);
+    } catch (error) {
+      console.error("Ошибка записи в терминал:", error);
+      throw error;
+    }
+  });
+
+  // Изменение размера терминала
+  ipcMain.handle("resize-terminal", (_event, terminalId: number, cols: number, rows: number) => {
+    try {
+      const ptyProcess = terminals.get(terminalId);
+      if (ptyProcess) {
+        ptyProcess.resize(cols, rows);
+        return { success: true };
+      }
+      throw new Error(`Терминал с id ${terminalId} не найден`);
+    } catch (error) {
+      console.error("Ошибка изменения размера терминала:", error);
+      throw error;
+    }
+  });
+
+  // Уничтожение терминала
+  ipcMain.handle("destroy-terminal", (_event, terminalId: number) => {
+    try {
+      const ptyProcess = terminals.get(terminalId);
+      if (ptyProcess) {
+        ptyProcess.kill();
+        terminals.delete(terminalId);
+        return { success: true };
+      }
+      return { success: false };
+    } catch (error) {
+      console.error("Ошибка уничтожения терминала:", error);
+      throw error;
+    }
+  });
+
   // Сохранение файла
   ipcMain.handle(
     "save-file",
@@ -566,6 +662,7 @@ const createWindow = () => {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false, // Отключаем sandbox для решения проблемы с SUID sandbox helper на Linux
     },
   });
 

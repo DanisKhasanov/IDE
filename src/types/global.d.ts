@@ -37,6 +37,11 @@ declare global {
       saveTerminalState: (projectPath: string, isVisible: boolean) => Promise<{ success: boolean }>;
       getTerminalState: (projectPath: string) => Promise<boolean>;
       onToggleTerminal: (callback: () => void) => () => void;
+      createTerminal: (cwd?: string) => Promise<number>;
+      writeTerminal: (terminalId: number, data: string) => Promise<{ success: boolean }>;
+      resizeTerminal: (terminalId: number, cols: number, rows: number) => Promise<{ success: boolean }>;
+      destroyTerminal: (terminalId: number) => Promise<{ success: boolean }>;
+      onTerminalData: (terminalId: number, callback: (data: string) => void) => () => void;
       // Обработчики событий меню
       onMenuOpenProject: (callback: () => void) => () => void;
       onMenuNewFile: (callback: () => void) => () => void;
