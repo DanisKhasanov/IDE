@@ -15,6 +15,8 @@
       "@components/*": ["src/components/*"],
       "@hooks/*": ["src/hooks/*"],
       "@hooks": ["src/hooks"],
+      "@main/*": ["src/main/*"],
+      "@preload/*": ["src/preload/*"],
     },
     "outDir": "dist",
     "moduleResolution": "node",

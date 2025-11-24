@@ -27,6 +27,8 @@ declare global {
       createNewProject: (parentPath: string, projectName: string) => Promise<OpenedProjectPayload | null>;
       createFile: (parentPath: string, projectPath?: string) => Promise<OpenedProjectPayload | null>;
       createFolder: (parentPath: string, projectPath?: string) => Promise<OpenedProjectPayload | null>;
+      deleteFile: (filePath: string, projectPath?: string) => Promise<OpenedProjectPayload | null>;
+      deleteFolder: (folderPath: string, projectPath?: string) => Promise<OpenedProjectPayload | null>;
       readFile: (filePath: string) => Promise<import('./editor').EditorFile>;
       getProjectTree: () => Promise<OpenedProjectPayload | null>;
       // Методы для работы с конфигурацией

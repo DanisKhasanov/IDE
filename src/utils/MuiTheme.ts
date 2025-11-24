@@ -296,6 +296,21 @@ export const getMuiThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
           },
         },
       },
+      MuiMenu: {
+        styleOverrides: {
+          paper: {
+            fontSize: '0.8125rem',
+          },
+        },
+      },
+      MuiMenuItem: {
+        styleOverrides: {
+          root: {
+            fontSize: '0.8125rem',
+            padding: '6px 16px',
+          },
+        },
+      },
     },
   };
 };

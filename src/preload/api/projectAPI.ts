@@ -14,6 +14,11 @@ export const projectAPI = {
     return safeInvoke("select-parent-folder");
   },
 
+  // Создание нового проекта (создание папки и открытие)
+  createNewProject: async (parentPath: string, projectName: string) => {
+    return safeInvoke("create-new-project", parentPath, projectName);
+  },
+
   // Создание файла
   createFile: async (parentPath: string) => {
     return safeInvoke("create-file", parentPath);
@@ -22,6 +27,16 @@ export const projectAPI = {
   // Создание папки
   createFolder: async (parentPath: string) => {
     return safeInvoke("create-folder", parentPath);
+  },
+
+  // Удаление файла
+  deleteFile: async (filePath: string, projectPath?: string) => {
+    return safeInvoke("delete-file", filePath, projectPath);
+  },
+
+  // Удаление папки
+  deleteFolder: async (folderPath: string, projectPath?: string) => {
+    return safeInvoke("delete-folder", folderPath, projectPath);
   },
 
   // Чтение файла
@@ -80,11 +95,6 @@ export const projectAPI = {
   // Загрузка всех открытых проектов при старте
   loadOpenProjects: async () => {
     return safeInvoke("load-open-projects");
-  },
-
-  // Создание нового проекта (создание папки и открытие)
-  createNewProject: async (parentPath: string, projectName: string) => {
-    return safeInvoke("create-new-project", parentPath, projectName);
   },
 
   // Обновление дерева проекта (например, после компиляции)

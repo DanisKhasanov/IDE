@@ -17,7 +17,6 @@ import {
 import FolderIcon from "@mui/icons-material/Folder";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
-import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -54,6 +53,7 @@ const ProjectTree = ({
     mouseX: number;
     mouseY: number;
     nodePath: string;
+    nodeType: "file" | "folder";
   } | null>(null);
 
   const activeExpandedFolders = activeProjectPath
@@ -387,7 +387,11 @@ const ProjectTree = ({
     });
   };
 
-  const handleContextMenu = (event: React.MouseEvent, nodePath: string) => {
+  const handleContextMenu = (
+    event: React.MouseEvent,
+    nodePath: string,
+    nodeType: "file" | "folder"
+  ) => {
     event.preventDefault();
     event.stopPropagation();
     setContextMenu(
@@ -396,6 +400,7 @@ const ProjectTree = ({
             mouseX: event.clientX + 2,
             mouseY: event.clientY - 6,
             nodePath,
+            nodeType,
           }
         : null
     );
@@ -489,6 +494,82 @@ const ProjectTree = ({
     handleCloseContextMenu();
   };
 
+  const handleDeleteFile = async () => {
+    if (!contextMenu || !activeProjectPath) return;
+    if (contextMenu.nodeType !== "file") return;
+
+    // Подтверждение удаления
+    if (!confirm("Вы уверены, что хотите удалить этот файл?")) {
+      handleCloseContextMenu();
+      return;
+    }
+
+    try {
+      const project = await window.electronAPI.deleteFile(
+        contextMenu.nodePath,
+        activeProjectPath
+      );
+      if (project) {
+        // Обновляем проект в списке
+        setOpenProjects((prev) => {
+          const index = prev.findIndex((p) => p.path === project.path);
+          if (index >= 0) {
+            const updated = [...prev];
+            updated[index] = project;
+            return updated;
+          }
+          return prev;
+        });
+      }
+    } catch (error) {
+      console.error("Ошибка удаления файла:", error);
+      alert(
+        `Ошибка удаления файла: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    handleCloseContextMenu();
+  };
+
+  const handleDeleteFolder = async () => {
+    if (!contextMenu || !activeProjectPath) return;
+    if (contextMenu.nodeType !== "folder") return;
+
+    // Подтверждение удаления
+    if (
+      !confirm(
+        "Вы уверены, что хотите удалить эту папку? Все файлы внутри будут удалены."
+      )
+    ) {
+      handleCloseContextMenu();
+      return;
+    }
+
+    try {
+      const project = await window.electronAPI.deleteFolder(
+        contextMenu.nodePath,
+        activeProjectPath
+      );
+      if (project) {
+        // Обновляем проект в списке
+        setOpenProjects((prev) => {
+          const index = prev.findIndex((p) => p.path === project.path);
+          if (index >= 0) {
+            const updated = [...prev];
+            updated[index] = project;
+            return updated;
+          }
+          return prev;
+        });
+      }
+    } catch (error) {
+      console.error("Ошибка удаления папки:", error);
+      alert(
+        `Ошибка удаления папки: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    handleCloseContextMenu();
+  };
+
   const handleFileClick = async (filePath: string) => {
     if (onFileOpen) {
       onFileOpen(filePath);
@@ -508,7 +589,9 @@ const ProjectTree = ({
         <ListItem
           disablePadding
           sx={{ pl: level * 2 }}
-          onContextMenu={(e) => handleContextMenu(e, node.path)}
+          onContextMenu={(e) =>
+            handleContextMenu(e, node.path, isDirectory ? "folder" : "file")
+          }
         >
           <ListItemButton
             onClick={() => {
@@ -738,6 +821,12 @@ const ProjectTree = ({
       >
         <MenuItem onClick={handleCreateFile}>Создать файл</MenuItem>
         <MenuItem onClick={handleCreateFolder}>Создать папку</MenuItem>
+        {contextMenu?.nodeType === "file" && (
+          <MenuItem onClick={handleDeleteFile}>Удалить файл</MenuItem>
+        )}
+        {contextMenu?.nodeType === "folder" && (
+          <MenuItem onClick={handleDeleteFolder}>Удалить папку</MenuItem>
+        )}
       </Menu>
     </Card>
   );

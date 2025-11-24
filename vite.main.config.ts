@@ -10,6 +10,8 @@ export default defineConfig({
       '@types': resolve(__dirname, 'src/types'),
       '@components': resolve(__dirname, 'src/components'),
       '@hooks': resolve(__dirname, 'src/hooks'),
+      '@main': resolve(__dirname, 'src/main'),
+      '@preload': resolve(__dirname, 'src/preload'),
     },
     extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
   },

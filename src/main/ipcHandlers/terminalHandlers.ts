@@ -1,6 +1,6 @@
 import { ipcMain } from "electron";
 import { saveProjectState, getProjectState } from "@utils/ConfigStorage";
-import { terminalManager } from "../managers/TerminalManager";
+import { terminalManager } from "@main/managers/TerminalManager";
 
 /**
  * Регистрация IPC обработчиков для работы с терминалами

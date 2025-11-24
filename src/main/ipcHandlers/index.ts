@@ -13,6 +13,8 @@ const ALL_HANDLERS = [
   "create-new-project",
   "create-file",
   "create-folder",
+  "delete-file",
+  "delete-folder",
   "read-file",
   "get-project-tree",
   "get-project-state",

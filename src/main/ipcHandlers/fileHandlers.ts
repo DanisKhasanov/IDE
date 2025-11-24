@@ -6,10 +6,10 @@ import {
   getParentDirectory,
   createProjectData,
   findProjectForFile,
+  buildProjectTree,
 } from "@utils/ProjectUtils";
-import { buildProjectTree } from "@utils/ProjectUtils";
-import { projectManager } from "../managers/ProjectManager";
-import { windowManager } from "../managers/WindowManager";
+import { projectManager } from "@main/managers/ProjectManager";
+import { windowManager } from "@main/managers/WindowManager";
 
 /**
  * Регистрация IPC обработчиков для работы с файлами
@@ -26,10 +26,7 @@ export function registerFileHandlers(): void {
       }
 
       // Определяем родительскую папку
-      const targetDir = await getParentDirectory(
-        parentPath,
-        targetProjectPath
-      );
+      const targetDir = await getParentDirectory(parentPath, targetProjectPath);
 
       const result = await dialog.showSaveDialog({
         defaultPath: targetDir,
@@ -82,10 +79,7 @@ export function registerFileHandlers(): void {
       }
 
       // Определяем родительскую папку
-      const targetDir = await getParentDirectory(
-        parentPath,
-        targetProjectPath
-      );
+      const targetDir = await getParentDirectory(parentPath, targetProjectPath);
 
       // Используем showSaveDialog для ввода имени папки
       const result = await dialog.showSaveDialog({
@@ -234,5 +228,105 @@ export function registerFileHandlers(): void {
       }
     }
   );
-}
 
+  // Удаление файла
+  ipcMain.handle(
+    "delete-file",
+    async (_event, filePath: string, projectPath?: string) => {
+      try {
+        const targetProjectPath =
+          projectPath || projectManager.getCurrentProjectPath();
+        if (!targetProjectPath) {
+          throw new Error("Проект не открыт");
+        }
+
+        // Проверяем, что файл находится в пределах проекта
+        if (!filePath.startsWith(targetProjectPath)) {
+          throw new Error("Файл должен находиться в пределах проекта");
+        }
+
+        // Проверяем, что файл существует
+        if (!existsSync(filePath)) {
+          throw new Error("Файл не существует");
+        }
+
+        // Проверяем, что это файл, а не папка
+        const stats = await fs.stat(filePath);
+        if (stats.isDirectory()) {
+          throw new Error("Указанный путь является папкой, а не файлом");
+        }
+
+        // Удаляем файл
+        await fs.unlink(filePath);
+
+        // Обновляем дерево проекта
+        const children = await buildProjectTree(
+          targetProjectPath,
+          targetProjectPath
+        );
+        const projectData = createProjectData(targetProjectPath, children);
+
+        // Обновляем проект в Map
+        projectManager.addProject(targetProjectPath, projectData);
+
+        return projectData;
+      } catch (error) {
+        console.error("Ошибка удаления файла:", error);
+        throw error;
+      }
+    }
+  );
+
+  // Удаление папки
+  ipcMain.handle(
+    "delete-folder",
+    async (_event, folderPath: string, projectPath?: string) => {
+      try {
+        const targetProjectPath =
+          projectPath || projectManager.getCurrentProjectPath();
+        if (!targetProjectPath) {
+          throw new Error("Проект не открыт");
+        }
+
+        // Проверяем, что папка находится в пределах проекта
+        if (!folderPath.startsWith(targetProjectPath)) {
+          throw new Error("Папка должна находиться в пределах проекта");
+        }
+
+        // Проверяем, что папка существует
+        if (!existsSync(folderPath)) {
+          throw new Error("Папка не существует");
+        }
+
+        // Проверяем, что это папка, а не файл
+        const stats = await fs.stat(folderPath);
+        if (!stats.isDirectory()) {
+          throw new Error("Указанный путь является файлом, а не папкой");
+        }
+
+        // Проверяем, что не пытаемся удалить корневую папку проекта
+        if (folderPath === targetProjectPath) {
+          throw new Error("Нельзя удалить корневую папку проекта");
+        }
+
+        // Удаляем папку рекурсивно
+        await fs.rm(folderPath, { recursive: true, force: true });
+
+        // Обновляем дерево проекта
+        const children = await buildProjectTree(
+          targetProjectPath,
+          targetProjectPath
+        );
+        const projectData = createProjectData(targetProjectPath, children);
+
+        // Обновляем проект в Map
+        projectManager.addProject(targetProjectPath, projectData);
+
+        return projectData;
+      } catch (error) {
+        console.error("Ошибка удаления папки:", error);
+        throw error;
+      }
+    }
+  );
+}

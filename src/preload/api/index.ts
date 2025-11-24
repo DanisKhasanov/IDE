@@ -14,6 +14,8 @@ export const electronAPI = {
   createNewProject: projectAPI.createNewProject,
   createFile: projectAPI.createFile,
   createFolder: projectAPI.createFolder,
+  deleteFile: projectAPI.deleteFile,
+  deleteFolder: projectAPI.deleteFolder,
   readFile: projectAPI.readFile,
   getProjectTree: projectAPI.getProjectTree,
   getProjectState: projectAPI.getProjectState,

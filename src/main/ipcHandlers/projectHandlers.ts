@@ -16,8 +16,8 @@ import {
   buildProjectTree,
   createProjectData,
 } from "@utils/ProjectUtils";
-import { projectManager } from "../managers/ProjectManager";
-import { windowManager } from "../managers/WindowManager";
+import { projectManager } from "@main/managers/ProjectManager";
+import { windowManager } from "@main/managers/WindowManager";
 
 /**
  * Регистрация IPC обработчиков для работы с проектами

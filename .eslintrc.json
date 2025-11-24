@@ -17,8 +17,7 @@
     "import/resolver": {
       "typescript": {
         "alwaysTryTypes": true,
-        "project": "./tsconfig.json",
-        "resolveFullPaths": true
+        "project": "./tsconfig.json"
       },
       "node": {
         "extensions": [
@@ -26,9 +25,11 @@
           ".jsx",
           ".ts",
           ".tsx"
-        ],
-        "moduleDirectory": ["node_modules", "src"]
+        ]
       }
+    },
+    "import/parsers": {
+      "@typescript-eslint/parser": [".ts", ".tsx"]
     }
   }
 }
