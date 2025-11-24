@@ -721,31 +721,6 @@ const ProjectTree = ({
                 </Box>
               );
             })}
-
-            {/* Кнопка добавления проекта */}
-            <ListItem disablePadding>
-              <ListItemButton
-                onClick={handleSelectProject}
-                sx={{
-                  py: 0.25,
-                  px: 1,
-                  minHeight: 24,
-                  borderTop: 1,
-                  borderColor: "divider",
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 24 }}>
-                  <AddIcon fontSize="small" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Добавить папку"
-                  primaryTypographyProps={{
-                    fontSize: "0.75rem",
-                    color: "text.secondary",
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
           </List>
         )}
       </CardContent>

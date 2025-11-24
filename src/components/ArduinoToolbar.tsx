@@ -7,7 +7,6 @@ import {
   FormControl,
   InputLabel,
   CircularProgress,
-  Typography,
   Alert,
   Snackbar,
 } from "@mui/material";
@@ -40,9 +39,8 @@ const ArduinoToolbar = ({ currentProjectPath }: ArduinoToolbarProps) => {
       }
 
       try {
-        const info = await window.electronAPI.arduinoDetectProject(
-          currentProjectPath
-        );
+        const info =
+          await window.electronAPI.arduinoDetectProject(currentProjectPath);
         setIsArduinoProject(info.isArduino);
       } catch (error) {
         console.error("Ошибка проверки Arduino проекта:", error);
@@ -97,14 +95,18 @@ const ArduinoToolbar = ({ currentProjectPath }: ArduinoToolbarProps) => {
 
       setSnackbarOpen(true);
 
-      // Если успешно, обновляем дерево проекта (можно добавить callback)
-      if (compileResult.success) {
-        // TODO: Обновить дерево проекта для отображения build/firmware.hex
+      // Если успешно, обновляем дерево проекта для отображения build/firmware.hex
+      if (compileResult.success && currentProjectPath) {
+        try {
+          await window.electronAPI.refreshProjectTree(currentProjectPath);
+        } catch (error) {
+          console.error("Ошибка обновления дерева проекта:", error);
+        }
       }
-    } catch (error: any) {
+    } catch (error) {
       setResult({
         success: false,
-        error: error.message || "Ошибка компиляции",
+        error: error instanceof Error ? error.message : "Ошибка компиляции",
       });
       setSnackbarOpen(true);
     } finally {
@@ -162,13 +164,6 @@ const ArduinoToolbar = ({ currentProjectPath }: ArduinoToolbarProps) => {
         >
           {isCompiling ? "Компиляция..." : "Скомпилировать"}
         </Button>
-
-        {result && result.success && (
-          <Typography variant="body2" color="success.main" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            <CheckCircleIcon fontSize="small" />
-            {result.message}
-          </Typography>
-        )}
       </Box>
 
       <Snackbar
@@ -191,4 +186,3 @@ const ArduinoToolbar = ({ currentProjectPath }: ArduinoToolbarProps) => {
 };
 
 export default ArduinoToolbar;
-

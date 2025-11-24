@@ -1,5 +1,5 @@
 import { app, Menu, BrowserWindow } from "electron";
-import { windowManager } from "./managers/WindowManager";
+import { windowManager } from "../managers/WindowManager";
 
 /**
  * Создание меню приложения с горячими клавишами

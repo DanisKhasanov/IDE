@@ -3,7 +3,7 @@ import started from "electron-squirrel-startup";
 import { registerIpcHandlers } from "./main/ipcHandlers";
 import { windowManager } from "./main/managers/WindowManager";
 import { terminalManager } from "./main/managers/TerminalManager";
-import { createApplicationMenu } from "./main/menu";
+import { createApplicationMenu } from "./main/menu/menu";
 
 /**
  * Главный процесс Electron приложения

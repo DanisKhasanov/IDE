@@ -1,5 +1,7 @@
-import { ipcMain, dialog, BrowserWindow } from "electron";
+import { ipcMain, dialog } from "electron";
 import { existsSync } from "fs";
+import path from "node:path";
+import fs from "fs/promises";
 import {
   getProjectState,
   saveProjectState,
@@ -12,9 +14,7 @@ import {
 } from "@utils/ConfigStorage";
 import {
   buildProjectTree,
-  getParentDirectory,
   createProjectData,
-  findProjectForFile,
 } from "@utils/ProjectUtils";
 import { projectManager } from "../managers/ProjectManager";
 import { windowManager } from "../managers/WindowManager";
@@ -269,5 +269,130 @@ export function registerProjectHandlers(): void {
       return [];
     }
   });
+
+  // Выбор родительской папки (без открытия как проекта)
+  ipcMain.handle("select-parent-folder", async () => {
+    try {
+      const mainWindow = windowManager.getActiveWindow();
+      const result = await dialog.showOpenDialog(mainWindow || undefined, {
+        properties: ["openDirectory"],
+        title: "Выберите папку для создания проекта",
+      });
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return null;
+      }
+
+      // Просто возвращаем путь, без открытия проекта
+      return { path: result.filePaths[0] };
+    } catch (error) {
+      console.error("Ошибка выбора родительской папки:", error);
+      throw error;
+    }
+  });
+
+  // Создание нового проекта (создание папки и открытие)
+  ipcMain.handle(
+    "create-new-project",
+    async (_event, parentPath: string, projectName: string) => {
+      try {
+        if (!projectName || !projectName.trim()) {
+          throw new Error("Название проекта не может быть пустым");
+        }
+
+        // Проверяем, что родительская папка существует
+        if (!existsSync(parentPath)) {
+          throw new Error("Родительская папка не существует");
+        }
+
+        // Создаем путь к новому проекту
+        const projectPath = path.join(parentPath, projectName.trim());
+
+        // Проверяем, не существует ли уже папка с таким именем
+        if (existsSync(projectPath)) {
+          throw new Error("Папка с таким названием уже существует");
+        }
+
+        // Создаем папку проекта
+        await fs.mkdir(projectPath, { recursive: true });
+
+        // Создаем папку src
+        const srcPath = path.join(projectPath, "src");
+        await fs.mkdir(srcPath, { recursive: true });
+
+        // Создаем базовую структуру проекта (файл main.cpp в папке src)
+        const mainCppPath = path.join(srcPath, "main.cpp");
+        const baseCode = `#include <Arduino.h>
+
+void setup() {
+  // Инициализация
+  Serial.begin(9600);
+}
+
+void loop() {
+  // Основной цикл
+}
+`;
+        await fs.writeFile(mainCppPath, baseCode, "utf-8");
+
+        // Открываем новый проект
+        projectManager.setCurrentProjectPath(projectPath);
+        await saveLastProjectPath(projectPath);
+        await addOpenProject(projectPath);
+
+        // Строим дерево проекта
+        const children = await buildProjectTree(projectPath, projectPath);
+        const projectData = createProjectData(projectPath, children);
+
+        // Сохраняем проект в Map
+        projectManager.addProject(projectPath, projectData);
+
+        return projectData;
+      } catch (error) {
+        console.error("Ошибка создания нового проекта:", error);
+        throw error;
+      }
+    }
+  );
+
+  // Обновление дерева проекта (например, после компиляции)
+  ipcMain.handle(
+    "refresh-project-tree",
+    async (_event, projectPath?: string) => {
+      try {
+        const targetProjectPath =
+          projectPath || projectManager.getCurrentProjectPath();
+        if (!targetProjectPath) {
+          throw new Error("Проект не открыт");
+        }
+
+        // Проверяем, что проект существует в менеджере
+        if (!projectManager.hasProject(targetProjectPath)) {
+          throw new Error("Проект не найден в списке открытых");
+        }
+
+        // Пересобираем дерево проекта
+        const children = await buildProjectTree(
+          targetProjectPath,
+          targetProjectPath
+        );
+        const projectData = createProjectData(targetProjectPath, children);
+
+        // Обновляем проект в Map
+        projectManager.addProject(targetProjectPath, projectData);
+
+        // Отправляем событие обновления списка проектов
+        const mainWindow = windowManager.getMainWindow();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("project-list-changed");
+        }
+
+        return projectData;
+      } catch (error) {
+        console.error("Ошибка обновления дерева проекта:", error);
+        throw error;
+      }
+    }
+  );
 }
 

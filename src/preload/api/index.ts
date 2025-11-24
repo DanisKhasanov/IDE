@@ -10,6 +10,8 @@ import { menuAPI } from './menuAPI';
 export const electronAPI = {
   // API для работы с проектами
   selectProjectFolder: projectAPI.selectProjectFolder,
+  selectParentFolder: projectAPI.selectParentFolder,
+  createNewProject: projectAPI.createNewProject,
   createFile: projectAPI.createFile,
   createFolder: projectAPI.createFolder,
   readFile: projectAPI.readFile,
@@ -22,6 +24,7 @@ export const electronAPI = {
   switchProject: projectAPI.switchProject,
   closeProject: projectAPI.closeProject,
   loadOpenProjects: projectAPI.loadOpenProjects,
+  refreshProjectTree: projectAPI.refreshProjectTree,
 
   // API для работы с файлами
   saveFile: fileAPI.saveFile,

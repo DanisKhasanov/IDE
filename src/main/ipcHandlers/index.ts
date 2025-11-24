@@ -9,6 +9,8 @@ import { registerArduinoHandlers } from "./arduinoHandlers";
  */
 const ALL_HANDLERS = [
   "select-project-folder",
+  "select-parent-folder",
+  "create-new-project",
   "create-file",
   "create-folder",
   "read-file",

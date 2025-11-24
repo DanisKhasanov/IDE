@@ -9,6 +9,11 @@ export const projectAPI = {
     return safeInvoke("select-project-folder");
   },
 
+  // Выбор родительской папки (без открытия как проекта)
+  selectParentFolder: async () => {
+    return safeInvoke("select-parent-folder");
+  },
+
   // Создание файла
   createFile: async (parentPath: string) => {
     return safeInvoke("create-file", parentPath);
@@ -75,5 +80,15 @@ export const projectAPI = {
   // Загрузка всех открытых проектов при старте
   loadOpenProjects: async () => {
     return safeInvoke("load-open-projects");
+  },
+
+  // Создание нового проекта (создание папки и открытие)
+  createNewProject: async (parentPath: string, projectName: string) => {
+    return safeInvoke("create-new-project", parentPath, projectName);
+  },
+
+  // Обновление дерева проекта (например, после компиляции)
+  refreshProjectTree: async (projectPath?: string) => {
+    return safeInvoke("refresh-project-tree", projectPath);
   },
 };

@@ -23,6 +23,8 @@ declare global {
     electronAPI: {
       // Новые методы для работы с проектом
       selectProjectFolder: () => Promise<OpenedProjectPayload | null>;
+      selectParentFolder: () => Promise<{ path: string } | null>;
+      createNewProject: (parentPath: string, projectName: string) => Promise<OpenedProjectPayload | null>;
       createFile: (parentPath: string, projectPath?: string) => Promise<OpenedProjectPayload | null>;
       createFolder: (parentPath: string, projectPath?: string) => Promise<OpenedProjectPayload | null>;
       readFile: (filePath: string) => Promise<import('./editor').EditorFile>;
@@ -37,6 +39,7 @@ declare global {
       switchProject: (projectPath: string) => Promise<OpenedProjectPayload>;
       closeProject: (projectPath: string) => Promise<{ success: boolean }>;
       loadOpenProjects: () => Promise<OpenedProjectPayload[]>;
+      refreshProjectTree: (projectPath?: string) => Promise<OpenedProjectPayload>;
       // Методы для работы с терминалом
       saveTerminalState: (projectPath: string, isVisible: boolean) => Promise<{ success: boolean }>;
       getTerminalState: (projectPath: string) => Promise<boolean>;
