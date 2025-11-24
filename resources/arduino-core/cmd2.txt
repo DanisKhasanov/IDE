@@ -1,0 +1,53 @@
+C:\Projects\avr_test_ide>make
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c src/main.cpp -o build/main.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu11 -ffunction-sections -fdata-sections -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/WInterrupts.c -o build/WInterrupts.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu11 -ffunction-sections -fdata-sections -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/hooks.c -o build/hooks.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu11 -ffunction-sections -fdata-sections -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/wiring.c -o build/wiring.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu11 -ffunction-sections -fdata-sections -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/wiring_analog.c -o build/wiring_analog.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu11 -ffunction-sections -fdata-sections -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/wiring_digital.c -o build/wiring_digital.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu11 -ffunction-sections -fdata-sections -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/wiring_pulse.c -o build/wiring_pulse.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu11 -ffunction-sections -fdata-sections -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/wiring_shift.c -o build/wiring_shift.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/CDC.cpp -o build/CDC.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/HardwareSerial.cpp -o build/HardwareSerial.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/HardwareSerial0.cpp -o build/HardwareSerial0.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/HardwareSerial1.cpp -o build/HardwareSerial1.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/HardwareSerial2.cpp -o build/HardwareSerial2.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/HardwareSerial3.cpp -o build/HardwareSerial3.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/IPAddress.cpp -o build/IPAddress.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/PluggableUSB.cpp -o build/PluggableUSB.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/Print.cpp -o build/Print.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/Stream.cpp -o build/Stream.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/Tone.cpp -o build/Tone.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/USBCore.cpp -o build/USBCore.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/WMath.cpp -o build/WMath.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/WString.cpp -o build/WString.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/abi.cpp -o build/abi.o
+mkdir -p build
+avr-gcc -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP -Icores/arduino -Ivariants/standard -mmcu=atmega328p -DF_CPU=16000000L -DARDUINO=10809 -c cores/arduino/new.cpp -o build/new.o
+avr-gcc -Wl,--gc-sections -mmcu=atmega328p -o build/firmware.elf build/main.o build/WInterrupts.o build/hooks.o build/wiring.o build/wiring_analog.o build/wiring_digital.o build/wiring_pulse.o build/wiring_shift.o build/CDC.o build/HardwareSerial.o build/HardwareSerial0.o build/HardwareSerial1.o build/HardwareSerial2.o build/HardwareSerial3.o build/IPAddress.o build/PluggableUSB.o build/Print.o build/Stream.o build/Tone.o build/USBCore.o build/WMath.o build/WString.o build/abi.o build/new.o -lm
+C:/Progs/avr-gcc/bin/../lib/gcc/avr/15.2.0/../../../../avr/bin/ld.exe: C:/Progs/avr-gcc/bin/../lib/gcc/avr/15.2.0/../../../../avr/lib/avr5/crtatmega328p.o:(.init9+0x0): undefined reference to `main'
+collect2.exe: error: ld returned 1 exit status
+make: *** [Makefile:49: build/firmware.elf] Error 1

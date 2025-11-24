@@ -216,25 +216,6 @@ const CodeEditorPanel = ({
 
   // Обработка событий меню
   useEffect(() => {
-    const handleMenuNewFile = async () => {
-      if (!currentProjectPath) {
-        console.warn("Проект не открыт, невозможно создать файл");
-        return;
-      }
-      try {
-        const project = await window.electronAPI.createFile(
-          currentProjectPath,
-          currentProjectPath
-        );
-        if (project) {
-          // Обновление проекта произойдет автоматически через ProjectTree
-          console.log("Файл создан через меню");
-        }
-      } catch (error) {
-        console.error("Ошибка создания файла из меню:", error);
-      }
-    };
-
     const handleMenuSaveFile = async () => {
       const activeFile = files.find((f) => f.id === activeFileId);
       if (!activeFile || !activeFile.path) {
@@ -278,15 +259,12 @@ const CodeEditorPanel = ({
       }
     };
 
-    const unsubscribeNewFile =
-      window.electronAPI.onMenuNewFile(handleMenuNewFile);
     const unsubscribeSaveFile =
       window.electronAPI.onMenuSaveFile(handleMenuSaveFile);
     const unsubscribeSaveFileAs =
       window.electronAPI.onMenuSaveFileAs(handleMenuSaveFileAs);
 
     return () => {
-      unsubscribeNewFile();
       unsubscribeSaveFile();
       unsubscribeSaveFileAs();
     };
@@ -322,7 +300,6 @@ const CodeEditorPanel = ({
         width: "100%",
         display: "flex",
         flexDirection: "column",
-        flex: 1,
         boxShadow: "none",
         border: "none",
         backgroundColor: theme.palette.background.paper,
@@ -334,12 +311,13 @@ const CodeEditorPanel = ({
         value={activeFileId}
         onChange={handleTabChange}
         variant="scrollable"
-        scrollButtons="auto"
+        scrollButtons={false}
         sx={{ borderBottom: 1, borderColor: "divider" }}
       >
         {files.map((file) => (
           <Tab
             key={file.id}
+            sx={{}}
             label={
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <span style={{ textTransform: "none" }}>{file.name}</span>
@@ -348,20 +326,6 @@ const CodeEditorPanel = ({
                   onClick={(e: React.MouseEvent) => {
                     e.stopPropagation();
                     handleCloseTab(e, file.id);
-                  }}
-                  sx={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 20,
-                    height: 20,
-                    borderRadius: "50%",
-                    cursor: "pointer",
-                    p: 0,
-                    minWidth: "auto",
-                    "&:hover": {
-                      backgroundColor: "action.hover",
-                    },
                   }}
                 >
                   <CloseIcon fontSize="small" />
@@ -372,14 +336,7 @@ const CodeEditorPanel = ({
           />
         ))}
       </Tabs>
-      <PanelGroup
-        direction="vertical"
-        style={{
-          flex: 1,
-          display: "flex",
-          overflow: "hidden",
-        }}
-      >
+      <PanelGroup direction="vertical">
         {/* Редактор кода */}
         <Panel defaultSize={isTerminalVisible ? 70 : 100} minSize={30}>
           <CardContent

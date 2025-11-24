@@ -12,11 +12,18 @@ import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import CodeEditorPanel from "@components/CodeEditorPanel";
 import InfoPanel from "@components/InfoPanel";
 import ProjectTree from "@components/ProjectTree";
+import ArduinoToolbar from "@components/ArduinoToolbar";
+import NewProjectModal from "@components/NewProjectModal";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import TerminalIcon from "@mui/icons-material/Terminal";
-import { HandleGrip } from "@utils/HandleGrip";
-import { useTheme, useTerminal, useProjectMenu, useFileHandler } from "@hooks";
+import {
+  useTheme,
+  useTerminal,
+  useProjectMenu,
+  useFileHandler,
+  useNewProjectModal,
+} from "@hooks";
 
 const App = () => {
   const [currentProjectPath, setCurrentProjectPath] = useState<string | null>(
@@ -33,6 +40,10 @@ const App = () => {
   const { handleFileOpen, setFileHandler } = useFileHandler();
   //Обработка открытия проекта
   useProjectMenu({ onProjectOpen: setCurrentProjectPath });
+  //Обработка создания нового проекта
+  const { isOpen, handleClose, handleProjectCreate } = useNewProjectModal({
+    onProjectCreate: setCurrentProjectPath,
+  });
 
   return (
     <ThemeProvider theme={theme}>
@@ -69,6 +80,8 @@ const App = () => {
               {mode === "light" ? <DarkModeIcon /> : <LightModeIcon />}
             </IconButton>
           </Toolbar>
+          {/* Панель инструментов Arduino */}
+          <ArduinoToolbar currentProjectPath={currentProjectPath} />
         </AppBar>
         <Box
           component="main"
@@ -77,14 +90,7 @@ const App = () => {
           overflow="hidden"
           bgcolor={theme.palette.background.paper}
         >
-          <PanelGroup
-            direction="horizontal"
-            style={{
-              width: "100%",
-              height: "100%",
-              display: "flex",
-            }}
-          >
+          <PanelGroup direction="horizontal">
             {/* Дерево проектов */}
             <Panel defaultSize={14} minSize={15} maxSize={40}>
               <Box display="flex" height="100%">
@@ -96,9 +102,7 @@ const App = () => {
               </Box>
             </Panel>
 
-            <PanelResizeHandle>
-              <HandleGrip />
-            </PanelResizeHandle>
+            <PanelResizeHandle />
 
             {/* Редактор кода */}
             <Panel defaultSize={52} minSize={35}>
@@ -113,9 +117,7 @@ const App = () => {
               </Box>
             </Panel>
 
-            <PanelResizeHandle>
-              <HandleGrip />
-            </PanelResizeHandle>
+            <PanelResizeHandle />
 
             {/* Информация о проекте */}
             <Panel defaultSize={24} minSize={15} maxSize={45}>
@@ -126,6 +128,13 @@ const App = () => {
           </PanelGroup>
         </Box>
       </Box>
+      
+      {/* Модальное окно создания нового проекта */}
+      <NewProjectModal
+        open={isOpen}
+        onClose={handleClose}
+        onProjectCreate={handleProjectCreate}
+      />
     </ThemeProvider>
   );
 };

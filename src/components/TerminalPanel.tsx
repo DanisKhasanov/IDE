@@ -3,7 +3,6 @@ import { Box, Typography, IconButton } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import CloseIcon from "@mui/icons-material/Close";
 import { Panel, PanelResizeHandle } from "react-resizable-panels";
-import { HandleGrip } from "@utils/HandleGrip";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 
@@ -164,9 +163,7 @@ const TerminalPanel = ({
 
   return (
     <>
-      <PanelResizeHandle>
-        <HandleGrip />
-      </PanelResizeHandle>
+      <PanelResizeHandle/>
       <Panel defaultSize={30} minSize={15} maxSize={70}>
         <Box
           display="flex"

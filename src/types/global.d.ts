@@ -15,6 +15,10 @@ type ProjectState = {
 };
 
 declare global {
+  // Глобальные переменные, определенные Vite плагином для Electron
+  const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
+  const MAIN_WINDOW_VITE_NAME: string;
+
   interface Window {
     electronAPI: {
       // Новые методы для работы с проектом
@@ -44,7 +48,7 @@ declare global {
       onTerminalData: (terminalId: number, callback: (data: string) => void) => () => void;
       // Обработчики событий меню
       onMenuOpenProject: (callback: () => void) => () => void;
-      onMenuNewFile: (callback: () => void) => () => void;
+      onMenuNewProject: (callback: () => void) => () => void;
       onMenuSaveFile: (callback: () => void) => () => void;
       onMenuSaveFileAs: (callback: () => void) => () => void;
       // Обработчик изменения списка проектов
@@ -52,6 +56,11 @@ declare global {
       // Методы для сохранения файлов
       saveFile: (filePath: string, content: string) => Promise<{ success: boolean }>;
       saveFileAs: (currentFilePath: string, content: string) => Promise<{ success: boolean; filePath: string } | null>;
+      // Arduino компиляция
+      arduinoCompile: (projectPath: string, boardName?: string) => Promise<import('./arduino').CompileResult>;
+      arduinoDetectProject: (projectPath: string) => Promise<import('./arduino').ArduinoProjectInfo>;
+      arduinoGetBoards: () => Promise<string[]>;
+      arduinoGetBoardConfig: (boardName?: string) => Promise<import('./arduino').BoardConfig>;
     };
   }
 }
