@@ -5,13 +5,15 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   resolve: {
     alias: {
+      '@': resolve(__dirname, 'src'),
       '@src': resolve(__dirname, 'src'),
-      '@utils': resolve(__dirname, 'src/utils'),
       '@types': resolve(__dirname, 'src/types'),
+      '@utils': resolve(__dirname, 'src/utils'),
       '@components': resolve(__dirname, 'src/components'),
       '@hooks': resolve(__dirname, 'src/hooks'),
       '@main': resolve(__dirname, 'src/main'),
-      '@preload': resolve(__dirname, 'src/preload'),
+      '@config': resolve(__dirname, 'src/config'),
+      '@assets': resolve(__dirname, 'src/assets'),
     },
     extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
   },

@@ -1,0 +1,557 @@
+{
+  "id": "atmega328p",
+  "name": "ATmega328P",
+  "fCpu": "16000000L",
+  "pins": [
+    {
+      "port": "PB",
+      "bit": 0,
+      "arduinoPin": 8,
+      "name": "PB0",
+      "arduinoName": "D8",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 0
+        }
+      ]
+    },
+    {
+      "port": "PB",
+      "bit": 1,
+      "arduinoPin": 9,
+      "name": "PB1",
+      "arduinoName": "D9",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 1
+        },
+        {
+          "type": "TIMER1_PWM",
+          "channel": "OC1A"
+        }
+      ]
+    },
+    {
+      "port": "PB",
+      "bit": 2,
+      "arduinoPin": 10,
+      "name": "PB2",
+      "arduinoName": "D10",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 2
+        },
+        {
+          "type": "TIMER1_PWM",
+          "channel": "OC1B"
+        },
+        {
+          "type": "SPI",
+          "role": "SS"
+        }
+      ]
+    },
+    {
+      "port": "PB",
+      "bit": 3,
+      "arduinoPin": 11,
+      "name": "PB3",
+      "arduinoName": "D11",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 3
+        },
+        {
+          "type": "TIMER2_PWM",
+          "channel": "OC2A"
+        },
+        {
+          "type": "SPI",
+          "role": "MOSI"
+        }
+      ]
+    },
+    {
+      "port": "PB",
+      "bit": 4,
+      "arduinoPin": 12,
+      "name": "PB4",
+      "arduinoName": "D12",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 4
+        },
+        {
+          "type": "SPI",
+          "role": "MISO"
+        }
+      ]
+    },
+    {
+      "port": "PB",
+      "bit": 5,
+      "arduinoPin": 13,
+      "name": "PB5",
+      "arduinoName": "D13",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 5
+        },
+        {
+          "type": "SPI",
+          "role": "SCK"
+        }
+      ]
+    },
+    {
+      "port": "PC",
+      "bit": 0,
+      "arduinoPin": 14,
+      "name": "PC0",
+      "arduinoName": "A0",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 8
+        },
+        {
+          "type": "ADC",
+          "channel": 0
+        }
+      ]
+    },
+    {
+      "port": "PC",
+      "bit": 1,
+      "arduinoPin": 15,
+      "name": "PC1",
+      "arduinoName": "A1",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 9
+        },
+        {
+          "type": "ADC",
+          "channel": 1
+        }
+      ]
+    },
+    {
+      "port": "PC",
+      "bit": 2,
+      "arduinoPin": 16,
+      "name": "PC2",
+      "arduinoName": "A2",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 10
+        },
+        {
+          "type": "ADC",
+          "channel": 2
+        }
+      ]
+    },
+    {
+      "port": "PC",
+      "bit": 3,
+      "arduinoPin": 17,
+      "name": "PC3",
+      "arduinoName": "A3",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 11
+        },
+        {
+          "type": "ADC",
+          "channel": 3
+        }
+      ]
+    },
+    {
+      "port": "PC",
+      "bit": 4,
+      "arduinoPin": 18,
+      "name": "PC4",
+      "arduinoName": "A4",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 12
+        },
+        {
+          "type": "ADC",
+          "channel": 4
+        },
+        {
+          "type": "I2C",
+          "role": "SDA"
+        }
+      ]
+    },
+    {
+      "port": "PC",
+      "bit": 5,
+      "arduinoPin": 19,
+      "name": "PC5",
+      "arduinoName": "A5",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 13
+        },
+        {
+          "type": "ADC",
+          "channel": 5
+        },
+        {
+          "type": "I2C",
+          "role": "SCL"
+        }
+      ]
+    },
+    {
+      "port": "PD",
+      "bit": 0,
+      "arduinoPin": 0,
+      "name": "PD0",
+      "arduinoName": "D0",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 16
+        },
+        {
+          "type": "UART",
+          "role": "RX"
+        }
+      ]
+    },
+    {
+      "port": "PD",
+      "bit": 1,
+      "arduinoPin": 1,
+      "name": "PD1",
+      "arduinoName": "D1",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 17
+        },
+        {
+          "type": "UART",
+          "role": "TX"
+        }
+      ]
+    },
+    {
+      "port": "PD",
+      "bit": 2,
+      "arduinoPin": 2,
+      "name": "PD2",
+      "arduinoName": "D2",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 18
+        },
+        {
+          "type": "EXTERNAL_INTERRUPT",
+          "interrupt": "INT0",
+          "triggers": ["LOW", "CHANGE", "RISING", "FALLING"]
+        }
+      ]
+    },
+    {
+      "port": "PD",
+      "bit": 3,
+      "arduinoPin": 3,
+      "name": "PD3",
+      "arduinoName": "D3",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 19
+        },
+        {
+          "type": "EXTERNAL_INTERRUPT",
+          "interrupt": "INT1",
+          "triggers": ["LOW", "CHANGE", "RISING", "FALLING"]
+        },
+        {
+          "type": "TIMER2_PWM",
+          "channel": "OC2B"
+        }
+      ]
+    },
+    {
+      "port": "PD",
+      "bit": 4,
+      "arduinoPin": 4,
+      "name": "PD4",
+      "arduinoName": "D4",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 20
+        }
+      ]
+    },
+    {
+      "port": "PD",
+      "bit": 5,
+      "arduinoPin": 5,
+      "name": "PD5",
+      "arduinoName": "D5",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 21
+        },
+        {
+          "type": "TIMER0_PWM",
+          "channel": "OC0B"
+        }
+      ]
+    },
+    {
+      "port": "PD",
+      "bit": 6,
+      "arduinoPin": 6,
+      "name": "PD6",
+      "arduinoName": "D6",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 22
+        },
+        {
+          "type": "TIMER0_PWM",
+          "channel": "OC0A"
+        },
+        {
+          "type": "ANALOG_COMPARATOR",
+          "input": "AIN0"
+        }
+      ]
+    },
+    {
+      "port": "PD",
+      "bit": 7,
+      "arduinoPin": 7,
+      "name": "PD7",
+      "arduinoName": "D7",
+      "functions": [
+        {
+          "type": "GPIO",
+          "modes": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        },
+        {
+          "type": "PCINT",
+          "pcintNumber": 23
+        },
+        {
+          "type": "ANALOG_COMPARATOR",
+          "input": "AIN1"
+        }
+      ]
+    }
+  ],
+  "peripherals": {
+    "UART": {
+      "available": true,
+      "pins": ["PD0", "PD1"],
+      "defaultBaud": 9600,
+      "baudRates": [9600, 19200, 38400, 57600, 115200],
+      "dataBits": [5, 6, 7, 8, 9],
+      "stopBits": [1, 2],
+      "parity": ["None", "Even", "Odd"],
+      "modes": ["Asynchronous", "Synchronous"],
+      "interrupts": {
+        "RX": {
+          "available": true,
+          "description": "Прерывание при приёме данных (USART_RX_vect)"
+        },
+        "TX": {
+          "available": true,
+          "description": "Прерывание при завершении передачи (USART_TX_vect)"
+        },
+        "UDRE": {
+          "available": true,
+          "description": "Прерывание при пустом регистре данных (USART_UDRE_vect)"
+        }
+      }
+    },
+    "SPI": {
+      "available": true,
+      "pins": ["PB2", "PB3", "PB4", "PB5"],
+      "modes": ["Master", "Slave"],
+      "cpol": [0, 1],
+      "cpha": [0, 1],
+      "speeds": ["fosc/4", "fosc/16", "fosc/64", "fosc/128"]
+    },
+    "I2C": {
+      "available": true,
+      "pins": ["PC4", "PC5"],
+      "modes": ["Master", "Slave"],
+      "speeds": [100000, 400000],
+      "slaveAddressRange": [8, 119]
+    },
+    "TIMER0": {
+      "available": true,
+      "pins": ["PD5", "PD6"],
+      "modes": ["Normal", "CTC", "FastPWM", "PhaseCorrectPWM", "PhaseFrequencyCorrectPWM"],
+      "prescalers": [1, 8, 64, 256, 1024]
+    },
+    "TIMER1": {
+      "available": true,
+      "pins": ["PB1", "PB2"],
+      "modes": ["Normal", "CTC", "FastPWM", "PhaseCorrectPWM", "PhaseFrequencyCorrectPWM", "InputCapture"],
+      "prescalers": [1, 8, 64, 256, 1024]
+    },
+    "TIMER2": {
+      "available": true,
+      "pins": ["PB3", "PD3"],
+      "modes": ["Normal", "CTC", "FastPWM", "PhaseCorrectPWM", "PhaseFrequencyCorrectPWM"],
+      "prescalers": [1, 8, 32, 64, 128, 256, 1024]
+    },
+    "ADC": {
+      "available": true,
+      "channels": [0, 1, 2, 3, 4, 5],
+      "pins": ["PC0", "PC1", "PC2", "PC3", "PC4", "PC5"],
+      "reference": ["AVcc", "AREF", "Internal1.1V"],
+      "prescalers": [2, 4, 8, 16, 32, 64, 128],
+      "modes": ["Single", "FreeRunning"]
+    },
+    "EXTERNAL_INTERRUPT": {
+      "available": true,
+      "pins": ["PD2", "PD3"],
+      "interrupts": ["INT0", "INT1"],
+      "triggers": ["LOW", "CHANGE", "RISING", "FALLING"]
+    },
+    "PCINT": {
+      "available": true,
+      "pins": ["PB0", "PB1", "PB2", "PB3", "PB4", "PB5", "PC0", "PC1", "PC2", "PC3", "PC4", "PC5", "PD0", "PD1", "PD2", "PD3", "PD4", "PD5", "PD6", "PD7"]
+    },
+    "ANALOG_COMPARATOR": {
+      "available": true,
+      "pins": ["PD6", "PD7"]
+    },
+    "WATCHDOG": {
+      "available": true,
+      "timeouts": [16, 32, 64, 125, 250, 500, 1000, 2000, 4000, 8000]
+    }
+  },
+  "conflicts": [
+    {
+      "description": "UART использует PD0 и PD1",
+      "when": "UART",
+      "conflictsWith": ["GPIO"],
+      "pins": ["PD0", "PD1"]
+    },
+    {
+      "description": "SPI Master использует PB2, PB3, PB5",
+      "when": "SPI_Master",
+      "conflictsWith": ["GPIO", "TIMER1_PWM", "TIMER2_PWM"],
+      "pins": ["PB2", "PB3", "PB5"]
+    },
+    {
+      "description": "SPI Slave использует PB2, PB3, PB4, PB5",
+      "when": "SPI_Slave",
+      "conflictsWith": ["GPIO", "TIMER1_PWM", "TIMER2_PWM"],
+      "pins": ["PB2", "PB3", "PB4", "PB5"]
+    },
+    {
+      "description": "I2C использует PC4 и PC5",
+      "when": "I2C",
+      "conflictsWith": ["GPIO", "ADC"],
+      "pins": ["PC4", "PC5"]
+    }
+  ]
+}
+

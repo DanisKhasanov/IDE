@@ -131,7 +131,7 @@ const ArduinoToolbar = ({ currentProjectPath }: ArduinoToolbarProps) => {
           borderColor: "divider",
         }}
       >
-        <FormControl size="small" sx={{ minWidth: 150 }}>
+        {/* <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel id="board-select-label">Плата</InputLabel>
           <Select
             labelId="board-select-label"
@@ -146,7 +146,7 @@ const ArduinoToolbar = ({ currentProjectPath }: ArduinoToolbarProps) => {
               </MenuItem>
             ))}
           </Select>
-        </FormControl>
+        </FormControl> */}
 
         <Button
           variant="contained"

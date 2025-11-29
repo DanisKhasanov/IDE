@@ -2,6 +2,27 @@ export {};
 
 import type { ProjectTreeNode } from './project';
 
+// Типы для импорта изображений
+declare module '*.png' {
+  const value: string;
+  export default value;
+}
+
+declare module '*.jpg' {
+  const value: string;
+  export default value;
+}
+
+declare module '*.jpeg' {
+  const value: string;
+  export default value;
+}
+
+declare module '*.svg' {
+  const value: string;
+  export default value;
+}
+
 type OpenedProjectPayload = {
   path: string;
   name: string;
@@ -24,7 +45,7 @@ declare global {
       // Новые методы для работы с проектом
       selectProjectFolder: () => Promise<OpenedProjectPayload | null>;
       selectParentFolder: () => Promise<{ path: string } | null>;
-      createNewProject: (parentPath: string, projectName: string) => Promise<OpenedProjectPayload | null>;
+      createNewProject: (parentPath: string, projectName: string, pinConfig?: any) => Promise<OpenedProjectPayload | null>;
       createFile: (parentPath: string, projectPath?: string) => Promise<OpenedProjectPayload | null>;
       createFolder: (parentPath: string, projectPath?: string) => Promise<OpenedProjectPayload | null>;
       deleteFile: (filePath: string, projectPath?: string) => Promise<OpenedProjectPayload | null>;

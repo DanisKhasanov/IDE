@@ -11,7 +11,7 @@ import MonacoEditor from "@monaco-editor/react";
 import CloseIcon from "@mui/icons-material/Close";
 import { PanelGroup, Panel } from "react-resizable-panels";
 import TerminalPanel from "@components/TerminalPanel";
-import type { EditorFile } from "@src/types/editor";
+import type { EditorFile } from "@/types/editor";
 
 interface CodeEditorPanelProps {
   onFileOpenRequest?: (handler: (filePath: string) => Promise<void>) => void;

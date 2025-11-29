@@ -1,0 +1,777 @@
+ 1. Перечень периферии ATmega328P (Arduino Uno)
+ 1.1. GPIO (General Purpose Input/Output)
+ATmega328P имеет 23 GPIO-пина (не считая VCC, GND, RESET, кварц), но каждый пин может выполнять несколько функций. Это позволяет использовать ограниченное количество пинов для разных целей.
+
+  Структура пинов:
+
+- Пины разделены на три порта: PORTB, PORTC, PORTD.
+- Каждый порт имеет 3 регистра:
+  - PORTx: Установка значения (для OUTPUT) или включение подтяжки (для INPUT).
+  - DDRx: Направление (1 = OUTPUT, 0 = INPUT).
+  - PINx: Чтение состояния пина.
+
+Конфликты функций:
+
+- Если ты настраиваешь UART, то PD0 и PD1 не могут быть обычными GPIO.
+- Если ты используешь SPI в режиме Master, то PB2, PB3, PB5 заняты (SS, MOSI, SCK).
+- Если ты используешь Timer1 PWM на PB1, то этот пин не может быть просто GPIO, но может быть выведен как GPIO, если не включать OC1A.
+- Важно: Генератор должен проверять конфликты при выборе функций пинов.
+
+- Пины: PORTB (PB0-PB5), PORTC (PC0-PC5), PORTD (PD0-PD7).
+- Назначение: Цифровой вход/выход, ШИМ, внешние прерывания.
+- Особенности: PB6 и PB7 — кварц, не используются как GPIO.
+  1.2. UART / USART (Universal Synchronous/Asynchronous Receiver/Transmitter)
+- Интерфейс: UART0 (USART0).
+- Пины: TX (PD1), RX (PD0).
+- Назначение: Асинхронная/синхронная передача данных.
+  1.3. SPI (Serial Peripheral Interface)
+- Интерфейс: SPI.
+- Пины: MOSI (PB3), MISO (PB4), SCK (PB5), SS (PB2).
+- Назначение: Синхронная передача данных с периферией (датчики, память и т.д.).
+  1.4. I2C / TWI (Two-Wire Interface)
+- Интерфейс: TWI.
+- Пины: SDA (PC4), SCL (PC5).
+- Назначение: Двухпроводная шина для подключения датчиков, дисплеев и т.д.
+  1.5. Таймеры/Счётчики (Timer/Counter)
+- Таймеры: Timer0 (8-bit), Timer1 (16-bit), Timer2 (8-bit).
+- Назначение: Генерация задержек, ШИМ, захват импульсов, прерывания.
+
+  1.6. ADC (Analog-to-Digital Converter)
+- Каналы: A0-A5 (PC0-PC5).
+- Разрядность: 10-bit.
+- Назначение: Преобразование аналогового сигнала в цифровой.
+
+  1.7. Аналоговый компаратор (Analog Comparator)
+- Входы: AIN0 (PD6), AIN1 (PD7).
+- Назначение: Сравнение двух аналоговых сигналов.
+- Особенности: Может использоваться как вход для Timer1 (Input Capture).
+  1.8. Watchdog Timer (WDT)
+- Назначение: Сброс МК при зависании программы.
+- Время срабатывания: 16ms, 32ms, 64ms, 125ms, 250ms, 500ms, 1s, 2s, 4s, 8s.
+  1.9. Внешние прерывания (External Interrupts)
+- Прерывания: INT0 (PD2), INT1 (PD3).
+- Назначение: Прерывание по фронту/уровню на определённых пинах.
+2. Подробные настройки и примеры инициализации
+2.1. GPIO
+Настройки:
+- Пин: PB0, PC1, PD2...
+- Режим:
+  - INPUT: Пин как вход (читаем digitalRead)
+  - OUTPUT: Пин как выход (устанавливаем digitalWrite)
+  - INPUT_PULLUP: Вход с подтягивающим резистором к VCC (для кнопок и т.д.)
+- Прерывания:
+  - PCINT0 — PCINT23 (Pin Change Interrupt)
+  - Три регистра: PCICR, PCIMSK0, PCIFR
+  - Возможность настроить прерывание на изменение состояния любого пина.Пример инициализации:
+ 
+void gpio_init() {
+    DDRD |= (1 << DDD2);    // PD2 как OUTPUT
+    PORTD &= ~(1 << PORTD2); // Установить LOW
+    DDRB &= ~(1 << DDB0);   // PB0 как INPUT
+    PORTB |= (1 << PORTB0); // Включить подтяжку (если INPUT_PULLUP)
+}
+Пример инициализации (Pin Change Interrupt):
+#include <avr/io.h>
+#include <avr/interrupt.h>
+
+void gpio_pcint_init() {
+    DDRB &= ~(1 << DDB0);   // PB0 как INPUT
+    PORTB |= (1 << PORTB0); // Подтяжка включена
+
+    PCICR |= (1 << PCIE0);  // Включить Pin Change Interrupt для PORTB
+    PCMSK0 |= (1 << PCINT0); // Включить PCINT0 (PB0)
+    sei(); // Enable global interrupts
+}
+
+ISR(PCINT0_vect) {
+    // Обработчик изменения PB0
+    // Нужно проверить PINB, чтобы определить, какой пин изменился
+    if (PINB & (1 << PINB0)) {
+        // PB0 HIGH
+    } else {
+        // PB0 LOW
+    }
+}
+
+  2.2. UART / USART
+- Интерфейс: UART0 (USART0)
+- Пины: TX (PD1), RX (PD0)
+- Скорость (baud rate):
+  - Расчитывается по формуле: UBRR = (F_CPU / 16 / baud) - 1
+  - Часто используемые: 9600, 19200, 38400, 57600, 115200
+- Биты данных: 5, 6, 7, 8, 9
+- Стоп-биты: 1, 2
+- Паритет: None, Even, Odd
+- Прерывания:
+  - USART_RX_vect: Приём данных
+  - USART_TX_vect: Передача завершена
+  - USART_UDRE_vect: Регистр данных пуст (можно писать)
+- Режим: Синхронный (Synchronous) — для синхронной передачи (редко используется).
+Пример инициализации UART0:
+
+void uart_init(unsigned long baud) {
+    UBRR0H = (F_CPU / 16 / baud - 1) >> 8;
+    UBRR0L = (F_CPU / 16 / baud - 1);
+    UCSR0B = (1 << RXEN0) | (1 << TXEN0); // Включить RX и TX
+    UCSR0C = (1 << UCSZ01) | (1 << UCSZ00); // 8N1
+}
+
+Пример инициализации (Синхронный режим):
+void uart_sync_init(unsigned long baud) {
+    UBRR0H = (F_CPU / 2 / baud - 1) >> 8; // Формула для синхронного режима
+    UBRR0L = (F_CPU / 2 / baud - 1);
+    UCSR0B = (1 << RXEN0) | (1 << TXEN0);
+    UCSR0C = (1 << UMSEL01) | (1 << UMSEL00) // Синхронный режим
+           | (1 << UCPOL0); // Полярность такта (если нужно)
+}
+
+2.3. SPI
+- Пины:
+  - MOSI (PB3) — Master Out Slave In
+  - MISO (PB4) — Master In Slave Out
+  - SCK (PB5) — Serial Clock
+  - SS (PB2) — Slave Select (для Slave режима, в Master нужно держать HIGH)
+- Режим:
+  - Master — контроллирует шину
+  - Slave — подчинённый
+- CPOL (Clock Polarity):
+  - 0: Idle Low (по умолчанию SCK = 0)
+  - 1: Idle High (по умолчанию SCK = 1)
+- CPHA (Clock Phase):
+  - 0: Данные читаются по первому фронту (ведущему)
+  - 1: Данные читаются по второму фронту (ведомому)
+- Скорость (SCK):
+  - fosc/4, fosc/16, fosc/64, fosc/128
+- Прерывания: SPI_STC_vect — завершение передачи
+Пример инициализации (Master):
+
+void spi_init_master() {
+    DDRB |= (1 << DDB2) | (1 << DDB3) | (1 << DDB5); // SS, MOSI, SCK как OUTPUT
+    DDRB &= ~(1 << DDB4); // MISO as INPUT
+    SPCR = (1 << SPE) | (1 << MSTR) | (1 << SPR0); // Enable SPI, Master, fosc/16
+}
+Пример инициализации (Slave):
+void spi_init_slave() {
+    DDRB &= ~(1 << DDB2); // SS как INPUT
+    DDRB &= ~(1 << DDB3); // MOSI как INPUT
+    DDRB |= (1 << DDB4);  // MISO как OUTPUT
+    DDRB &= ~(1 << DDB5); // SCK как INPUT
+
+    SPCR = (1 << SPE); // Enable SPI, Slave mode (MSTR не установлен)
+}
+2.4. I2C / TWI
+Настройки:
+- Пины:
+  - SDA (PC4) — Data
+  - SCL (PC5) — Clock
+- Режим:
+  - Master
+  - Slave
+- Скорость:
+  - 100kHz (Standard mode)
+  - 400kHz (Fast mode)
+  - Рассчитывается через TWBR и TWSR
+- Собственный адрес (Slave): 0x08–0x77 (для Slave)
+- Прерывания: TWI_vect — событие на шине
+Пример инициализации (Master):
+
+void i2c_init_master() {
+    TWSR = 0; // Prescaler 1
+    TWBR = (F_CPU / 100000UL - 16) / 2; // 100kHz
+}
+
+Пример инициализации (Slave):
+void i2c_init_slave(uint8_t address) {
+    TWAR = address << 1; // Установить собственный адрес
+    TWCR = (1 << TWEN)  // Enable TWI
+         | (1 << TWIE)  // Enable TWI Interrupt
+         | (1 << TWEA); // Enable Acknowledge
+}
+
+// ISR(TWI_vect) должен обрабатывать события TWI (START, SLA+W, DATA, STOP и т.д.)
+
+2.5. Таймеры
+  Общие настройки:
+- Таймеры: Timer0 (8-bit), Timer1 (16-bit), Timer2 (8-bit)
+- Режимы:
+  - Normal: Счёт до 0xFF (Timer0/2) или 0xFFFF (Timer1), прерывание TOV
+  - CTC (Clear Timer on Compare Match): Сброс при совпадении с OCRnA, можно настроить TOP
+  - Fast PWM: ШИМ до 0xFF или OCRnA
+  - Phase Correct PWM: Плавный ШИМ
+  - Phase and Frequency Correct PWM: Для сервоприводов
+- Предделитель (Prescaler): 1, 8, 64, 256, 1024
+- TOP: 0xFF, OCR1A, ICR1 (только Timer1)
+- Прерывания:
+  - TOVn: Overflow (переполнение)
+  - OCFnA/B: Compare Match (совпадение с OCR)
+  - ICFn: Input Capture (только Timer1)
+Пример инициализации (Timer1 CTC):
+ 
+void timer1_ctc_init() {
+    TCCR1B |= (1 << WGM12); // CTC
+    TCCR1B |= (1 << CS11) | (1 << CS10); // Prescaler 64
+    OCR1A = 24999; // 1 секунда при 16 МГц
+}
+
+Пример инициализации (Timer2 Fast PWM):
+ 
+void timer2_pwm_init() {
+    TCCR2A |= (1 << WGM21) | (1 << WGM20); // Fast PWM
+    TCCR2B |= (1 << CS22); // Prescaler 64
+    OCR2A = 128; // 50% duty cycle
+}
+
+Пример инициализации (Timer1 Input Capture):
+void timer1_icp_init() {
+    TCCR1B |= (1 << ICES1); // Capture на RISING edge (PD8/ICP1)
+    TCCR1B |= (1 << CS11);  // Prescaler 8
+    TCCR1B |= (1 << ICNC1); // Noise Canceler (опционально)
+    TIMSK1 |= (1 << ICIE1); // Enable Input Capture Interrupt
+}
+
+ISR(TIMER1_CAPT_vect) {
+    uint16_t capture = ICR1; // Считать значение захваченного таймера
+    // Обработка сигнала (например, измерение длительности импульса)
+}
+
+Пример инициализации (Timer2 Phase and Frequency Correct PWM):
+void timer2_pfc_pwm_init() {
+    TCCR2B = (1 << WGM22); // Phase and Frequency Correct PWM
+    TCCR2A = (1 << WGM21) | (1 << WGM20); // TOP = OCR2A
+    TCCR2A |= (1 << COM2A1); // Clear OC2A on Compare Match when up-counting
+    OCR2A = 124; // TOP value (частота ШИМ)
+    OCR2B = 62;  // Duty cycle (50% от частоты ШИМ)
+    TCCR2B |= (1 << CS22); // Prescaler 64
+}
+
+2.6. ADC
+Настройки:
+- Каналы: ADC0–ADC5 (PC0–PC5)
+- Разрядность: 10-bit
+- Опорное напряжение:
+  - AVcc (обычно 5V)
+  - AREF (внешний)
+  - Internal 1.1V (встроенный источник)
+- Режим:
+  - Single Conversion: Один замер
+  - Free Running: Непрерывные замеры
+- Предделитель ADC:
+  - 2, 4, 8, 16, 32, 64, 128
+  - Рекомендуется 50–200 кГц для тактовой частоты ADC
+- Прерывания: ADC_vect — завершение преобразования
+Пример инициализации:
+ 
+void adc_init() {
+    ADMUX = (1 << REFS0); // AVCC as reference
+    ADMUX |= 0; // Channel ADC0
+    ADCSRA = (1 << ADEN)  // Enable ADC
+           | (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0); // Prescaler 128
+}
+
+Пример инициализации (Free Running с прерыванием):
+void adc_init_freerun() {
+    ADMUX = (1 << REFS0); // AVCC как опора
+    ADMUX |= 0; // Канал ADC0
+    ADCSRA = (1 << ADEN)  // Включить ADC
+           | (1 << ADATE) // Включить Auto Triggering
+           | (1 << ADIE)  // Включить прерывание
+           | (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0); // Предделитель 128
+    // ADSC бит автоматически устанавливается после первого преобразования
+}
+ISR(ADC_vect) {
+    uint16_t adc_value = ADC; // Считать результат
+    // Обработка значения
+}
+2.7. Аналоговый компаратор
+  Настройки:
+- Входы:
+  - AIN0 (PD6)
+  - AIN1 (PD7)
+- Режим: Сравнение AIN0 vs AIN1
+- Прерывания: ANALOG_COMP_vect — при изменении результата
+- Особенности: Может использоваться как вход для Timer1 (Input Capture)
+Пример инициализации:
+ 
+void analog_comparator_init() {
+    ACSR = (1 << ACIE); // Enable interrupt
+}
+Пример инициализации (с использованием Timer1 Input Capture):
+
+void analog_comparator_timer1_capture_init() {
+    ACSR = (1 << ACIC); // Включить Input Capture на компараторе
+    // Теперь Timer1 будет захватывать значение при срабатывании компаратора
+    // Нужно настроить Timer1 для захвата (см. пример выше)
+}
+2.8. Watchdog Timer
+Настройки:
+- Включён: Да/Нет
+- Время срабатывания: 16ms, 32ms, 64ms, 125ms, 250ms, 500ms, 1s, 2s, 4s, 8s
+- Режимы:
+  - Просто сброс
+  - Прерывание + сброс
+Пример инициализации (с прерыванием):
+ 
+#include <avr/wdt.h>
+#include <avr/interrupt.h>
+
+void wdt_init_interrupt() {
+    MCUSR &= ~(1 << WDRF); // Сбросить флаг срабатывания WDT
+    WDTCSR |= (1 << WDCE) | (1 << WDE); // Разрешить изменение
+    WDTCSR = (1 << WDIE)   // Включить прерывание
+           | (1 << WDP2) | (1 << WDP1) | (1 << WDP0); // 2.0 секунды
+}
+
+ISR(WDT_vect) {
+    // Обработчик прерывания WDT
+    // Можно выполнить действия перед сбросом
+    wdt_reset(); // Сбросить таймер, если нужно избежать сброса
+}
+
+wdt_disable(); //отключение WDT
+2.9. Внешние прерывания
+Настройки:
+- Прерывания:
+  - INT0 (PD2)
+  - INT1 (PD3)
+- Условие срабатывания:
+  - LOW: Прерывание при LOW уровне
+  - CHANGE: При любом изменении
+  - RISING: По положительному фронту
+  - FALLING: По отрицательному фронту
+- Прерывания: INT0_vect, INT1_vect
+Пример инициализации:
+ 
+void external_interrupt_init() {
+    EICRA |= (1 << ISC01); // FALLING edge on INT0
+    EIMSK |= (1 << INT0);  // Enable INT0
+}
+
+
+
+
+
+
+
+2. Пины ATmega328P
+
+  Список пинов и возможные функции
+
+Пин
+Назначение
+Функции
+PB0
+Digital Pin 8
+GPIO, PCINT0, OC1A (Timer1 PWM)
+PB1
+Digital Pin 9
+GPIO, PCINT1, OC1A (Timer1 PWM)
+PB2
+Digital Pin 10
+GPIO, PCINT2, OC1B (Timer1 PWM), SS (SPI)
+PB3
+Digital Pin 11
+GPIO, PCINT3, OC2A (Timer2 PWM), MOSI (SPI)
+PB4
+Digital Pin 12
+GPIO, PCINT4, MISO (SPI)
+PB5
+Digital Pin 13
+GPIO, PCINT5, SCK (SPI), LED_BUILTIN
+PB6
+XTAL1 (не GPIO)
+Кварц (не GPIO)
+PB7
+XTAL2 (не GPIO)
+Кварц (не GPIO)
+PC0
+Analog Pin A0
+GPIO, ADC0, PCINT8
+PC1
+Analog Pin A1
+GPIO, ADC1, PCINT9
+PC2
+Analog Pin A2
+GPIO, ADC2, PCINT10
+PC3
+Analog Pin A3
+GPIO, ADC3, PCINT11
+PC4
+Analog Pin A4
+GPIO, ADC4, PCINT12, SDA (I2C)
+PC5
+Analog Pin A5
+GPIO, ADC5, PCINT13, SCL (I2C)
+PC6
+RESET
+Сброс (не GPIO, если не отключен)
+PD0
+Digital Pin 0
+GPIO, PCINT16, RX (UART)
+PD1
+Digital Pin 1
+GPIO, PCINT17, TX (UART)
+PD2
+Digital Pin 2
+GPIO, PCINT18, INT0 (External Interrupt)
+PD3
+Digital Pin 3
+GPIO, PCINT19, INT1 (External Interrupt), OC2B (Timer2 PWM)
+PD4
+Digital Pin 4
+GPIO, PCINT20
+PD5
+Digital Pin 5
+GPIO, PCINT21, OC0B (Timer0 PWM)
+PD6
+Digital Pin 6
+GPIO, PCINT22, OC0A (Timer0 PWM), AIN0 (Comparator)
+PD7
+Digital Pin 7
+GPIO, PCINT23, AIN1 (Comparator)
+
+
+Возможные функции пинов:
+- GPIO (General Purpose I/O): Всегда доступна.
+- ADC: Только пины PC0–PC5.
+- Timer PWM: PB1, PB2, PB3, PD3, PD5, PD6.
+- UART: PD0, PD1.
+- SPI: PB2–PB5.
+- I2C: PC4, PC5.
+- External Interrupts: PD2, PD3.
+- Comparator: PD6, PD7.
+- Pin Change Interrupts: Почти все пины (PCINT0–PCINT23).
+Прерывания
+
+Прерывания позволяют микроконтроллеру временно остановить выполнение основной программы и обработать важное событие, после чего вернуться к основной программе. Это критично для реагирования на внешние события (кнопки, сенсоры, таймеры) без постоянного опроса.
+
+Как работают прерывания:
+
+1.  Событие: Происходит внешнее или внутреннее событие (например, изменение пина, таймер достиг значения, завершён приём UART).
+2.  Вектор прерывания: МК переходит к определённому адресу в памяти (вектор), где находится обработчик прерывания (ISR).
+3.  ISR (Interrupt Service Routine): Это специальная функция, которая должна выполниться быстро и обработать событие.
+4.  Возврат: После выполнения ISR выполнение основной программы возобновляется.
+
+  Типы прерываний в ATmega328P:
+
+ Внешние прерывания (INT0, INT1):
+- Пины: PD2 (INT0), PD3 (INT1).
+- Настройка:
+  - EICRA: Регистр настройки типа прерывания.
+    - ISC01, ISC00 — для INT0.
+    - ISC11, ISC10 — для INT1.
+    - Значения: 00 (LOW), 01 (CHANGE), 10 (FALLING), 11 (RISING).
+  - EIMSK: Регистр маски прерываний.
+    - INT0, INT1 — включить/выключить конкретное прерывание.
+- Вектор: INT0_vect, INT1_vect.
+
+Пример:
+
+include <avr/interrupt.h>
+
+void external_interrupt_init() {
+    EICRA |= (1 << ISC01); // FALLING на INT0 (PD2)
+    EIMSK |= (1 << INT0);  // Включить INT0
+    sei(); // Enable global interrupts
+}
+
+// Обработчик прерывания
+ISR(INT0_vect) {
+    // Сделать что-то быстро
+}
+
+
+  Pin Change Interrupts (PCINT0–PCINT23):
+- Пины: Все пины (PB0–PB5, PC0–PC5, PD0–PD7).
+- Группы: PCINT0–PCINT7 (PORTB), PCINT8–PCINT13 (PORTC), PCINT16–PCINT23 (PORTD).
+- Настройка:
+  - PCICR: Включить группы (PCIE0, PCIE1, PCIE2).
+  - PCMSK0, PCMSK1, PCMSK2: Маски для конкретных пинов в группе.
+- Вектор: PCINT0_vect, PCINT1_vect, PCINT2_vect.
+
+Пример:
+
+void pin_change_interrupt_init() {
+    PCICR |= (1 << PCIE2);   // Включить PCINT16-23 (PORTD)
+    PCMSK2 |= (1 << PCINT18); // Включить PCINT18 (PD2)
+    sei();
+}
+
+ISR(PCINT2_vect) {
+    // Обработка изменений на пинах PORTD
+    // Нужно самому проверить, какой пин изменился
+}
+
+Прерывания от периферии:
+
+- UART:
+  - USART_RX_vect: Приём байта.
+  - USART_TX_vect: Передача завершена.
+  - USART_UDRE_vect: Регистр данных пуст (можно писать).
+- SPI:
+  - SPI_STC_vect: Завершена передача/приём.
+- Timer/Counter:
+  - TIMER0_OVF_vect: Переполнение Timer0.
+  - TIMER0_COMPA_vect: Сравнение A Timer0.
+  - TIMER1_OVF_vect: Переполнение Timer1.
+  - TIMER1_COMPA_vect: Сравнение A Timer1.
+  - TIMER2_OVF_vect: Переполнение Timer2.
+  - TIMER2_COMPA_vect: Сравнение A Timer2.
+- ADC:
+  - ADC_vect: Завершено преобразование.
+- Analog Comparator:
+  - ANALOG_COMP_vect: Результат компаратора изменился.
+
+Пример:
+ 
+ISR(TIMER1_COMPA_vect) {
+    // Сделать что-то при совпадении OCR1A
+}
+
+Включение глобальных прерываний:
+
+- sei(); — Set Enable Interrupts — включает глобальные прерывания.
+- cli(); — Clear Interrupts — выключает глобальные прерывания (на время критических участков).
+
+  4. Пины и альтернативные функции
+  5. Тактирование и предделители
+
+Тактирование и предделители критичны для таймеров, SPI, UART, ADC, и определяют скорость работы этих модулей.
+
+  Тактовая частота МК (F_CPU):
+
+- Обычно 16 MHz для Arduino Uno.
+- Устанавливается внешним кварцевым резонатором.
+- Используется как базовая частота для всех периферийных модулей.
+
+  Предделители (Prescaler):
+
+- Это делители базовой частоты F_CPU.
+- Используются для замедления тактирования модуля, чтобы он работал на нужной частоте.
+UART:
+- Скорость (baud rate) зависит от UBRR (Baud Rate Register).
+- Формула (асинхронный режим, U2X=0): UBRR = (F_CPU / 16 / baud) - 1
+- Пример: F_CPU = 16MHz, baud = 9600 → UBRR = (16000000 / 16 / 9600) - 1 = 103.
+SPI:
+- Скорость SCK зависит от SPCR и SPSR.
+- Предделители: fosc/4, fosc/16, fosc/64, fosc/128.
+- Формула: SCK = F_CPU / prescaler
+- Пример: F_CPU = 16MHz, SPR0 и SPR1 в SPCR → SCK = 16MHz / 64 = 250kHz.
+ Таймеры:
+- Часто используют предделители, чтобы считать не каждый такт, а, например, каждый 64-й или 1024-й.
+- Формула (для CTC): Interrupt_Freq = F_CPU / (prescaler * (OCR + 1))
+- Пример: Timer1, CTC, OCR1A = 24999, prescaler = 64 → Freq = 16MHz / (64 * 25000) = 10Hz (10 раз в секунду).
+ ADC:
+- Тактовая частота ADC должна быть между 50kHz и 200kHz для 10-битной точности.
+- Предделитель: ADPS2, ADPS1, ADPS0 в ADCSRA.
+- Пример: F_CPU = 16MHz, prescaler = 128 → ADC_freq = 16MHz / 128 = 125kHz (подходит).
+
+Библиотеки для работы с avr
+https://github.com/vancegroup-mirrors/avr-libc/tree/master/avr-libc
+Они поставляются вместе с avr-gcc и должны были быть установлены в предыдущем этапе (При установке через MSYS2 путь будет примерно C:\msys64\mingw64\avr\include\avr)
+Перечень библиотек (38 позиций обязательных, 16 опционально), используемые при компиляции проекта. Библиотеки, у которых отсутствует комментарий «//при необходимости» являются обязательными и всегда используются при компиляции проекта.
+alloca.h
+assert.h
+boot.h
+builtins.h //при необходимости
+common.h //при необходимости
+cpufunc.h //при необходимости
+crc16.h //при необходимости
+delay.h //при необходимости
+eeprom.h //при необходимости
+fuse.h //при необходимости
+interrupt.h //при необходимости
+io.h
+iom328p.h //для устройства 
+iocan128.h
+iocan32.h
+iocan64.h
+iocanxx.h
+lock.h 
+parity.h
+pgmspace.h 
+portpins.h 
+power.h 
+sfr_defs.h
+signal.h
+signature.h
+sleep.h
+version.h
+wdt.h //при необходимости
+deprecated.h
+twi.h
+ctype.h
+errno.h
+fcntl.h
+inttypes.h
+locale.h
+math.h // при необходимости
+setjmp.h
+signal.h
+stdfix-avrlibc.h
+stdint.h // при необходимости (библиотека С)
+stdio.h // при необходимости (библиотека С)
+stdlib.h // при необходимости (библиотека С)
+string.h // при необходимости (библиотека С)
+types.h
+time.h
+unistd.h
+atomic.h
+crc16.h // при необходимости
+delay.h // при необходимости
+delay_basic.h 
+eu_dst.h
+setbaud.h
+twi.h
+usa_dst.h
+
+Файлы в cores/arduino/ и их назначение
+ Arduino.h
+● Назначение: Главный заголовочный файл Arduino.
+● Что делает: Подключает все основные заголовки ядра и avr-libc, чтобы можно было сразу использовать pinMode, digitalWrite, Serial, setup, loop.
+● Подключает:
+● stdlib.h (из avr-libc) → malloc, free, abs, itoa и т.д.
+● stdbool.h (из avr-libc) → bool, true, false.
+● string.h (из avr-libc) → memcpy, strlen, strcmp и т.д.
+● math.h (из avr-libc) → sin, cos, pow, sqrt и т.д.
+● avr/pgmspace.h (из avr-libc) → PROGMEM, pgm_read_byte, F() и т.д.
+● avr/io.h (из avr-libc) → определения регистров (PORTB, DDRD, UCSR0A и т.д.).
+● avr/interrupt.h (из avr-libc) → ISR(), sei(), cli() и т.д.
+● avr/wdt.h (из avr-libc) → wdt_enable, wdt_reset и т.д.
+● util/delay.h (из avr-libc) → delay(), delayMicroseconds (на базе wiring.c).
+● util/atomic.h (из avr-libc) → ATOMIC_BLOCK.
+● binary.h (из cores/arduino) → B00000001, B11111111.
+● itoa.h (из cores/arduino) → внутреннее использование ltoa, ultoa.
+● wiring_pulse.h (из cores/arduino) → pulseIn, pulseInLong.
+● WString.h (из cores/arduino) → класс String.
+● WCharacter.h (из cores/arduino) → isAlpha, isDigit и т.д.
+● HardwareSerial.h (из cores/arduino) → Serial, Serial.begin, Serial.print.
+● wiring_constants.h (из cores/arduino) → HIGH, LOW, INPUT, OUTPUT, LED_BUILTIN и т.д.
+ binary.h
+● Назначение: Определение макросов для двоичных литералов.
+● Что делает: Позволяет писать B10101010.
+● Подключает: Ничего.
+ Client.h
+● Назначение: Абстрактный класс для сетевых клиентов.
+● Что делает: Определяет интерфейс connect, write, read, available.
+● Подключает:
+● Stream.h (из cores/arduino) → наследуется от Stream.
+ HardwareSerial.h
+● Назначение: Заголовок для аппаратного UART/USART (Serial, Serial1 и т.д.).
+● Что делает: Объявляет класс HardwareSerial.
+● Подключает:
+● Stream.h (из cores/arduino) → наследуется от Stream.
+● wiring.h (из cores/arduino) → использует digitalPinToBitMask, portInputRegister.
+ HardwareSerial_private.h
+● Назначение: Внутренние детали реализации HardwareSerial.
+● Что делает: Содержит вспомогательные функции и определения.
+● Подключает:
+● wiring_private.h (из cores/arduino) → доступ к внутренним функциям таймеров и прерываний.
+ IPAddress.h
+● Назначение: Класс для работы с IP-адресами.
+● Что делает: Позволяет хранить и манипулировать IPv4-адресами.
+● Подключает:
+● Printable.h (из cores/arduino) → позволяет выводить IP-адрес через Serial.print().
+ PluggableUSB.h
+● Назначение: Заголовок для USB-устройств с плагинами.
+● Что делает: Позволяет подключать USB-функции (HID, CDC и т.д.) через один интерфейс.
+● Подключает:
+● USBAPI.h (из cores/arduino) → использует USB-классы.
+● USBDesc.h (из cores/arduino) → использует дескрипторы.
+ Print.h
+● Назначение: Заголовок для печати данных.
+● Что делает: Определяет методы print, println.
+● Подключает:
+● WString.h (из cores/arduino) → позволяет печатать строки String.
+● Printable.h (из cores/arduino) → позволяет печатать объекты, реализующие printTo.
+● avr/pgmspace.h (из avr-libc) → позволяет печатать строки из PROGMEM.
+ Printable.h
+● Назначение: Интерфейс для объектов, которые можно напечатать.
+● Что делает: Определяет метод printTo.
+● Подключает:
+● Print.h (из cores/arduino) → использует Print для вывода.
+ Server.h
+● Назначение: Абстрактный класс для сетевых серверов.
+● Что делает: Определяет интерфейс begin, available.
+● Подключает:
+● Client.h (из cores/arduino) → возвращает Client из available.
+ Stream.h
+● Назначение: Заголовок для потоков данных (ввод/вывод).
+● Что делает: Определяет методы read, peek, available.
+● Подключает:
+● Print.h (из cores/arduino) → наследуется от Print.
+● wiring.h (из cores/arduino) → использует millis, micros для таймаутов.
+ Udp.h
+● Назначение: Абстрактный класс для UDP-соединений.
+● Что делает: Определяет интерфейс begin, write, parsePacket.
+● Подключает:
+● Stream.h (из cores/arduino) → наследуется от Stream.
+ USBAPI.h
+● Назначение: Заголовки для USB-функций.
+● Что делает: Объявляет классы и функции для USB-устройств.
+● Подключает:
+● USBDesc.h (из cores/arduino) → использует VID/PID.
+● avr/io.h (из avr-libc) → доступ к USB-регистрам.
+● avr/pgmspace.h (из avr-libc) → дескрипторы в PROGMEM.
+ USBCore.h
+● Назначение: Заголовки для низкоуровневого USB-стека.
+● Что делает: Определяет USB-дескрипторы, регистры, состояния.
+● Подключает:
+● USBDesc.h (из cores/arduino) → использует дескрипторы.
+● avr/io.h (из avr-libc) → доступ к USB-регистрам.
+● avr/pgmspace.h (из avr-libc) → дескрипторы в PROGMEM.
+ USBDesc.h
+● Назначение: Определения USB-дескрипторов.
+● Что делает: Определяет VID, PID, строки.
+● Подключает:
+● USBAPI.h (из cores/arduino) → использует классы USB.
+● avr/pgmspace.h (из avr-libc) → дескрипторы в PROGMEM.
+ WCharacter.h
+● Назначение: Функции для проверки символов.
+● Что делает: isAlpha, isDigit, isSpace.
+● Подключает: Ничего.
+ WString.h
+● Назначение: Заголовок класса String (динамическая строка).
+● Что делает: Объявляет класс String.
+● Подключает:
+● avr/pgmspace.h (из avr-libc) → позволяет создавать String из PROGMEM.
+● Printable.h (из cores/arduino) → позволяет печатать String.
+● stddef.h (из avr-libc) → size_t.
+ wiring_private.h
+● Назначение: Внутренние функции и определения ядра.
+● Что делает: Содержит #define для таймеров, прерываний и т.д.
+● Подключает:
+● avr/io.h (из avr-libc) → доступ к регистрам.
+● avr/interrupt.h (из avr-libc) → ISR().
+● avr/wdt.h (из avr-libc) → wdt_reset.
+● pins_arduino.h (из variants/standard/) → маппинг пинов.
+Дополнительно подключаемые библиотеки, которые тоже идут в составе Arduino ядра
+1. SPI (Serial Peripheral Interface)
+● Путь: libraries/SPI/src/
+● Файлы: SPI.h, SPI.cpp
+● Назначение: Интерфейс для работы с SPI-шиной (Master Mode).
+● Возможности: Настройка режима, скорости, передача/приём данных.
+● Зависимости: Использует регистры МК, зависит от Arduino.h.
+ 2. Wire (Two-Wire Interface / I2C)
+● Путь: libraries/Wire/src/
+● Файлы: Wire.h, Wire.cpp, utility/twi.h, utility/twi.c
+● Назначение: Интерфейс для работы с I2C-шиной (Master Mode).
+● Возможности: Инициализация, передача, приём данных.
+● Зависимости: Использует регистры МК, зависит от Arduino.h, внутренне использует twi.c.
+ 3. EEPROM (Electrically Erasable Programmable Read-Only Memory)
+● Путь: libraries/EEPROM/src/
+● Файлы: EEPROM.h, EEPROM.cpp
+● Назначение: Интерфейс для работы с встроенной EEPROM МК.
+● Возможности: Чтение, запись, обновление, работа с объектами.
+● Зависимости: Использует регистры МК, зависит от Arduino.h.
+ 4. HID (Human Interface Device)
+● Путь: libraries/HID/src/
+● Файлы: HID.h, HID.cpp
+● Назначение: Интерфейс для USB-устройств типа HID (клавиатура, мышь).
+● Возможности: Эмуляция клавиатуры, мыши.
+● Зависимости: Работает только на МК с USB (не ATmega328P). Зависит от USB-стека ядра (USBAPI.h, USBCore.h).
+ 5. SoftwareSerial (Программный UART)
+● Путь: libraries/SoftwareSerial/src/
+● Файлы: SoftwareSerial.h, SoftwareSerial.cpp
+● Назначение: UART через программирование GPIO.
+● Возможности: Инициализация на любых пинах, приём/передача.
+● Зависимости: Зависит от ядра (Arduino.h, Stream.h, wiring_private.h), использует таймеры и прерывания.

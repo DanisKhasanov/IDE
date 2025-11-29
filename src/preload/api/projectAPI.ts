@@ -15,8 +15,8 @@ export const projectAPI = {
   },
 
   // Создание нового проекта (создание папки и открытие)
-  createNewProject: async (parentPath: string, projectName: string) => {
-    return safeInvoke("create-new-project", parentPath, projectName);
+  createNewProject: async (parentPath: string, projectName: string, pinConfig?: any) => {
+    return safeInvoke("create-new-project", parentPath, projectName, pinConfig);
   },
 
   // Создание файла

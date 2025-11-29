@@ -11,15 +11,15 @@ export const getMuiThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
     palette: {
       mode,
       primary: {
-        main: isDark ? '#90caf9' : '#616161',
-        light: isDark ? '#e3f2fd' : '#9e9e9e',
-        dark: isDark ? '#42a5f5' : '#424242',
+        main: isDark ? '#64b5f6' : '#546e7a',
+        light: isDark ? '#90caf9' : '#78909c',
+        dark: isDark ? '#1976d2' : '#37474f',
         contrastText: isDark ? '#000' : '#fff',
       },
       secondary: {
-        main: isDark ? '#ce93d8' : '#9c27b0',
-        light: isDark ? '#f3e5f5' : '#ba68c8',
-        dark: isDark ? '#ab47bc' : '#7b1fa2',
+        main: isDark ? '#ba68c8' : '#7b1fa2',
+        light: isDark ? '#ce93d8' : '#9c27b0',
+        dark: isDark ? '#8e24aa' : '#6a1b9a',
         contrastText: isDark ? '#000' : '#fff',
       },
       error: {
@@ -48,7 +48,7 @@ export const getMuiThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
       },
       background: {
         default: isDark ? '#121212' : '#a0a0a0',
-        paper: isDark ? '#1e1e1e' : '#ffffff',
+        paper: isDark ? '#1e1e1e' : '#f2f2f2',
       },
       text: {
         primary: isDark ? '#ffffff' : '#212121',
@@ -78,49 +78,49 @@ export const getMuiThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
         '"Segoe UI Symbol"',
       ].join(','),
       h1: {
-        fontSize: '2.5rem',
+        fontSize: '2.125rem',
         fontWeight: 500,
         lineHeight: 1.2,
         letterSpacing: '-0.01562em',
       },
       h2: {
-        fontSize: '2rem',
+        fontSize: '1.75rem',
         fontWeight: 500,
         lineHeight: 1.3,
         letterSpacing: '-0.00833em',
       },
       h3: {
-        fontSize: '1.75rem',
+        fontSize: '1.5rem',
         fontWeight: 500,
         lineHeight: 1.4,
         letterSpacing: '0em',
       },
       h4: {
-        fontSize: '1.5rem',
+        fontSize: '1.3125rem',
         fontWeight: 500,
         lineHeight: 1.4,
         letterSpacing: '0.00735em',
       },
       h5: {
-        fontSize: '1.25rem',
+        fontSize: '1.125rem',
         fontWeight: 500,
         lineHeight: 1.5,
         letterSpacing: '0em',
       },
       h6: {
-        fontSize: '1rem',
+        fontSize: '0.9375rem',
         fontWeight: 500,
         lineHeight: 1.6,
         letterSpacing: '0.0075em',
       },
       body1: {
-        fontSize: '1rem',
+        fontSize: '0.9375rem',
         fontWeight: 400,
         lineHeight: 1.5,
         letterSpacing: '0.00938em',
       },
       body2: {
-        fontSize: '0.75rem',
+        fontSize: '0.8125rem',
         fontWeight: 400,
         lineHeight: 1.43,
         letterSpacing: '0.01071em',
@@ -308,6 +308,57 @@ export const getMuiThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
           root: {
             fontSize: '0.8125rem',
             padding: '6px 16px',
+          },
+        },
+      },
+      MuiDialog: {
+        styleOverrides: {
+          paper: {
+            borderRadius: 12,
+            boxShadow: isDark
+              ? '0px 8px 32px rgba(0,0,0,0.4), 0px 4px 16px rgba(0,0,0,0.3)'
+              : '0px 8px 32px rgba(0,0,0,0.15), 0px 4px 16px rgba(0,0,0,0.1)',
+          },
+        },
+      },
+      MuiDialogTitle: {
+        styleOverrides: {
+          root: {
+            background: isDark
+              ? 'linear-gradient(135deg, rgba(100, 181, 246, 0.15) 0%, rgba(186, 104, 200, 0.1) 100%)'
+              : 'linear-gradient(135deg, rgba(84, 110, 122, 0.12) 0%, rgba(123, 31, 162, 0.08) 100%)',
+            borderBottom: isDark
+              ? '1px solid rgba(100, 181, 246, 0.2)'
+              : '1px solid rgba(84, 110, 122, 0.15)',
+            padding: '16px 24px',
+            fontWeight: 600,
+            fontSize: '1.0625rem',
+            color: isDark ? '#e3f2fd' : '#37474f',
+            '& .MuiTypography-root': {
+              fontWeight: 600,
+              fontSize: '1.0625rem',
+            },
+          },
+        },
+      },
+      MuiDialogContent: {
+        styleOverrides: {
+          root: {
+            padding: '20px 24px',
+            fontSize: '0.9375rem',
+          },
+        },
+      },
+      MuiDialogActions: {
+        styleOverrides: {
+          root: {
+            padding: '16px 24px',
+            borderTop: isDark
+              ? '1px solid rgba(255, 255, 255, 0.08)'
+              : '1px solid rgba(0, 0, 0, 0.08)',
+            background: isDark
+              ? 'rgba(0, 0, 0, 0.2)'
+              : 'rgba(0, 0, 0, 0.02)',
           },
         },
       },

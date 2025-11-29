@@ -1,8 +1,8 @@
 {
-  "name": "ide",
-  "productName": "ide",
+  "name": "IDE",
+  "productName": "IDE",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "IDE for Arduino projects",
   "main": ".vite/build/main.js",
   "scripts": {
     "start": "electron-forge start",

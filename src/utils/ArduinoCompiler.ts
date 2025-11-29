@@ -35,7 +35,28 @@ export async function isArduinoProject(
     }
 
     const content = await fs.readFile(mainCppPath, "utf-8");
+    
+    // Проверяем наличие Arduino.h (Arduino проект)
     if (content.includes("#include <Arduino.h>")) {
+      return { isArduino: true, mainCppPath, projectPath };
+    }
+    
+    // Проверяем наличие AVR заголовков (чистый AVR C++ проект для Arduino плат)
+    const avrHeaders = [
+      "#include <avr/io.h>",
+      "#include <avr/interrupt.h>",
+      "#include <avr/wdt.h>",
+      "#include <avr/power.h>",
+      "#include <avr/sleep.h>",
+      "#include \"avr/io.h\"",
+      "#include \"avr/interrupt.h\"",
+    ];
+    
+    const hasAvrHeaders = avrHeaders.some(header => content.includes(header));
+    // Также проверяем наличие функции main (характерно для AVR проектов)
+    const hasMainFunction = content.includes("int main(") || content.includes("void main(");
+    
+    if (hasAvrHeaders && hasMainFunction) {
       return { isArduino: true, mainCppPath, projectPath };
     }
 
@@ -258,11 +279,15 @@ export async function compileArduinoProject(
       };
     }
 
-    // 2. Загрузка конфигурации
+    // 2. Проверяем, использует ли проект Arduino.h
+    const mainCppContent = await fs.readFile(projectInfo.mainCppPath, "utf-8");
+    const usesArduinoLib = mainCppContent.includes("#include <Arduino.h>");
+
+    // 3. Загрузка конфигурации
     const platformConfig = await parsePlatformTxt();
     const boardConfig = await parseBoardConfig(boardName);
 
-    // 3. Определение путей
+    // 4. Определение путей
     const mainCpp = projectInfo.mainCppPath;
     const buildDir = path.join(projectPath, "build");
     await fs.mkdir(buildDir, { recursive: true });
@@ -274,26 +299,36 @@ export async function compileArduinoProject(
       boardConfig.variant
     );
 
-    // 4. Подготовка флагов компиляции
+    // 5. Подготовка флагов компиляции
     const warningFlags = "-w";
     const baseFlags = `-g -Os ${warningFlags} -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP`;
-    const includeFlags = `-I"${coreDir}" -I"${variantDir}"`;
+    
+    // Для проектов с Arduino.h включаем директории ядра, для чистых AVR - только базовые флаги
+    const includeFlags = usesArduinoLib 
+      ? `-I"${coreDir}" -I"${variantDir}"`
+      : "";
+    
     // Используем boardDefine из конфигурации, или генерируем из имени платы
     const boardDefine =
       boardConfig.boardDefine || `AVR_${boardConfig.name.toUpperCase()}`;
-    const defineFlags = `-mmcu=${boardConfig.mcu} -DF_CPU=${boardConfig.fCpu} -DARDUINO=10809 -DARDUINO_${boardDefine} -DARDUINO_ARCH_AVR`;
+    
+    // Для проектов с Arduino.h добавляем Arduino defines, для чистых AVR - только базовые
+    const defineFlags = usesArduinoLib
+      ? `-mmcu=${boardConfig.mcu} -DF_CPU=${boardConfig.fCpu} -DARDUINO=10809 -DARDUINO_${boardDefine} -DARDUINO_ARCH_AVR`
+      : `-mmcu=${boardConfig.mcu} -DF_CPU=${boardConfig.fCpu}`;
+    
     const cxxFlags = `${baseFlags} ${includeFlags} ${defineFlags}`.replace(
       /\s+/g,
       " "
-    );
+    ).trim();
 
     const cBaseFlags = `-g -Os ${warningFlags} -std=gnu11 -ffunction-sections -fdata-sections -MMD -MP`;
     const cFlags = `${cBaseFlags} ${includeFlags} ${defineFlags}`.replace(
       /\s+/g,
       " "
-    );
+    ).trim();
 
-    // 5. Компиляция main.cpp
+    // 6. Компиляция main.cpp
     const appObj = path.join(buildDir, "app_main.o");
     console.log("Компиляция main.cpp...");
     const compileMainCmd = `${platformConfig.compilerCppCmd} ${cxxFlags} -c "${mainCpp}" -o "${appObj}"`;
@@ -318,30 +353,35 @@ export async function compileArduinoProject(
       };
     }
 
-    // 6. Компиляция файлов ядра
-    console.log("Компиляция ядра Arduino...");
-    const coreFiles = await findCoreFiles(coreDir);
+    // 7. Компиляция файлов ядра (только для проектов с Arduino.h)
     const objectFiles: string[] = [appObj];
+    
+    if (usesArduinoLib) {
+      console.log("Компиляция ядра Arduino...");
+      const coreFiles = await findCoreFiles(coreDir);
 
-    for (const file of coreFiles) {
-      const ext = path.extname(file);
-      const compiler =
-        ext === ".cpp"
-          ? platformConfig.compilerCppCmd
-          : platformConfig.compilerCCmd;
-      const flags = ext === ".cpp" ? cxxFlags : cFlags;
-      const objFile = path.join(buildDir, path.basename(file, ext) + ".o");
+      for (const file of coreFiles) {
+        const ext = path.extname(file);
+        const compiler =
+          ext === ".cpp"
+            ? platformConfig.compilerCppCmd
+            : platformConfig.compilerCCmd;
+        const flags = ext === ".cpp" ? cxxFlags : cFlags;
+        const objFile = path.join(buildDir, path.basename(file, ext) + ".o");
 
-      const compileCmd = `${compiler} ${flags} -c "${file}" -o "${objFile}"`;
+        const compileCmd = `${compiler} ${flags} -c "${file}" -o "${objFile}"`;
 
-      try {
-        await execAsync(compileCmd, { cwd: projectPath });
-        objectFiles.push(objFile);
-      } catch (error) {
-        // Пропускаем ошибки компиляции отдельных файлов (может быть устаревший файл)
-        const err = error as Error;
-        console.warn(`Предупреждение при компиляции ${file}:`, err.message);
+        try {
+          await execAsync(compileCmd, { cwd: projectPath });
+          objectFiles.push(objFile);
+        } catch (error) {
+          // Пропускаем ошибки компиляции отдельных файлов (может быть устаревший файл)
+          const err = error as Error;
+          console.warn(`Предупреждение при компиляции ${file}:`, err.message);
+        }
       }
+    } else {
+      console.log("Чистый AVR проект - компиляция ядра не требуется");
     }
 
     // 7. Линковка

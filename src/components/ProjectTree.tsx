@@ -20,7 +20,7 @@ import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import CloseIcon from "@mui/icons-material/Close";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import type { ProjectTreeNode } from "@src/types/project";
+import type { ProjectTreeNode } from "@/types/project";
 
 type ProjectTreeProps = {
   onFileOpen?: (filePath: string) => void;

@@ -1,0 +1,772 @@
+import type { BoardConfig, PinConfig, SelectedPinFunction } from "../types/boardConfig";
+
+/**
+ * Генератор кода инициализации для Arduino проектов
+ */
+export class CodeGenerator {
+  private boardConfig: BoardConfig;
+  private fCpu: number;
+
+  constructor(boardConfig: BoardConfig, fCpu: string) {
+    this.boardConfig = boardConfig;
+    // Преобразуем строку типа "16000000L" в число
+    this.fCpu = parseInt(fCpu.replace("L", ""), 10);
+  }
+
+  /**
+   * Генерирует код инициализации на основе выбранных настроек пинов
+   */
+  generateInitCode(selectedPins: SelectedPinFunction[]): string {
+    const includes = this.generateIncludes(selectedPins);
+    const initFunctions: string[] = [];
+    const isrFunctions: string[] = [];
+
+    // Группируем функции по типам
+    const functionsByType = this.groupFunctionsByType(selectedPins);
+
+    // Генерируем функции инициализации
+    if (functionsByType.GPIO && functionsByType.GPIO.length > 0) {
+      initFunctions.push(this.generateGPIOInit(functionsByType.GPIO));
+    }
+    if (functionsByType.UART && functionsByType.UART.length > 0) {
+      const uartFunc = functionsByType.UART[0];
+      initFunctions.push(this.generateUARTInit(uartFunc));
+      const uartISR = this.generateUARTISR(uartFunc);
+      if (uartISR) {
+        isrFunctions.push(uartISR);
+      }
+    }
+    if (functionsByType.SPI && functionsByType.SPI.length > 0) {
+      initFunctions.push(this.generateSPIInit(functionsByType.SPI[0]));
+    }
+    if (functionsByType.I2C && functionsByType.I2C.length > 0) {
+      initFunctions.push(this.generateI2CInit(functionsByType.I2C[0]));
+    }
+    if (functionsByType.EXTERNAL_INTERRUPT && functionsByType.EXTERNAL_INTERRUPT.length > 0) {
+      const extInt = functionsByType.EXTERNAL_INTERRUPT;
+      extInt.forEach((func) => {
+        initFunctions.push(this.generateExternalInterruptInit(func));
+        isrFunctions.push(this.generateExternalInterruptISR(func));
+      });
+    }
+    if (functionsByType.PCINT && functionsByType.PCINT.length > 0) {
+      initFunctions.push(this.generatePCINTInit(functionsByType.PCINT));
+      isrFunctions.push(this.generatePCINTISR(functionsByType.PCINT));
+    }
+    if (functionsByType.TIMER0_PWM && functionsByType.TIMER0_PWM.length > 0) {
+      initFunctions.push(this.generateTimer0PWMInit(functionsByType.TIMER0_PWM[0]));
+    }
+    if (functionsByType.TIMER1_PWM && functionsByType.TIMER1_PWM.length > 0) {
+      initFunctions.push(this.generateTimer1PWMInit(functionsByType.TIMER1_PWM[0]));
+    }
+    if (functionsByType.TIMER2_PWM && functionsByType.TIMER2_PWM.length > 0) {
+      initFunctions.push(this.generateTimer2PWMInit(functionsByType.TIMER2_PWM[0]));
+    }
+    if (functionsByType.ADC && functionsByType.ADC.length > 0) {
+      initFunctions.push(this.generateADCInit(functionsByType.ADC[0]));
+      if (functionsByType.ADC[0].settings.mode === "FreeRunning") {
+        isrFunctions.push(this.generateADCISR());
+      }
+    }
+    if (functionsByType.ANALOG_COMPARATOR && functionsByType.ANALOG_COMPARATOR.length > 0) {
+      initFunctions.push(this.generateAnalogComparatorInit(functionsByType.ANALOG_COMPARATOR[0]));
+      isrFunctions.push(this.generateAnalogComparatorISR());
+    }
+    if (functionsByType.WATCHDOG && functionsByType.WATCHDOG.length > 0) {
+      initFunctions.push(this.generateWatchdogInit(functionsByType.WATCHDOG[0]));
+      if (functionsByType.WATCHDOG[0].settings.mode === "Interrupt") {
+        isrFunctions.push(this.generateWatchdogISR());
+      }
+    }
+
+    // Генерируем main функцию
+    const mainCode = this.generateMainFunction(initFunctions);
+
+    // Собираем весь код
+    return `${includes}
+
+${initFunctions.join("\n\n")}
+
+${mainCode}
+
+${isrFunctions.join("\n\n")}
+`;
+  }
+
+  private generateIncludes(selectedPins: SelectedPinFunction[]): string {
+    const includes = new Set<string>();
+    includes.add("#include <avr/io.h>");
+
+    // Добавляем определение F_CPU, если используется UART или I2C (нужно для расчётов)
+    const needsFCpu = selectedPins.some(
+      (p) => p.functionType === "UART" || p.functionType === "I2C"
+    );
+
+    if (needsFCpu) {
+      includes.add("");
+      includes.add(`#ifndef F_CPU`);
+      includes.add(`#define F_CPU ${this.fCpu}UL`);
+      includes.add(`#endif`);
+    }
+
+    // Проверяем, нужны ли прерывания
+    const hasInterrupts = selectedPins.some(
+      (p) => {
+        if (
+          p.functionType === "EXTERNAL_INTERRUPT" ||
+          p.functionType === "PCINT" ||
+          p.functionType === "ADC" ||
+          p.functionType === "ANALOG_COMPARATOR" ||
+          p.functionType === "WATCHDOG"
+        ) {
+          return true;
+        }
+        // Для UART проверяем, включены ли прерывания
+        if (p.functionType === "UART") {
+          return (
+            p.settings?.enableRXInterrupt ||
+            p.settings?.enableTXInterrupt ||
+            p.settings?.enableUDREInterrupt
+          );
+        }
+        // Для SPI и I2C пока не реализованы прерывания, но оставляем проверку на будущее
+        return p.functionType === "SPI" || p.functionType === "I2C";
+      }
+    );
+
+    if (hasInterrupts) {
+      includes.add("#include <avr/interrupt.h>");
+    }
+
+    // Проверяем watchdog
+    if (selectedPins.some((p) => p.functionType === "WATCHDOG")) {
+      includes.add("#include <avr/wdt.h>");
+    }
+
+    return Array.from(includes).join("\n");
+  }
+
+  private groupFunctionsByType(
+    selectedPins: SelectedPinFunction[]
+  ): Record<string, SelectedPinFunction[]> {
+    const grouped: Record<string, SelectedPinFunction[]> = {};
+    selectedPins.forEach((pin) => {
+      if (!grouped[pin.functionType]) {
+        grouped[pin.functionType] = [];
+      }
+      grouped[pin.functionType].push(pin);
+    });
+    return grouped;
+  }
+
+  private generateGPIOInit(pins: SelectedPinFunction[]): string {
+    const portGroups: Record<string, { port: string; pins: Array<{ bit: number; mode: string; initialState?: string }> }> =
+      {};
+
+    pins.forEach((pinFunc) => {
+      const pin = this.findPinByName(pinFunc.pinName);
+      if (!pin) return;
+
+      const mode = pinFunc.settings.mode || "OUTPUT";
+      const initialState = pinFunc.settings.initialState || "LOW";
+      if (!portGroups[pin.port]) {
+        portGroups[pin.port] = { port: pin.port, pins: [] };
+      }
+      portGroups[pin.port].pins.push({ bit: pin.bit, mode, initialState });
+    });
+
+    const code: string[] = ["void gpio_init() {"];
+    Object.values(portGroups).forEach((group) => {
+      // Преобразуем полное имя порта (PB, PC, PD) в букву порта (B, C, D)
+      const portLetter = this.getPortLetter(group.port);
+      group.pins.forEach((pin) => {
+        if (pin.mode === "OUTPUT") {
+          code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${pin.bit}); // ${group.port}${pin.bit} как OUTPUT`);
+          if (pin.initialState === "HIGH") {
+            code.push(`    PORT${portLetter} |= (1 << PORT${portLetter}${pin.bit}); // Установить HIGH`);
+          } else {
+            code.push(`    PORT${portLetter} &= ~(1 << PORT${portLetter}${pin.bit}); // Установить LOW`);
+          }
+        } else if (pin.mode === "INPUT") {
+          code.push(`    DDR${portLetter} &= ~(1 << DD${portLetter}${pin.bit}); // ${group.port}${pin.bit} как INPUT`);
+          code.push(`    PORT${portLetter} &= ~(1 << PORT${portLetter}${pin.bit}); // Отключить подтяжку`);
+        } else if (pin.mode === "INPUT_PULLUP") {
+          code.push(`    DDR${portLetter} &= ~(1 << DD${portLetter}${pin.bit}); // ${group.port}${pin.bit} как INPUT`);
+          code.push(`    PORT${portLetter} |= (1 << PORT${portLetter}${pin.bit}); // Включить подтяжку`);
+        }
+      });
+    });
+    code.push("}");
+
+    return code.join("\n");
+  }
+
+  private generateUARTInit(func: SelectedPinFunction): string {
+    const baud = func.settings.baud || 9600;
+    const dataBits = func.settings.dataBits || 8;
+    const stopBits = func.settings.stopBits || 1;
+    const parity = func.settings.parity || "None";
+    const mode = func.settings.mode || "Asynchronous";
+    const enableRXInterrupt = func.settings.enableRXInterrupt || false;
+    const enableTXInterrupt = func.settings.enableTXInterrupt || false;
+    const enableUDREInterrupt = func.settings.enableUDREInterrupt || false;
+
+    // Формируем строку формата для комментария (например, 8N1, 7E2)
+    const parityChar = parity === "Even" ? "E" : parity === "Odd" ? "O" : "N";
+    const formatString = `${dataBits}${parityChar}${stopBits}`;
+
+    const code: string[] = ["void uart_init() {"];
+    
+    // Используем формулу согласно документации
+    if (mode === "Asynchronous") {
+      code.push(`    UBRR0H = (F_CPU / 16 / ${baud} - 1) >> 8;`);
+      code.push(`    UBRR0L = (F_CPU / 16 / ${baud} - 1);`);
+    } else {
+      code.push(`    UBRR0H = (F_CPU / 2 / ${baud} - 1) >> 8; // Формула для синхронного режима`);
+      code.push(`    UBRR0L = (F_CPU / 2 / ${baud} - 1);`);
+    }
+    
+    // Формируем UCSR0B с прерываниями
+    const ucsr0bParts: string[] = [
+      "(1 << RXEN0)", // Включить RX
+      "(1 << TXEN0)", // Включить TX
+    ];
+
+    if (enableRXInterrupt) {
+      ucsr0bParts.push("(1 << RXCIE0)"); // Включить прерывание при приёме
+    }
+    if (enableTXInterrupt) {
+      ucsr0bParts.push("(1 << TXCIE0)"); // Включить прерывание при завершении передачи
+    }
+    if (enableUDREInterrupt) {
+      ucsr0bParts.push("(1 << UDRIE0)"); // Включить прерывание при пустом регистре данных
+    }
+
+    const ucsr0b = ucsr0bParts.join(" | ");
+    code.push(`    UCSR0B = ${ucsr0b};`);
+
+    // Настройка формата данных
+    // UCSZ02, UCSZ01, UCSZ00 определяют количество бит данных
+    const ucsr0cParts: string[] = [];
+    
+    if (dataBits === 5) {
+      ucsr0cParts.push("(1 << UCSZ00)"); // UCSZ02=0, UCSZ01=0, UCSZ00=1
+    } else if (dataBits === 6) {
+      ucsr0cParts.push("(1 << UCSZ01)"); // UCSZ02=0, UCSZ01=1, UCSZ00=0
+    } else if (dataBits === 7) {
+      ucsr0cParts.push("(1 << UCSZ01) | (1 << UCSZ00)"); // UCSZ02=0, UCSZ01=1, UCSZ00=1
+    } else if (dataBits === 8) {
+      ucsr0cParts.push("(1 << UCSZ01) | (1 << UCSZ00)"); // UCSZ02=0, UCSZ01=1, UCSZ00=1
+    } else if (dataBits === 9) {
+      ucsr0cParts.push("(1 << UCSZ02) | (1 << UCSZ01) | (1 << UCSZ00)"); // UCSZ02=1, UCSZ01=1, UCSZ00=1
+    } else {
+      // Защита от неверного значения - используем 8 бит по умолчанию
+      ucsr0cParts.push("(1 << UCSZ01) | (1 << UCSZ00)");
+    }
+
+    if (parity === "Even") {
+      ucsr0cParts.push("(1 << UPM01)");
+    } else if (parity === "Odd") {
+      ucsr0cParts.push("(1 << UPM01) | (1 << UPM00)");
+    }
+
+    if (stopBits === 2) {
+      ucsr0cParts.push("(1 << USBS0)");
+    }
+
+    if (mode === "Synchronous") {
+      ucsr0cParts.push("(1 << UMSEL01) | (1 << UMSEL00)");
+    }
+
+    const ucsr0c = ucsr0cParts.join(" | ");
+    code.push(`    UCSR0C = ${ucsr0c}; // ${formatString}`);
+    
+    // Включаем глобальные прерывания, если используются прерывания UART
+    if (enableRXInterrupt || enableTXInterrupt || enableUDREInterrupt) {
+      code.push("    sei(); // Enable global interrupts");
+    }
+    
+    code.push("}");
+
+    return code.join("\n");
+  }
+
+  private generateUARTISR(func: SelectedPinFunction): string | null {
+    const enableRXInterrupt = func.settings.enableRXInterrupt || false;
+    const enableTXInterrupt = func.settings.enableTXInterrupt || false;
+    const enableUDREInterrupt = func.settings.enableUDREInterrupt || false;
+
+    // Если ни одно прерывание не включено, не генерируем ISR
+    if (!enableRXInterrupt && !enableTXInterrupt && !enableUDREInterrupt) {
+      return null;
+    }
+
+    const isrs: string[] = [];
+
+    if (enableRXInterrupt) {
+      isrs.push(`ISR(USART_RX_vect) {
+    // Прерывание при приёме данных
+    uint8_t received_byte = UDR0; // Прочитать принятый байт
+    // TODO: Обработать полученные данные
+    // Например, добавить в буфер или обработать команду
+}`);
+    }
+
+    if (enableTXInterrupt) {
+      isrs.push(`ISR(USART_TX_vect) {
+    // Прерывание при завершении передачи
+    // TODO: Отправить следующий байт из буфера, если есть
+}`);
+    }
+
+    if (enableUDREInterrupt) {
+      isrs.push(`ISR(USART_UDRE_vect) {
+    // Прерывание при пустом регистре данных (готов к записи)
+    // TODO: Записать следующий байт в UDR0 для передачи
+    // UDR0 = next_byte_to_send;
+}`);
+    }
+
+    return isrs.join("\n\n");
+  }
+
+  private generateSPIInit(func: SelectedPinFunction): string {
+    const mode = func.settings.mode || "Master";
+    const cpol = func.settings.cpol || 0;
+    const cpha = func.settings.cpha || 0;
+    const speed = func.settings.speed || "fosc/16";
+
+    const speedMap: Record<string, string> = {
+      "fosc/4": "0",
+      "fosc/16": "(1 << SPR0)",
+      "fosc/64": "(1 << SPR1)",
+      "fosc/128": "(1 << SPR1) | (1 << SPR0)",
+    };
+
+    const code: string[] = [];
+    if (mode === "Master") {
+      code.push("void spi_init_master() {");
+      code.push("    DDRB |= (1 << DDB2) | (1 << DDB3) | (1 << DDB5); // SS, MOSI, SCK как OUTPUT");
+      code.push("    DDRB &= ~(1 << DDB4); // MISO как INPUT");
+      code.push(`    SPCR = (1 << SPE) | (1 << MSTR) | ${speedMap[speed]}; // Enable SPI, Master`);
+      if (cpol === 1) {
+        code.push("    SPCR |= (1 << CPOL); // Clock idle high");
+      }
+      if (cpha === 1) {
+        code.push("    SPCR |= (1 << CPHA); // Sample on trailing edge");
+      }
+      code.push("}");
+    } else {
+      code.push("void spi_init_slave() {");
+      code.push("    DDRB &= ~(1 << DDB2); // SS как INPUT");
+      code.push("    DDRB &= ~(1 << DDB3); // MOSI как INPUT");
+      code.push("    DDRB |= (1 << DDB4); // MISO как OUTPUT");
+      code.push("    DDRB &= ~(1 << DDB5); // SCK как INPUT");
+      code.push("    SPCR = (1 << SPE); // Enable SPI, Slave mode");
+      if (cpol === 1) {
+        code.push("    SPCR |= (1 << CPOL);");
+      }
+      if (cpha === 1) {
+        code.push("    SPCR |= (1 << CPHA);");
+      }
+      code.push("}");
+    }
+
+    return code.join("\n");
+  }
+
+  private generateI2CInit(func: SelectedPinFunction): string {
+    const mode = func.settings.mode || "Master";
+    const speed = func.settings.speed || 100000;
+
+    const code: string[] = [];
+    if (mode === "Master") {
+      code.push("void i2c_init_master() {");
+      code.push("    TWSR = 0; // Prescaler 1");
+      code.push(`    TWBR = (F_CPU / ${speed}UL - 16) / 2; // ${speed / 1000}kHz`);
+      code.push("}");
+    } else {
+      const address = func.settings.slaveAddress || 0x08;
+      code.push("void i2c_init_slave() {");
+      code.push(`    TWAR = ${address} << 1; // Установить собственный адрес`);
+      code.push("    TWCR = (1 << TWEN) | (1 << TWIE) | (1 << TWEA); // Enable TWI");
+      code.push("    sei(); // Включить глобальные прерывания");
+      code.push("}");
+    }
+
+    return code.join("\n");
+  }
+
+  private generateExternalInterruptInit(func: SelectedPinFunction): string {
+    const pin = this.findPinByName(func.pinName);
+    if (!pin) return "";
+
+    const interrupt = pin.functions.find((f) => f.type === "EXTERNAL_INTERRUPT");
+    if (!interrupt || !interrupt.interrupt) return "";
+
+    const trigger = func.settings.trigger || "RISING";
+    const intNum = interrupt.interrupt === "INT0" ? 0 : 1;
+
+    const triggerMap: Record<string, string> = {
+      LOW: "0",
+      CHANGE: "(1 << ISC" + intNum + "0)",
+      RISING: "(1 << ISC" + intNum + "1) | (1 << ISC" + intNum + "0)",
+      FALLING: "(1 << ISC" + intNum + "1)",
+    };
+
+    const code: string[] = [`void external_interrupt_${interrupt.interrupt.toLowerCase()}_init() {`];
+    code.push(`    EICRA |= ${triggerMap[trigger]}; // ${trigger} на ${interrupt.interrupt}`);
+    code.push(`    EIMSK |= (1 << INT${intNum}); // Enable ${interrupt.interrupt}`);
+    code.push("    sei(); // Включить глобальные прерывания");
+    code.push("}");
+
+    return code.join("\n");
+  }
+
+  private generateExternalInterruptISR(func: SelectedPinFunction): string {
+    const pin = this.findPinByName(func.pinName);
+    if (!pin) return "";
+
+    const interrupt = pin.functions.find((f) => f.type === "EXTERNAL_INTERRUPT");
+    if (!interrupt || !interrupt.interrupt) return "";
+
+    return `ISR(${interrupt.interrupt}_vect) {
+    // Обработка прерывания ${interrupt.interrupt}
+}`;
+  }
+
+  private generatePCINTInit(pins: SelectedPinFunction[]): string {
+    const portGroups: Record<string, Array<{ bit: number; pcintNumber: number; pinName: string }>> = {};
+
+    pins.forEach((pinFunc) => {
+      const pin = this.findPinByName(pinFunc.pinName);
+      if (!pin) return;
+
+      const pcintFunc = pin.functions.find((f) => f.type === "PCINT");
+      if (!pcintFunc || pcintFunc.pcintNumber === undefined) return;
+
+      let portGroup: string;
+      if (pin.port === "PB") {
+        portGroup = "PCIE0";
+      } else if (pin.port === "PC") {
+        portGroup = "PCIE1";
+      } else {
+        portGroup = "PCIE2";
+      }
+
+      if (!portGroups[portGroup]) {
+        portGroups[portGroup] = [];
+      }
+      portGroups[portGroup].push({
+        bit: pin.bit,
+        pcintNumber: pcintFunc.pcintNumber,
+        pinName: pin.name,
+      });
+    });
+
+    const code: string[] = ["void gpio_pcint_init() {"];
+    Object.entries(portGroups).forEach(([group, pinData]) => {
+      const port = group === "PCIE0" ? "B" : group === "PCIE1" ? "C" : "D";
+      
+      // Настраиваем каждый пин как INPUT с подтяжкой
+      pinData.forEach((pin) => {
+        const pinConfig = this.findPinByName(pin.pinName);
+        if (!pinConfig) return;
+        const portLetter = this.getPortLetter(pinConfig.port);
+        code.push(`    DDR${portLetter} &= ~(1 << DD${portLetter}${pin.bit}); // ${pin.pinName} как INPUT`);
+        code.push(`    PORT${portLetter} |= (1 << PORT${portLetter}${pin.bit}); // Включить подтяжку на ${pin.pinName}`);
+      });
+      
+      // Включаем Pin Change Interrupt для порта
+      code.push(`    PCICR |= (1 << ${group}); // Включить Pin Change Interrupt для PORT${port}`);
+      
+      // Настраиваем маску прерываний для всех пинов порта
+      const pcintMask = pinData.map((pin) => `(1 << PCINT${pin.pcintNumber})`).join(" | ");
+      code.push(`    PCMSK${group.slice(-1)} |= ${pcintMask}; // Включить PCINT для выбранных пинов`);
+    });
+    code.push("    sei(); // Enable global interrupts");
+    code.push("}");
+
+    return code.join("\n");
+  }
+
+  private generatePCINTISR(pins: SelectedPinFunction[]): string {
+    const portGroups: Record<string, Array<{ bit: number; pcintNumber: number; pinName: string; arduinoName: string }>> = {};
+
+    pins.forEach((pinFunc) => {
+      const pin = this.findPinByName(pinFunc.pinName);
+      if (!pin) return;
+
+      const pcintFunc = pin.functions.find((f) => f.type === "PCINT");
+      if (!pcintFunc || pcintFunc.pcintNumber === undefined) return;
+
+      let portGroup: string;
+      if (pin.port === "PB") {
+        portGroup = "PCINT0";
+      } else if (pin.port === "PC") {
+        portGroup = "PCINT1";
+      } else {
+        portGroup = "PCINT2";
+      }
+
+      if (!portGroups[portGroup]) {
+        portGroups[portGroup] = [];
+      }
+      portGroups[portGroup].push({
+        bit: pin.bit,
+        pcintNumber: pcintFunc.pcintNumber,
+        pinName: pin.name,
+        arduinoName: pin.arduinoName,
+      });
+    });
+
+    const isrs: string[] = [];
+    Object.entries(portGroups).forEach(([group, pinData]) => {
+      const port = group === "PCINT0" ? "B" : group === "PCINT1" ? "C" : "D";
+      const portLetter = port;
+      
+      const isrCode: string[] = [`ISR(${group}_vect) {`];
+      isrCode.push(`    // Обработчик изменения пинов PORT${port}`);
+      isrCode.push(`    uint8_t pin_state = PIN${portLetter}; // Текущее состояние порта`);
+      isrCode.push("");
+      
+      // Генерируем проверки для каждого настроенного пина
+      pinData.forEach((pin) => {
+        isrCode.push(`    // Проверка изменения ${pin.arduinoName} (${pin.pinName}) - PCINT${pin.pcintNumber}`);
+        isrCode.push(`    if (pin_state & (1 << PIN${portLetter}${pin.bit})) {`);
+        isrCode.push(`        // ${pin.arduinoName} (${pin.pinName}) стал HIGH`);
+        isrCode.push(`    } else {`);
+        isrCode.push(`        // ${pin.arduinoName} (${pin.pinName}) стал LOW`);
+        isrCode.push(`    }`);
+        if (pinData.length > 1 && pin !== pinData[pinData.length - 1]) {
+          isrCode.push("");
+        }
+      });
+      
+      isrCode.push("}");
+      isrs.push(isrCode.join("\n"));
+    });
+
+    return isrs.join("\n\n");
+  }
+
+  private generateTimer0PWMInit(func: SelectedPinFunction): string {
+    const pin = this.findPinByName(func.pinName);
+    if (!pin) return "";
+
+    const channel = pin.functions.find((f) => f.type === "TIMER0_PWM")?.channel || "OC0A";
+    const prescaler = func.settings.prescaler || 64;
+    const dutyCycle = func.settings.dutyCycle || 128;
+
+    const prescalerMap: Record<number, string> = {
+      1: "(1 << CS00)",
+      8: "(1 << CS01)",
+      64: "(1 << CS01) | (1 << CS00)",
+      256: "(1 << CS02)",
+      1024: "(1 << CS02) | (1 << CS00)",
+    };
+
+    const code: string[] = ["void timer0_pwm_init() {"];
+    const portLetter = this.getPortLetter(pin.port);
+    code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${pin.bit}); // ${channel} как OUTPUT`);
+    code.push(`    TCCR0A |= (1 << WGM01) | (1 << WGM00); // Fast PWM`);
+    code.push(`    TCCR0A |= (1 << COM0${channel.slice(-1)}1); // Clear on compare match`);
+    code.push(`    TCCR0B |= ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+    code.push(`    OCR0${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
+    code.push("}");
+
+    return code.join("\n");
+  }
+
+  private generateTimer1PWMInit(func: SelectedPinFunction): string {
+    const pin = this.findPinByName(func.pinName);
+    if (!pin) return "";
+
+    const channel = pin.functions.find((f) => f.type === "TIMER1_PWM")?.channel || "OC1A";
+    const prescaler = func.settings.prescaler || 8;
+    const dutyCycle = func.settings.dutyCycle || 32768;
+
+    const prescalerMap: Record<number, string> = {
+      1: "(1 << CS10)",
+      8: "(1 << CS11)",
+      64: "(1 << CS11) | (1 << CS10)",
+      256: "(1 << CS12)",
+      1024: "(1 << CS12) | (1 << CS10)",
+    };
+
+    const code: string[] = ["void timer1_pwm_init() {"];
+    const portLetter = this.getPortLetter(pin.port);
+    code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${pin.bit}); // ${channel} как OUTPUT`);
+    code.push(`    TCCR1A |= (1 << COM1${channel.slice(-1)}1) | (1 << WGM10); // Fast PWM`);
+    code.push(`    TCCR1B |= (1 << WGM12) | ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+    code.push(`    OCR1${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
+    code.push("}");
+
+    return code.join("\n");
+  }
+
+  private generateTimer2PWMInit(func: SelectedPinFunction): string {
+    const pin = this.findPinByName(func.pinName);
+    if (!pin) return "";
+
+    const channel = pin.functions.find((f) => f.type === "TIMER2_PWM")?.channel || "OC2A";
+    const prescaler = func.settings.prescaler || 64;
+    const dutyCycle = func.settings.dutyCycle || 128;
+
+    const prescalerMap: Record<number, string> = {
+      1: "(1 << CS20)",
+      8: "(1 << CS21)",
+      32: "(1 << CS21) | (1 << CS20)",
+      64: "(1 << CS22)",
+      128: "(1 << CS22) | (1 << CS20)",
+      256: "(1 << CS22) | (1 << CS21)",
+      1024: "(1 << CS22) | (1 << CS21) | (1 << CS20)",
+    };
+
+    const code: string[] = ["void timer2_pwm_init() {"];
+    const portLetter = this.getPortLetter(pin.port);
+    code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${pin.bit}); // ${channel} как OUTPUT`);
+    code.push(`    TCCR2A |= (1 << WGM21) | (1 << WGM20); // Fast PWM`);
+    code.push(`    TCCR2A |= (1 << COM2${channel.slice(-1)}1); // Clear on compare match`);
+    code.push(`    TCCR2B |= ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+    code.push(`    OCR2${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
+    code.push("}");
+
+    return code.join("\n");
+  }
+
+  private generateADCInit(func: SelectedPinFunction): string {
+    const pin = this.findPinByName(func.pinName);
+    if (!pin) return "";
+
+    const adcFunc = pin.functions.find((f) => f.type === "ADC");
+    if (!adcFunc || adcFunc.channelNumber === undefined) return "";
+
+    const channel = adcFunc.channelNumber;
+    const reference = func.settings.reference || "AVcc";
+    const prescaler = func.settings.prescaler || 128;
+    const mode = func.settings.mode || "Single";
+
+    const refMap: Record<string, string> = {
+      AVcc: "(1 << REFS0)",
+      AREF: "0",
+      "Internal1.1V": "(1 << REFS1) | (1 << REFS0)",
+    };
+
+    const prescalerMap: Record<number, string> = {
+      2: "(1 << ADPS0)",
+      4: "(1 << ADPS1)",
+      8: "(1 << ADPS1) | (1 << ADPS0)",
+      16: "(1 << ADPS2)",
+      32: "(1 << ADPS2) | (1 << ADPS0)",
+      64: "(1 << ADPS2) | (1 << ADPS1)",
+      128: "(1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0)",
+    };
+
+    const code: string[] = ["void adc_init() {"];
+    code.push(`    ADMUX = ${refMap[reference]}; // ${reference} как опорное напряжение`);
+    code.push(`    ADMUX |= ${channel}; // Канал ADC${channel}`);
+    code.push(`    ADCSRA = (1 << ADEN) | ${prescalerMap[prescaler]}; // Enable ADC, Prescaler ${prescaler}`);
+    if (mode === "FreeRunning") {
+      code.push("    ADCSRA |= (1 << ADATE) | (1 << ADIE); // Auto Triggering, Interrupt");
+      code.push("    ADCSRA |= (1 << ADSC); // Start conversion");
+    }
+    code.push("}");
+
+    return code.join("\n");
+  }
+
+  private generateADCISR(): string {
+    return `ISR(ADC_vect) {
+    uint16_t adc_value = ADC; // Считать результат
+    // Обработка значения
+}`;
+  }
+
+  private generateAnalogComparatorInit(_func: SelectedPinFunction): string {
+    // Параметр func зарезервирован для будущих настроек компаратора
+    const code: string[] = ["void analog_comparator_init() {"];
+    code.push("    ACSR = (1 << ACIE); // Enable interrupt");
+    code.push("    sei(); // Включить глобальные прерывания");
+    code.push("}");
+
+    return code.join("\n");
+  }
+
+  private generateAnalogComparatorISR(): string {
+    return `ISR(ANALOG_COMP_vect) {
+    // Обработка изменения результата компаратора
+}`;
+  }
+
+  private generateWatchdogInit(func: SelectedPinFunction): string {
+    const timeout = func.settings.timeout || 2000;
+    const mode = func.settings.mode || "Reset";
+
+    const timeoutMap: Record<number, string> = {
+      16: "(1 << WDP0)",
+      32: "(1 << WDP1)",
+      64: "(1 << WDP1) | (1 << WDP0)",
+      125: "(1 << WDP2)",
+      250: "(1 << WDP2) | (1 << WDP0)",
+      500: "(1 << WDP2) | (1 << WDP1)",
+      1000: "(1 << WDP2) | (1 << WDP1) | (1 << WDP0)",
+      2000: "(1 << WDP3)",
+      4000: "(1 << WDP3) | (1 << WDP0)",
+      8000: "(1 << WDP3) | (1 << WDP1)",
+    };
+
+    const code: string[] = ["void wdt_init() {"];
+    code.push("    MCUSR &= ~(1 << WDRF); // Сбросить флаг срабатывания WDT");
+    code.push("    WDTCSR |= (1 << WDCE) | (1 << WDE); // Разрешить изменение");
+    if (mode === "Interrupt") {
+      code.push(`    WDTCSR = (1 << WDIE) | ${timeoutMap[timeout]}; // Interrupt, ${timeout}ms`);
+    } else {
+      code.push(`    WDTCSR = (1 << WDE) | ${timeoutMap[timeout]}; // Reset, ${timeout}ms`);
+    }
+    code.push("}");
+
+    return code.join("\n");
+  }
+
+  private generateWatchdogISR(): string {
+    return `ISR(WDT_vect) {
+    // Обработчик прерывания WDT
+    // Можно выполнить действия перед сбросом
+    wdt_reset(); // Сбросить таймер, если нужно избежать сброса
+}`;
+  }
+
+  private generateMainFunction(initFunctions: string[]): string {
+    const functionCalls = initFunctions.map((func) => {
+      const match = func.match(/void\s+(\w+)\s*\(/);
+      return match ? `    ${match[1]}();` : "";
+    }).filter(Boolean);
+
+    return `int main(void) {
+${functionCalls.join("\n")}
+    
+    while(1) {
+        // основной цикл
+    }
+}`;
+  }
+
+  private findPinByName(pinName: string): PinConfig | undefined {
+    return this.boardConfig.pins.find((p) => p.name === pinName);
+  }
+
+  /**
+   * Преобразует полное имя порта (PB, PC, PD) в букву порта (B, C, D)
+   * для использования в именах регистров (DDRB, PORTB и т.д.)
+   */
+  private getPortLetter(port: string): string {
+    // Убираем префикс "P" из имени порта
+    // PB -> B, PC -> C, PD -> D
+    if (port.startsWith("P")) {
+      return port.substring(1);
+    }
+    return port;
+  }
+}
+

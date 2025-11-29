@@ -1,4 +1,4 @@
-import { ipcMain, dialog } from "electron";
+import { ipcMain, dialog, app } from "electron";
 import { existsSync } from "fs";
 import path from "node:path";
 import fs from "fs/promises";
@@ -294,7 +294,7 @@ export function registerProjectHandlers(): void {
   // Создание нового проекта (создание папки и открытие)
   ipcMain.handle(
     "create-new-project",
-    async (_event, parentPath: string, projectName: string) => {
+    async (_event, parentPath: string, projectName: string, pinConfig?: any) => {
       try {
         if (!projectName || !projectName.trim()) {
           throw new Error("Название проекта не может быть пустым");
@@ -320,9 +320,57 @@ export function registerProjectHandlers(): void {
         const srcPath = path.join(projectPath, "src");
         await fs.mkdir(srcPath, { recursive: true });
 
-        // Создаем базовую структуру проекта (файл main.cpp в папке src)
-        const mainCppPath = path.join(srcPath, "main.cpp");
-        const baseCode = `#include <Arduino.h>
+        // Генерируем код инициализации
+        let mainCode: string;
+        if (pinConfig && pinConfig.selectedPins && pinConfig.selectedPins.length > 0) {
+          // Импортируем конфигурацию платы и генератор кода
+          // Определяем путь к конфигурационному файлу
+          const appPath = app.getAppPath();
+          let boardConfigPath: string;
+          
+          // Определяем базовый путь проекта
+          // В dev: используем путь относительно исходного кода
+          // В prod: файл должен быть скопирован в out/main/config при сборке
+          const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
+          
+          // Пробуем разные варианты путей
+          const possiblePaths = isDev
+            ? [
+                // Dev режим - относительно исходного кода
+                path.join(process.cwd(), "src/config/boards/atmega328p.json"),
+                path.resolve(__dirname, "../../../src/config/boards/atmega328p.json"),
+              ]
+            : [
+                // Prod режим - в собранном приложении
+                path.join(__dirname, "../config/boards/atmega328p.json"), // out/main/config/boards
+                path.join(appPath, "dist/config/boards/atmega328p.json"),
+                path.join(appPath, "config/boards/atmega328p.json"),
+                path.join(__dirname, "../../config/boards/atmega328p.json"),
+              ];
+          
+          boardConfigPath = possiblePaths.find((p) => existsSync(p)) || "";
+          
+          if (!boardConfigPath || !existsSync(boardConfigPath)) {
+            console.error("Не удалось найти конфигурацию платы.");
+            console.error("isDev:", isDev);
+            console.error("__dirname:", __dirname);
+            console.error("app.getAppPath():", appPath);
+            console.error("process.cwd():", process.cwd());
+            console.error("Проверенные пути:", possiblePaths);
+            throw new Error(
+              `Не удалось найти конфигурацию платы. Проверьте, что файл src/config/boards/atmega328p.json существует и скопирован при сборке.`
+            );
+          }
+          
+          const boardConfig = JSON.parse(await fs.readFile(boardConfigPath, "utf-8"));
+          
+          // Используем динамический импорт для CodeGenerator
+          const { CodeGenerator } = await import("../../utils/CodeGenerator");
+          const generator = new CodeGenerator(boardConfig, pinConfig.fCpu || "16000000L");
+          mainCode = generator.generateInitCode(pinConfig.selectedPins);
+        } else {
+          // Базовый код по умолчанию
+          mainCode = `#include <Arduino.h>
 
 void setup() {
   // Инициализация
@@ -333,7 +381,11 @@ void loop() {
   // Основной цикл
 }
 `;
-        await fs.writeFile(mainCppPath, baseCode, "utf-8");
+        }
+
+        // Создаем базовую структуру проекта (файл main.cpp в папке src)
+        const mainCppPath = path.join(srcPath, "main.cpp");
+        await fs.writeFile(mainCppPath, mainCode, "utf-8");
 
         // Открываем новый проект
         projectManager.setCurrentProjectPath(projectPath);
