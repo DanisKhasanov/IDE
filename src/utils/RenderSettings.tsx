@@ -10,7 +10,7 @@ import {
   Checkbox,
   FormControlLabel,
 } from "@mui/material";
-import type { PinFunction, BoardConfig } from "../../types/boardConfig";
+import type { PinFunction, BoardConfig } from "../types/boardConfig";
 
 interface RenderSettingsProps {
   func: PinFunction;
@@ -260,6 +260,20 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
               ))}
             </Select>
           </FormControl>
+          {boardConfig?.peripherals.SPI?.enableInterrupt && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={settings.enableInterrupt || false}
+                  onChange={(e) =>
+                    handleSettingChange("enableInterrupt", e.target.checked)
+                  }
+                />
+              }
+              label="Включить прерывания (SPI_STC_vect)"
+              sx={{ mt: 1 }}
+            />
+          )}
         </>
       );
 
@@ -280,7 +294,7 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
               ))}
             </Select>
           </FormControl>
-          {settings.mode === "Master" && (
+          {(settings.mode || "Master") === "Master" && (
             <FormControl fullWidth size="small" sx={{ mt: 1 }}>
               <InputLabel>Скорость (Hz)</InputLabel>
               <Select
@@ -298,7 +312,7 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
               </Select>
             </FormControl>
           )}
-          {settings.mode === "Slave" &&
+          {(settings.mode || "Master") === "Slave" &&
             boardConfig?.peripherals.I2C?.slaveAddressRange && (
               <TextField
                 fullWidth
@@ -322,6 +336,24 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                 helperText={`Диапазон: ${boardConfig?.peripherals.I2C?.slaveAddressRange?.[0]}-${boardConfig?.peripherals.I2C?.slaveAddressRange?.[1]}`}
               />
             )}
+          {boardConfig?.peripherals.I2C?.enableInterrupt && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={settings.enableInterrupt || false}
+                  onChange={(e) =>
+                    handleSettingChange("enableInterrupt", e.target.checked)
+                  }
+                />
+              }
+              label={
+                <Typography variant="body2">
+                  Включить прерывания (TWI_vect) - событие на шине I2C
+                </Typography>
+              }
+              sx={{ mt: 1 }}
+            />
+          )}
         </>
       );
 

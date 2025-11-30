@@ -114,7 +114,10 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
                     width: "100%",
                   }}
                 >
-                  <Typography>{func.type}</Typography>
+                  <Typography>
+                    {func.type}
+                    {func.role && ` (${func.role})`}
+                  </Typography>
                   {isSelected && (
                     <Chip label="Активна" size="small" color="primary" />
                   )}
@@ -132,6 +135,8 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
 const getDefaultSettings = (funcType: string): Record<string, unknown> => {
   if (funcType === "PCINT") return {};
   if (funcType === "ANALOG_COMPARATOR") return { interruptMode: "Both" };
+  if (funcType === "SPI") return { mode: "Master", speed: "fosc/16", cpol: 0, cpha: 0 };
+  if (funcType === "I2C") return { mode: "Master", speed: 100000 };
   return {};
 };
 

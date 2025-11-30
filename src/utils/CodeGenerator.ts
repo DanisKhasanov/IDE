@@ -37,10 +37,18 @@ export class CodeGenerator {
       }
     }
     if (functionsByType.SPI && functionsByType.SPI.length > 0) {
-      initFunctions.push(this.generateSPIInit(functionsByType.SPI[0]));
+      const spiFunc = functionsByType.SPI[0];
+      initFunctions.push(this.generateSPIInit(spiFunc));
+      if (spiFunc.settings?.enableInterrupt) {
+        isrFunctions.push(this.generateSPIISR());
+      }
     }
     if (functionsByType.I2C && functionsByType.I2C.length > 0) {
-      initFunctions.push(this.generateI2CInit(functionsByType.I2C[0]));
+      const i2cFunc = functionsByType.I2C[0];
+      initFunctions.push(this.generateI2CInit(i2cFunc));
+      if (i2cFunc.settings?.enableInterrupt) {
+        isrFunctions.push(this.generateI2CISR());
+      }
     }
     if (functionsByType.EXTERNAL_INTERRUPT && functionsByType.EXTERNAL_INTERRUPT.length > 0) {
       const extInt = functionsByType.EXTERNAL_INTERRUPT;
@@ -80,7 +88,7 @@ export class CodeGenerator {
     }
 
     // Генерируем main функцию
-    const mainCode = this.generateMainFunction(initFunctions);
+    const mainCode = this.generateMainFunction(initFunctions, selectedPins);
 
     // Собираем весь код
     return `${includes}
@@ -129,8 +137,15 @@ ${isrFunctions.join("\n\n")}
             p.settings?.enableUDREInterrupt
           );
         }
-        // Для SPI и I2C пока не реализованы прерывания, но оставляем проверку на будущее
-        return p.functionType === "SPI" || p.functionType === "I2C";
+        // Для SPI проверяем, включены ли прерывания
+        if (p.functionType === "SPI") {
+          return p.settings?.enableInterrupt || false;
+        }
+        // Для I2C проверяем, включены ли прерывания
+        if (p.functionType === "I2C") {
+          return p.settings?.enableInterrupt || false;
+        }
+        return false;
       }
     );
 
@@ -202,7 +217,6 @@ ${isrFunctions.join("\n\n")}
   }
 
   private generateUARTInit(func: SelectedPinFunction): string {
-    const baud = func.settings.baud || 9600;
     const dataBits = func.settings.dataBits || 8;
     const stopBits = func.settings.stopBits || 1;
     const parity = func.settings.parity || "None";
@@ -215,15 +229,16 @@ ${isrFunctions.join("\n\n")}
     const parityChar = parity === "Even" ? "E" : parity === "Odd" ? "O" : "N";
     const formatString = `${dataBits}${parityChar}${stopBits}`;
 
-    const code: string[] = ["void uart_init() {"];
+    // Согласно документации, функция принимает параметр baud
+    const code: string[] = [`void uart_init(unsigned long baud) {`];
     
     // Используем формулу согласно документации
     if (mode === "Asynchronous") {
-      code.push(`    UBRR0H = (F_CPU / 16 / ${baud} - 1) >> 8;`);
-      code.push(`    UBRR0L = (F_CPU / 16 / ${baud} - 1);`);
+      code.push(`    UBRR0H = (F_CPU / 16 / baud - 1) >> 8;`);
+      code.push(`    UBRR0L = (F_CPU / 16 / baud - 1);`);
     } else {
-      code.push(`    UBRR0H = (F_CPU / 2 / ${baud} - 1) >> 8; // Формула для синхронного режима`);
-      code.push(`    UBRR0L = (F_CPU / 2 / ${baud} - 1);`);
+      code.push(`    UBRR0H = (F_CPU / 2 / baud - 1) >> 8; // Формула для синхронного режима`);
+      code.push(`    UBRR0L = (F_CPU / 2 / baud - 1);`);
     }
     
     // Формируем UCSR0B с прерываниями
@@ -243,7 +258,7 @@ ${isrFunctions.join("\n\n")}
     }
 
     const ucsr0b = ucsr0bParts.join(" | ");
-    code.push(`    UCSR0B = ${ucsr0b};`);
+    code.push(`    UCSR0B = ${ucsr0b}; // Включить RX и TX`);
 
     // Настройка формата данных
     // UCSZ02, UCSZ01, UCSZ00 определяют количество бит данных
@@ -275,7 +290,8 @@ ${isrFunctions.join("\n\n")}
     }
 
     if (mode === "Synchronous") {
-      ucsr0cParts.push("(1 << UMSEL01) | (1 << UMSEL00)");
+      ucsr0cParts.push("(1 << UMSEL01) | (1 << UMSEL00)"); // Синхронный режим
+      ucsr0cParts.push("(1 << UCPOL0)"); // Полярность такта (согласно документации)
     }
 
     const ucsr0c = ucsr0cParts.join(" | ");
@@ -335,6 +351,7 @@ ${isrFunctions.join("\n\n")}
     const cpol = func.settings.cpol || 0;
     const cpha = func.settings.cpha || 0;
     const speed = func.settings.speed || "fosc/16";
+    const enableInterrupt = func.settings.enableInterrupt || false;
 
     const speedMap: Record<string, string> = {
       "fosc/4": "0",
@@ -348,12 +365,19 @@ ${isrFunctions.join("\n\n")}
       code.push("void spi_init_master() {");
       code.push("    DDRB |= (1 << DDB2) | (1 << DDB3) | (1 << DDB5); // SS, MOSI, SCK как OUTPUT");
       code.push("    DDRB &= ~(1 << DDB4); // MISO как INPUT");
-      code.push(`    SPCR = (1 << SPE) | (1 << MSTR) | ${speedMap[speed]}; // Enable SPI, Master`);
+      const spcrParts = ["(1 << SPE)", "(1 << MSTR)", speedMap[speed]];
+      if (enableInterrupt) {
+        spcrParts.push("(1 << SPIE)");
+      }
+      code.push(`    SPCR = ${spcrParts.join(" | ")}; // Enable SPI, Master${enableInterrupt ? ", Interrupt" : ""}`);
       if (cpol === 1) {
         code.push("    SPCR |= (1 << CPOL); // Clock idle high");
       }
       if (cpha === 1) {
         code.push("    SPCR |= (1 << CPHA); // Sample on trailing edge");
+      }
+      if (enableInterrupt) {
+        code.push("    sei(); // Enable global interrupts");
       }
       code.push("}");
     } else {
@@ -362,12 +386,19 @@ ${isrFunctions.join("\n\n")}
       code.push("    DDRB &= ~(1 << DDB3); // MOSI как INPUT");
       code.push("    DDRB |= (1 << DDB4); // MISO как OUTPUT");
       code.push("    DDRB &= ~(1 << DDB5); // SCK как INPUT");
-      code.push("    SPCR = (1 << SPE); // Enable SPI, Slave mode");
+      const spcrParts = ["(1 << SPE)"];
+      if (enableInterrupt) {
+        spcrParts.push("(1 << SPIE)");
+      }
+      code.push(`    SPCR = ${spcrParts.join(" | ")}; // Enable SPI, Slave mode${enableInterrupt ? ", Interrupt" : ""}`);
       if (cpol === 1) {
         code.push("    SPCR |= (1 << CPOL);");
       }
       if (cpha === 1) {
         code.push("    SPCR |= (1 << CPHA);");
+      }
+      if (enableInterrupt) {
+        code.push("    sei(); // Enable global interrupts");
       }
       code.push("}");
     }
@@ -375,26 +406,75 @@ ${isrFunctions.join("\n\n")}
     return code.join("\n");
   }
 
+  private generateSPIISR(): string {
+    return `ISR(SPI_STC_vect) {
+    // Прерывание при завершении передачи/приёма SPI
+    uint8_t received_data = SPDR; // Прочитать принятый байт
+    // TODO: Обработать полученные данные
+    // Например, отправить следующий байт:
+    // SPDR = next_byte_to_send;
+}`;
+  }
+
   private generateI2CInit(func: SelectedPinFunction): string {
     const mode = func.settings.mode || "Master";
     const speed = func.settings.speed || 100000;
+    const enableInterrupt = func.settings.enableInterrupt || false;
 
     const code: string[] = [];
     if (mode === "Master") {
       code.push("void i2c_init_master() {");
       code.push("    TWSR = 0; // Prescaler 1");
       code.push(`    TWBR = (F_CPU / ${speed}UL - 16) / 2; // ${speed / 1000}kHz`);
+      if (enableInterrupt) {
+        code.push("    TWCR = (1 << TWEN) | (1 << TWIE); // Enable TWI, Interrupt");
+        code.push("    sei(); // Включить глобальные прерывания");
+      } else {
+        code.push("    TWCR = (1 << TWEN); // Enable TWI");
+      }
       code.push("}");
     } else {
       const address = func.settings.slaveAddress || 0x08;
       code.push("void i2c_init_slave() {");
       code.push(`    TWAR = ${address} << 1; // Установить собственный адрес`);
-      code.push("    TWCR = (1 << TWEN) | (1 << TWIE) | (1 << TWEA); // Enable TWI");
-      code.push("    sei(); // Включить глобальные прерывания");
+      if (enableInterrupt) {
+        code.push("    TWCR = (1 << TWEN) | (1 << TWIE) | (1 << TWEA); // Enable TWI, Interrupt");
+        code.push("    sei(); // Включить глобальные прерывания");
+      } else {
+        code.push("    TWCR = (1 << TWEN) | (1 << TWEA); // Enable TWI");
+      }
       code.push("}");
     }
 
     return code.join("\n");
+  }
+
+  private generateI2CISR(): string {
+    return `ISR(TWI_vect) {
+    // Прерывание при событии на шине I2C
+    uint8_t status = TWSR & 0xF8; // Статус TWI (маска битов состояния)
+    
+    // Обработка различных состояний TWI:
+    // - START отправлен
+    // - SLA+W/R отправлен/принят
+    // - DATA отправлен/принят
+    // - STOP отправлен
+    // - Ошибки (NACK, bus error и т.д.)
+    
+    switch (status) {
+        // TODO: Добавить обработку состояний TWI
+        // Примеры состояний:
+        // 0x08: START отправлен
+        // 0x18: SLA+W отправлен, получен ACK
+        // 0x28: DATA отправлен, получен ACK
+        // 0x60: SLA+W принят, ACK отправлен
+        // 0x80: DATA принят, ACK отправлен
+        // 0xA0: STOP или повторный START принят
+        default:
+            // Неизвестное состояние или ошибка
+            break;
+    }
+}`;
   }
 
   private generateExternalInterruptInit(func: SelectedPinFunction): string {
@@ -737,10 +817,23 @@ ${isrFunctions.join("\n\n")}
 }`;
   }
 
-  private generateMainFunction(initFunctions: string[]): string {
+  private generateMainFunction(initFunctions: string[], selectedPins: SelectedPinFunction[]): string {
+    // Находим настройки UART для передачи параметра baud
+    const uartFunc = selectedPins.find((p) => p.functionType === "UART");
+    const uartBaud = uartFunc?.settings?.baud || 9600;
+
     const functionCalls = initFunctions.map((func) => {
       const match = func.match(/void\s+(\w+)\s*\(/);
-      return match ? `    ${match[1]}();` : "";
+      if (!match) return "";
+      
+      const funcName = match[1];
+      
+      // Для uart_init передаём параметр baud согласно документации
+      if (funcName === "uart_init") {
+        return `    ${funcName}(${uartBaud});`;
+      }
+      
+      return `    ${funcName}();`;
     }).filter(Boolean);
 
     return `int main(void) {

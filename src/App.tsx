@@ -13,7 +13,7 @@ import CodeEditorPanel from "@components/CodeEditorPanel";
 import InfoPanel from "@components/InfoPanel";
 import ProjectTree from "@components/ProjectTree";
 import ArduinoToolbar from "@components/ArduinoToolbar";
-import NewProjectModal from "@src/components/InitProject/NewProjectModal";
+import NewProjectModal from "@/components/NewProjectModal";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import TerminalIcon from "@mui/icons-material/Terminal";

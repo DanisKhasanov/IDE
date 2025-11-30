@@ -17,8 +17,8 @@ import CloseIcon from "@mui/icons-material/Close";
 import type {
   BoardConfig,
   SelectedPinFunction,
-} from "../../../types/boardConfig";
-import { RenderSettings } from "@utils/init-project/RenderSettings";
+} from "../types/boardConfig";
+import { RenderSettings } from "@/utils/RenderSettings";
 
 interface SelectedPinsPanelProps {
   selectedPinFunctions: Record<string, SelectedPinFunction[]>;
@@ -153,7 +153,14 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
                         )}
                         <TableCell sx={{ py: 0.75 }}>
                           <Chip
-                            label={func.functionType}
+                            label={
+                              (() => {
+                                const pinFunc = pin.functions.find((f) => f.type === func.functionType);
+                                return pinFunc?.role
+                                  ? `${func.functionType} (${pinFunc.role})`
+                                  : func.functionType;
+                              })()
+                            }
                             size="small"
                             color="primary"
                             variant="outlined"
@@ -217,6 +224,7 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
                       sx={{ fontWeight: "bold", mb: 2 }}
                     >
                       {pin.arduinoName} ({pin.name}) - {func.functionType}
+                      {pinFunc.role && ` (${pinFunc.role})`}
                     </Typography>
                     <Box sx={{ overflow: "auto", flex: 1 }}>
                       <RenderSettings

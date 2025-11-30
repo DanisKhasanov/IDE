@@ -473,14 +473,22 @@
       "modes": ["Master", "Slave"],
       "cpol": [0, 1],
       "cpha": [0, 1],
-      "speeds": ["fosc/4", "fosc/16", "fosc/64", "fosc/128"]
+      "speeds": ["fosc/4", "fosc/16", "fosc/64", "fosc/128"],
+      "enableInterrupt": true
     },
     "I2C": {
       "available": true,
       "pins": ["PC4", "PC5"],
       "modes": ["Master", "Slave"],
       "speeds": [100000, 400000],
-      "slaveAddressRange": [8, 119]
+      "slaveAddressRange": [8, 119],
+      "enableInterrupt": true,
+      "interrupts": {
+        "TWI": {
+          "available": true,
+          "description": "Прерывание при событии на шине I2C (TWI_vect)"
+        }
+      }
     },
     "TIMER0": {
       "available": true,
