@@ -63,13 +63,28 @@ export class CodeGenerator {
       isrFunctions.push(this.generatePCINTISR(functionsByType.PCINT));
     }
     if (functionsByType.TIMER0_PWM && functionsByType.TIMER0_PWM.length > 0) {
-      initFunctions.push(this.generateTimer0PWMInit(functionsByType.TIMER0_PWM[0]));
+      const timer0Func = functionsByType.TIMER0_PWM[0];
+      initFunctions.push(this.generateTimer0PWMInit(timer0Func));
+      const timer0ISR = this.generateTimer0ISR(timer0Func);
+      if (timer0ISR) {
+        isrFunctions.push(timer0ISR);
+      }
     }
     if (functionsByType.TIMER1_PWM && functionsByType.TIMER1_PWM.length > 0) {
-      initFunctions.push(this.generateTimer1PWMInit(functionsByType.TIMER1_PWM[0]));
+      const timer1Func = functionsByType.TIMER1_PWM[0];
+      initFunctions.push(this.generateTimer1PWMInit(timer1Func));
+      const timer1ISR = this.generateTimer1ISR(timer1Func);
+      if (timer1ISR) {
+        isrFunctions.push(timer1ISR);
+      }
     }
     if (functionsByType.TIMER2_PWM && functionsByType.TIMER2_PWM.length > 0) {
-      initFunctions.push(this.generateTimer2PWMInit(functionsByType.TIMER2_PWM[0]));
+      const timer2Func = functionsByType.TIMER2_PWM[0];
+      initFunctions.push(this.generateTimer2PWMInit(timer2Func));
+      const timer2ISR = this.generateTimer2ISR(timer2Func);
+      if (timer2ISR) {
+        isrFunctions.push(timer2ISR);
+      }
     }
     if (functionsByType.ADC && functionsByType.ADC.length > 0) {
       initFunctions.push(this.generateADCInit(functionsByType.ADC[0]));
@@ -78,8 +93,12 @@ export class CodeGenerator {
       }
     }
     if (functionsByType.ANALOG_COMPARATOR && functionsByType.ANALOG_COMPARATOR.length > 0) {
-      initFunctions.push(this.generateAnalogComparatorInit());
-      isrFunctions.push(this.generateAnalogComparatorISR());
+      const analogComparatorFunc = functionsByType.ANALOG_COMPARATOR[0];
+      initFunctions.push(this.generateAnalogComparatorInit(analogComparatorFunc));
+      const comparatorISR = this.generateAnalogComparatorISR(analogComparatorFunc);
+      if (comparatorISR) {
+        isrFunctions.push(comparatorISR);
+      }
     }
     if (functionsByType.WATCHDOG && functionsByType.WATCHDOG.length > 0) {
       initFunctions.push(this.generateWatchdogInit(functionsByType.WATCHDOG[0]));
@@ -100,6 +119,219 @@ ${mainCode}
 
 ${isrFunctions.join("\n\n")}
 `;
+  }
+
+  /**
+   * Генерирует заголовочный файл с объявлениями функций инициализации
+   */
+  generateInitHeader(selectedPins: SelectedPinFunction[]): string {
+    const includes = this.generateIncludes(selectedPins);
+    const functionDeclarations: string[] = [];
+    const functionsByType = this.groupFunctionsByType(selectedPins);
+
+    // Генерируем объявления функций
+    if (functionsByType.GPIO && functionsByType.GPIO.length > 0) {
+      functionDeclarations.push("void gpio_init(void);");
+    }
+    if (functionsByType.UART && functionsByType.UART.length > 0) {
+      functionDeclarations.push("void uart_init(unsigned long baud);");
+    }
+    if (functionsByType.SPI && functionsByType.SPI.length > 0) {
+      const spiFunc = functionsByType.SPI[0];
+      if (spiFunc.settings?.mode === "Master") {
+        functionDeclarations.push("void spi_init_master(void);");
+      } else {
+        functionDeclarations.push("void spi_init_slave(void);");
+      }
+    }
+    if (functionsByType.I2C && functionsByType.I2C.length > 0) {
+      const i2cFunc = functionsByType.I2C[0];
+      if (i2cFunc.settings?.mode === "Master") {
+        functionDeclarations.push("void i2c_init_master(void);");
+      } else {
+        functionDeclarations.push("void i2c_init_slave(void);");
+      }
+    }
+    if (functionsByType.EXTERNAL_INTERRUPT && functionsByType.EXTERNAL_INTERRUPT.length > 0) {
+      functionsByType.EXTERNAL_INTERRUPT.forEach((func) => {
+        const pin = this.findPinByName(func.pinName);
+        if (pin) {
+          const interrupt = pin.functions.find((f) => f.type === "EXTERNAL_INTERRUPT");
+          if (interrupt && interrupt.interrupt) {
+            functionDeclarations.push(`void external_interrupt_${interrupt.interrupt.toLowerCase()}_init(void);`);
+          }
+        }
+      });
+    }
+    if (functionsByType.PCINT && functionsByType.PCINT.length > 0) {
+      functionDeclarations.push("void gpio_pcint_init(void);");
+    }
+    if (functionsByType.TIMER0_PWM && functionsByType.TIMER0_PWM.length > 0) {
+      functionDeclarations.push("void timer0_pwm_init(void);");
+    }
+    if (functionsByType.TIMER1_PWM && functionsByType.TIMER1_PWM.length > 0) {
+      const timer1Func = functionsByType.TIMER1_PWM[0];
+      if (timer1Func.settings?.mode === "InputCapture") {
+        functionDeclarations.push("void timer1_icp_init(void);");
+      } else {
+        functionDeclarations.push("void timer1_pwm_init(void);");
+      }
+    }
+    if (functionsByType.TIMER2_PWM && functionsByType.TIMER2_PWM.length > 0) {
+      functionDeclarations.push("void timer2_pwm_init(void);");
+    }
+    if (functionsByType.ADC && functionsByType.ADC.length > 0) {
+      functionDeclarations.push("void adc_init(void);");
+    }
+    if (functionsByType.ANALOG_COMPARATOR && functionsByType.ANALOG_COMPARATOR.length > 0) {
+      functionDeclarations.push("void analog_comparator_init(void);");
+    }
+    if (functionsByType.WATCHDOG && functionsByType.WATCHDOG.length > 0) {
+      functionDeclarations.push("void wdt_init(void);");
+    }
+
+    // Главная функция инициализации
+    functionDeclarations.push("void pins_init_all(void);");
+
+    return `#ifndef PINS_INIT_H
+#define PINS_INIT_H
+
+${includes}
+
+${functionDeclarations.join("\n")}
+
+#endif // PINS_INIT_H
+`;
+  }
+
+  /**
+   * Генерирует файл реализации с определениями функций инициализации
+   */
+  generateInitImplementation(selectedPins: SelectedPinFunction[]): string {
+    const initFunctions: string[] = [];
+    const isrFunctions: string[] = [];
+    const functionsByType = this.groupFunctionsByType(selectedPins);
+
+    // Генерируем функции инициализации
+    if (functionsByType.GPIO && functionsByType.GPIO.length > 0) {
+      initFunctions.push(this.generateGPIOInit(functionsByType.GPIO));
+    }
+    if (functionsByType.UART && functionsByType.UART.length > 0) {
+      const uartFunc = functionsByType.UART[0];
+      initFunctions.push(this.generateUARTInit(uartFunc));
+      const uartISR = this.generateUARTISR(uartFunc);
+      if (uartISR) {
+        isrFunctions.push(uartISR);
+      }
+    }
+    if (functionsByType.SPI && functionsByType.SPI.length > 0) {
+      const spiFunc = functionsByType.SPI[0];
+      initFunctions.push(this.generateSPIInit(spiFunc));
+      if (spiFunc.settings?.enableInterrupt) {
+        isrFunctions.push(this.generateSPIISR());
+      }
+    }
+    if (functionsByType.I2C && functionsByType.I2C.length > 0) {
+      const i2cFunc = functionsByType.I2C[0];
+      initFunctions.push(this.generateI2CInit(i2cFunc));
+      if (i2cFunc.settings?.enableInterrupt) {
+        isrFunctions.push(this.generateI2CISR());
+      }
+    }
+    if (functionsByType.EXTERNAL_INTERRUPT && functionsByType.EXTERNAL_INTERRUPT.length > 0) {
+      const extInt = functionsByType.EXTERNAL_INTERRUPT;
+      extInt.forEach((func) => {
+        initFunctions.push(this.generateExternalInterruptInit(func));
+        isrFunctions.push(this.generateExternalInterruptISR(func));
+      });
+    }
+    if (functionsByType.PCINT && functionsByType.PCINT.length > 0) {
+      initFunctions.push(this.generatePCINTInit(functionsByType.PCINT));
+      isrFunctions.push(this.generatePCINTISR(functionsByType.PCINT));
+    }
+    if (functionsByType.TIMER0_PWM && functionsByType.TIMER0_PWM.length > 0) {
+      const timer0Func = functionsByType.TIMER0_PWM[0];
+      initFunctions.push(this.generateTimer0PWMInit(timer0Func));
+      const timer0ISR = this.generateTimer0ISR(timer0Func);
+      if (timer0ISR) {
+        isrFunctions.push(timer0ISR);
+      }
+    }
+    if (functionsByType.TIMER1_PWM && functionsByType.TIMER1_PWM.length > 0) {
+      const timer1Func = functionsByType.TIMER1_PWM[0];
+      initFunctions.push(this.generateTimer1PWMInit(timer1Func));
+      const timer1ISR = this.generateTimer1ISR(timer1Func);
+      if (timer1ISR) {
+        isrFunctions.push(timer1ISR);
+      }
+    }
+    if (functionsByType.TIMER2_PWM && functionsByType.TIMER2_PWM.length > 0) {
+      const timer2Func = functionsByType.TIMER2_PWM[0];
+      initFunctions.push(this.generateTimer2PWMInit(timer2Func));
+      const timer2ISR = this.generateTimer2ISR(timer2Func);
+      if (timer2ISR) {
+        isrFunctions.push(timer2ISR);
+      }
+    }
+    if (functionsByType.ADC && functionsByType.ADC.length > 0) {
+      initFunctions.push(this.generateADCInit(functionsByType.ADC[0]));
+      if (functionsByType.ADC[0].settings.mode === "FreeRunning") {
+        isrFunctions.push(this.generateADCISR());
+      }
+    }
+    if (functionsByType.ANALOG_COMPARATOR && functionsByType.ANALOG_COMPARATOR.length > 0) {
+      const analogComparatorFunc = functionsByType.ANALOG_COMPARATOR[0];
+      initFunctions.push(this.generateAnalogComparatorInit(analogComparatorFunc));
+      const comparatorISR = this.generateAnalogComparatorISR(analogComparatorFunc);
+      if (comparatorISR) {
+        isrFunctions.push(comparatorISR);
+      }
+    }
+    if (functionsByType.WATCHDOG && functionsByType.WATCHDOG.length > 0) {
+      initFunctions.push(this.generateWatchdogInit(functionsByType.WATCHDOG[0]));
+      if (functionsByType.WATCHDOG[0].settings.mode === "Interrupt") {
+        isrFunctions.push(this.generateWatchdogISR());
+      }
+    }
+
+    // Генерируем функцию, которая вызывает все функции инициализации
+    const initAllFunction = this.generateInitAllFunction(initFunctions, selectedPins);
+
+    return `#include "pins_init.h"
+
+${initFunctions.join("\n\n")}
+
+${initAllFunction}
+
+${isrFunctions.join("\n\n")}
+`;
+  }
+
+  /**
+   * Генерирует функцию, которая вызывает все функции инициализации
+   */
+  private generateInitAllFunction(initFunctions: string[], selectedPins: SelectedPinFunction[]): string {
+    const uartFunc = selectedPins.find((p) => p.functionType === "UART");
+    const defaultBaud = this.boardConfig.peripherals.UART?.baudRates?.[0] || 9600;
+    const uartBaud = uartFunc?.settings?.baud || defaultBaud;
+
+    const functionCalls = initFunctions.map((func) => {
+      const match = func.match(/void\s+(\w+)\s*\(/);
+      if (!match) return "";
+      
+      const funcName = match[1];
+      
+      // Для uart_init передаём параметр baud
+      if (funcName === "uart_init") {
+        return `    ${funcName}(${uartBaud});`;
+      }
+      
+      return `    ${funcName}();`;
+    }).filter(Boolean);
+
+    return `void pins_init_all(void) {
+${functionCalls.join("\n")}
+}`;
   }
 
   private generateIncludes(selectedPins: SelectedPinFunction[]): string {
@@ -124,11 +356,17 @@ ${isrFunctions.join("\n\n")}
         if (
           p.functionType === "EXTERNAL_INTERRUPT" ||
           p.functionType === "PCINT" ||
-          p.functionType === "ADC" ||
-          p.functionType === "ANALOG_COMPARATOR" ||
-          p.functionType === "WATCHDOG"
+          p.functionType === "ANALOG_COMPARATOR"
         ) {
           return true;
+        }
+        // Для ADC прерывания нужны только в режиме FreeRunning
+        if (p.functionType === "ADC") {
+          return p.settings?.mode === "FreeRunning";
+        }
+        // Для WATCHDOG прерывания нужны только в режиме Interrupt
+        if (p.functionType === "WATCHDOG") {
+          return p.settings?.mode === "Interrupt";
         }
         // Для UART проверяем, включены ли прерывания
         if (p.functionType === "UART") {
@@ -639,8 +877,11 @@ ${isrFunctions.join("\n\n")}
     if (!pin) return "";
 
     const channel = pin.functions.find((f) => f.type === "TIMER0_PWM")?.channel || "OC0A";
+    const mode = func.settings.mode || "FastPWM";
     const prescaler = func.settings.prescaler || 64;
     const dutyCycle = func.settings.dutyCycle || 128;
+    const topValue = func.settings.topValue || 128;
+    const enableInterrupt = func.settings.enableInterrupt || false;
 
     const prescalerMap: Record<number, string> = {
       1: "(1 << CS00)",
@@ -654,13 +895,46 @@ ${isrFunctions.join("\n\n")}
     const port = getPortFromPin(pin.pin);
     const bit = getBitFromPin(pin.pin);
     const portLetter = this.getPortLetter(port);
-    code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
-    code.push(`    TCCR0A |= (1 << WGM01) | (1 << WGM00); // Fast PWM`);
-    code.push(`    TCCR0A |= (1 << COM0${channel.slice(-1)}1); // Clear on compare match`);
-    code.push(`    TCCR0B |= ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
-    code.push(`    OCR0${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
-    code.push("}");
 
+    if (mode === "Normal") {
+      // Normal Mode 0: WGM02=0, WGM01=0, WGM00=0
+      code.push(`    TCCR0A = 0; // Normal mode`);
+      code.push(`    TCCR0B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      if (enableInterrupt) {
+        code.push(`    TIMSK0 |= (1 << TOIE0); // Enable overflow interrupt`);
+        code.push(`    sei(); // Enable global interrupts`);
+      }
+    } else if (mode === "CTC") {
+      // CTC Mode 2: WGM02=0, WGM01=1, WGM00=0
+      code.push(`    TCCR0A = (1 << WGM01); // CTC mode`);
+      code.push(`    TCCR0B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      code.push(`    OCR0A = ${topValue}; // TOP value`);
+      if (enableInterrupt) {
+        code.push(`    TIMSK0 |= (1 << OCIE0A); // Enable compare match interrupt`);
+        code.push(`    sei(); // Enable global interrupts`);
+      }
+    } else if (mode === "FastPWM") {
+      // Fast PWM Mode 3: WGM02=0, WGM01=1, WGM00=1
+      code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
+      code.push(`    TCCR0A = (1 << WGM01) | (1 << WGM00) | (1 << COM0${channel.slice(-1)}1); // Fast PWM, Clear on compare match`);
+      code.push(`    TCCR0B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      code.push(`    OCR0${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
+    } else if (mode === "PhaseCorrectPWM") {
+      // Phase Correct PWM Mode 1: WGM02=0, WGM01=0, WGM00=1
+      code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
+      code.push(`    TCCR0A = (1 << WGM00) | (1 << COM0${channel.slice(-1)}1); // Phase Correct PWM, Clear on compare match when up-counting`);
+      code.push(`    TCCR0B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      code.push(`    OCR0${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
+    } else if (mode === "PhaseFrequencyCorrectPWM") {
+      // Phase and Frequency Correct PWM Mode 1: WGM02=0, WGM01=0, WGM00=1
+      // Для Timer0 это то же самое, что Phase Correct PWM
+      code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
+      code.push(`    TCCR0A = (1 << WGM00) | (1 << COM0${channel.slice(-1)}1); // Phase and Frequency Correct PWM`);
+      code.push(`    TCCR0B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      code.push(`    OCR0${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
+    }
+    
+    code.push("}");
     return code.join("\n");
   }
 
@@ -668,9 +942,13 @@ ${isrFunctions.join("\n\n")}
     const pin = this.findPinByName(func.pinName);
     if (!pin) return "";
 
-    const channel = pin.functions.find((f) => f.type === "TIMER1_PWM")?.channel || "OC1A";
+    const mode = func.settings.mode || "FastPWM";
     const prescaler = func.settings.prescaler || 8;
     const dutyCycle = func.settings.dutyCycle || 32768;
+    const topValue = func.settings.topValue || 65535;
+    const enableInterrupt = func.settings.enableInterrupt || false;
+    const trigger = func.settings.trigger || "RISING";
+    const noiseCanceler = func.settings.noiseCanceler || false;
 
     const prescalerMap: Record<number, string> = {
       1: "(1 << CS10)",
@@ -680,16 +958,71 @@ ${isrFunctions.join("\n\n")}
       1024: "(1 << CS12) | (1 << CS10)",
     };
 
+    if (mode === "InputCapture") {
+      // Input Capture Mode - пин ICP1 (PD0/Arduino pin 8)
+      const code: string[] = ["void timer1_icp_init() {"];
+      code.push(`    TCCR1B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      if (trigger === "RISING") {
+        code.push(`    TCCR1B |= (1 << ICES1); // Capture на RISING edge`);
+      } else {
+        code.push(`    // Capture на FALLING edge (ICES1 не установлен)`);
+      }
+      if (noiseCanceler) {
+        code.push(`    TCCR1B |= (1 << ICNC1); // Noise Canceler`);
+      }
+      if (enableInterrupt) {
+        code.push(`    TIMSK1 |= (1 << ICIE1); // Enable Input Capture Interrupt`);
+        code.push(`    sei(); // Enable global interrupts`);
+      }
+      code.push("}");
+      return code.join("\n");
+    }
+
+    const channel = pin.functions.find((f) => f.type === "TIMER1_PWM")?.channel || "OC1A";
     const code: string[] = ["void timer1_pwm_init() {"];
     const port = getPortFromPin(pin.pin);
     const bit = getBitFromPin(pin.pin);
     const portLetter = this.getPortLetter(port);
-    code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
-    code.push(`    TCCR1A |= (1 << COM1${channel.slice(-1)}1) | (1 << WGM10); // Fast PWM`);
-    code.push(`    TCCR1B |= (1 << WGM12) | ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
-    code.push(`    OCR1${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
-    code.push("}");
 
+    if (mode === "Normal") {
+      // Normal Mode 0: WGM13=0, WGM12=0, WGM11=0, WGM10=0
+      code.push(`    TCCR1A = 0; // Normal mode`);
+      code.push(`    TCCR1B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      if (enableInterrupt) {
+        code.push(`    TIMSK1 |= (1 << TOIE1); // Enable overflow interrupt`);
+        code.push(`    sei(); // Enable global interrupts`);
+      }
+    } else if (mode === "CTC") {
+      // CTC Mode 4: WGM13=0, WGM12=1, WGM11=0, WGM10=0
+      code.push(`    TCCR1A = 0; // CTC mode`);
+      code.push(`    TCCR1B = (1 << WGM12) | ${prescalerMap[prescaler]}; // CTC, Prescaler ${prescaler}`);
+      code.push(`    OCR1A = ${topValue}; // TOP value`);
+      if (enableInterrupt) {
+        code.push(`    TIMSK1 |= (1 << OCIE1A); // Enable compare match interrupt`);
+        code.push(`    sei(); // Enable global interrupts`);
+      }
+    } else if (mode === "FastPWM") {
+      // Fast PWM Mode 14 (10-bit): WGM13=1, WGM12=1, WGM11=1, WGM10=0
+      code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
+      code.push(`    TCCR1A = (1 << COM1${channel.slice(-1)}1) | (1 << WGM11); // Fast PWM 10-bit, Clear on compare match`);
+      code.push(`    TCCR1B = (1 << WGM13) | (1 << WGM12) | ${prescalerMap[prescaler]}; // Fast PWM Mode 14, Prescaler ${prescaler}`);
+      code.push(`    OCR1${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
+    } else if (mode === "PhaseCorrectPWM") {
+      // Phase Correct PWM Mode 1 (8-bit): WGM13=0, WGM12=0, WGM11=0, WGM10=1
+      code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
+      code.push(`    TCCR1A = (1 << COM1${channel.slice(-1)}1) | (1 << WGM10); // Phase Correct PWM 8-bit`);
+      code.push(`    TCCR1B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      code.push(`    OCR1${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
+    } else if (mode === "PhaseFrequencyCorrectPWM") {
+      // Phase and Frequency Correct PWM Mode 8: WGM13=1, WGM12=0, WGM11=0, WGM10=1
+      code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
+      code.push(`    TCCR1A = (1 << COM1${channel.slice(-1)}1) | (1 << WGM10); // Phase and Frequency Correct PWM`);
+      code.push(`    TCCR1B = (1 << WGM13) | ${prescalerMap[prescaler]}; // TOP = ICR1, Prescaler ${prescaler}`);
+      code.push(`    ICR1 = ${topValue}; // TOP value (частота ШИМ)`);
+      code.push(`    OCR1${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
+    }
+
+    code.push("}");
     return code.join("\n");
   }
 
@@ -698,8 +1031,11 @@ ${isrFunctions.join("\n\n")}
     if (!pin) return "";
 
     const channel = pin.functions.find((f) => f.type === "TIMER2_PWM")?.channel || "OC2A";
+    const mode = func.settings.mode || "FastPWM";
     const prescaler = func.settings.prescaler || 64;
     const dutyCycle = func.settings.dutyCycle || 128;
+    const topValue = func.settings.topValue || 128;
+    const enableInterrupt = func.settings.enableInterrupt || false;
 
     const prescalerMap: Record<number, string> = {
       1: "(1 << CS20)",
@@ -715,14 +1051,117 @@ ${isrFunctions.join("\n\n")}
     const port = getPortFromPin(pin.pin);
     const bit = getBitFromPin(pin.pin);
     const portLetter = this.getPortLetter(port);
-    code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
-    code.push(`    TCCR2A |= (1 << WGM21) | (1 << WGM20); // Fast PWM`);
-    code.push(`    TCCR2A |= (1 << COM2${channel.slice(-1)}1); // Clear on compare match`);
-    code.push(`    TCCR2B |= ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
-    code.push(`    OCR2${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
-    code.push("}");
 
+    if (mode === "Normal") {
+      // Normal Mode 0: WGM22=0, WGM21=0, WGM20=0
+      code.push(`    TCCR2A = 0; // Normal mode`);
+      code.push(`    TCCR2B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      if (enableInterrupt) {
+        code.push(`    TIMSK2 |= (1 << TOIE2); // Enable overflow interrupt`);
+        code.push(`    sei(); // Enable global interrupts`);
+      }
+    } else if (mode === "CTC") {
+      // CTC Mode 2: WGM22=0, WGM21=1, WGM20=0
+      code.push(`    TCCR2A = (1 << WGM21); // CTC mode`);
+      code.push(`    TCCR2B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      code.push(`    OCR2A = ${topValue}; // TOP value`);
+      if (enableInterrupt) {
+        code.push(`    TIMSK2 |= (1 << OCIE2A); // Enable compare match interrupt`);
+        code.push(`    sei(); // Enable global interrupts`);
+      }
+    } else if (mode === "FastPWM") {
+      // Fast PWM Mode 3: WGM22=0, WGM21=1, WGM20=1
+      code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
+      code.push(`    TCCR2A = (1 << WGM21) | (1 << WGM20) | (1 << COM2${channel.slice(-1)}1); // Fast PWM, Clear on compare match`);
+      code.push(`    TCCR2B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      code.push(`    OCR2${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
+    } else if (mode === "PhaseCorrectPWM") {
+      // Phase Correct PWM Mode 1: WGM22=0, WGM21=0, WGM20=1
+      code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
+      code.push(`    TCCR2A = (1 << WGM20) | (1 << COM2${channel.slice(-1)}1); // Phase Correct PWM, Clear on compare match when up-counting`);
+      code.push(`    TCCR2B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      code.push(`    OCR2${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
+    } else if (mode === "PhaseFrequencyCorrectPWM") {
+      // Phase and Frequency Correct PWM Mode 5: WGM22=1, WGM21=1, WGM20=1
+      code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
+      code.push(`    TCCR2B = (1 << WGM22) | ${prescalerMap[prescaler]}; // Phase and Frequency Correct PWM, Prescaler ${prescaler}`);
+      code.push(`    TCCR2A = (1 << WGM21) | (1 << WGM20) | (1 << COM2${channel.slice(-1)}1); // TOP = OCR2A`);
+      code.push(`    OCR2A = ${topValue}; // TOP value (частота ШИМ)`);
+      code.push(`    OCR2${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
+    }
+
+    code.push("}");
     return code.join("\n");
+  }
+
+  private generateTimer0ISR(func: SelectedPinFunction): string | null {
+    const mode = func.settings.mode || "FastPWM";
+    const enableInterrupt = func.settings.enableInterrupt || false;
+    
+    if (!enableInterrupt) return null;
+    
+    if (mode === "Normal") {
+      return `ISR(TIMER0_OVF_vect) {
+    // Прерывание по переполнению Timer0
+    // TODO: Обработать событие переполнения
+}`;
+    } else if (mode === "CTC") {
+      return `ISR(TIMER0_COMPA_vect) {
+    // Прерывание по совпадению Timer0 (CTC режим)
+    // TODO: Обработать событие совпадения с OCR0A
+}`;
+    }
+    
+    return null;
+  }
+
+  private generateTimer1ISR(func: SelectedPinFunction): string | null {
+    const mode = func.settings.mode || "FastPWM";
+    const enableInterrupt = func.settings.enableInterrupt || false;
+    
+    if (!enableInterrupt && mode !== "InputCapture") return null;
+    
+    if (mode === "Normal") {
+      return `ISR(TIMER1_OVF_vect) {
+    // Прерывание по переполнению Timer1
+    // TODO: Обработать событие переполнения
+}`;
+    } else if (mode === "CTC") {
+      return `ISR(TIMER1_COMPA_vect) {
+    // Прерывание по совпадению Timer1 (CTC режим)
+    // TODO: Обработать событие совпадения с OCR1A
+}`;
+    } else if (mode === "InputCapture") {
+      return `ISR(TIMER1_CAPT_vect) {
+    // Прерывание Input Capture Timer1
+    uint16_t capture = ICR1; // Считать значение захваченного таймера
+    // TODO: Обработать захваченное значение
+    // Например, измерить длительность импульса
+}`;
+    }
+    
+    return null;
+  }
+
+  private generateTimer2ISR(func: SelectedPinFunction): string | null {
+    const mode = func.settings.mode || "FastPWM";
+    const enableInterrupt = func.settings.enableInterrupt || false;
+    
+    if (!enableInterrupt) return null;
+    
+    if (mode === "Normal") {
+      return `ISR(TIMER2_OVF_vect) {
+    // Прерывание по переполнению Timer2
+    // TODO: Обработать событие переполнения
+}`;
+    } else if (mode === "CTC") {
+      return `ISR(TIMER2_COMPA_vect) {
+    // Прерывание по совпадению Timer2 (CTC режим)
+    // TODO: Обработать событие совпадения с OCR2A
+}`;
+    }
+    
+    return null;
   }
 
   private generateADCInit(func: SelectedPinFunction): string {
@@ -730,11 +1169,20 @@ ${isrFunctions.join("\n\n")}
     if (!pin) return "";
 
     const adcFunc = pin.functions.find((f) => f.type === "ADC");
-    if (!adcFunc || adcFunc.channelNumber === undefined) return "";
-
-    const channel = adcFunc.channelNumber;
+    if (!adcFunc) return "";
+    
+    // Для ADC channel может быть числом (channel) или channelNumber
+    const channel = (adcFunc.channelNumber !== undefined) 
+      ? adcFunc.channelNumber 
+      : (typeof adcFunc.channel === 'number' ? adcFunc.channel : undefined);
+    
+    if (channel === undefined) return "";
     const reference = func.settings.reference || "AVcc";
-    const prescaler = func.settings.prescaler || 128;
+    // Если prescaler не выбран или равен 0, используем значение по умолчанию 128
+    let prescaler = func.settings.prescaler;
+    if (!prescaler || prescaler === 0) {
+      prescaler = 128;
+    }
     const mode = func.settings.mode || "Single";
 
     const refMap: Record<string, string> = {
@@ -753,6 +1201,11 @@ ${isrFunctions.join("\n\n")}
       128: "(1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0)",
     };
 
+    // Проверяем, что prescaler валиден
+    if (!prescalerMap[prescaler]) {
+      prescaler = 128; // Используем значение по умолчанию, если prescaler невалиден
+    }
+
     const code: string[] = ["void adc_init() {"];
     code.push(`    ADMUX = ${refMap[reference]}; // ${reference} как опорное напряжение`);
     code.push(`    ADMUX |= ${channel}; // Канал ADC${channel}`);
@@ -760,6 +1213,7 @@ ${isrFunctions.join("\n\n")}
     if (mode === "FreeRunning") {
       code.push("    ADCSRA |= (1 << ADATE) | (1 << ADIE); // Auto Triggering, Interrupt");
       code.push("    ADCSRA |= (1 << ADSC); // Start conversion");
+      code.push("    sei(); // Enable global interrupts");
     }
     code.push("}");
 
@@ -773,17 +1227,36 @@ ${isrFunctions.join("\n\n")}
 }`;
   }
 
-  private generateAnalogComparatorInit(): string {
-    // Параметр зарезервирован для будущих настроек компаратора
+  private generateAnalogComparatorInit(func: SelectedPinFunction): string {
+    const mode = func.settings?.mode || "Interrupt";
+    
     const code: string[] = ["void analog_comparator_init() {"];
-    code.push("    ACSR = (1 << ACIE); // Enable interrupt");
-    code.push("    sei(); // Включить глобальные прерывания");
+    
+    if (mode === "Timer1Capture") {
+      // Режим с Timer1 Input Capture - компаратор используется как источник для Timer1
+      code.push("    ACSR = (1 << ACIC); // Включить Input Capture на компараторе");
+      code.push("    // Теперь Timer1 будет захватывать значение при срабатывании компаратора");
+      code.push("    // Необходимо настроить Timer1 в режиме Input Capture");
+    } else {
+      // Обычный режим - прерывание при изменении результата компаратора
+      code.push("    ACSR = (1 << ACIE); // Enable interrupt");
+      code.push("    sei(); // Включить глобальные прерывания");
+    }
+    
     code.push("}");
 
     return code.join("\n");
   }
 
-  private generateAnalogComparatorISR(): string {
+  private generateAnalogComparatorISR(func?: SelectedPinFunction): string {
+    const mode = func?.settings?.mode || "Interrupt";
+    
+    // ISR генерируется только для режима Interrupt
+    // Для режима Timer1Capture используется ISR(TIMER1_CAPT_vect)
+    if (mode === "Timer1Capture") {
+      return "";
+    }
+    
     return `ISR(ANALOG_COMP_vect) {
     // Обработка изменения результата компаратора
 }`;
@@ -810,9 +1283,12 @@ ${isrFunctions.join("\n\n")}
     code.push("    MCUSR &= ~(1 << WDRF); // Сбросить флаг срабатывания WDT");
     code.push("    WDTCSR |= (1 << WDCE) | (1 << WDE); // Разрешить изменение");
     if (mode === "Interrupt") {
-      code.push(`    WDTCSR = (1 << WDIE) | ${timeoutMap[timeout]}; // Interrupt, ${timeout}ms`);
+      // Режим "Прерывание + сброс": устанавливаем и WDIE, и WDE
+      // Сначала прерывание, затем сброс (если не вызвать wdt_reset() в ISR)
+      code.push(`    WDTCSR = (1 << WDIE) | (1 << WDE) | ${timeoutMap[timeout]}; // Прерывание + сброс, ${timeout}ms`);
+      code.push("    sei(); // Включить глобальные прерывания");
     } else {
-      code.push(`    WDTCSR = (1 << WDE) | ${timeoutMap[timeout]}; // Reset, ${timeout}ms`);
+      code.push(`    WDTCSR = (1 << WDE) | ${timeoutMap[timeout]}; // Просто сброс, ${timeout}ms`);
     }
     code.push("}");
 

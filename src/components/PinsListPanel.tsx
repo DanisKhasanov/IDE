@@ -135,7 +135,7 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
 const getDefaultSettings = (funcType: string): Record<string, unknown> => {
   if (funcType === "GPIO") return { mode: "INPUT" };
   if (funcType === "PCINT") return {};
-  if (funcType === "ANALOG_COMPARATOR") return { interruptMode: "Both" };
+  if (funcType === "ANALOG_COMPARATOR") return { mode: "Interrupt" };
   if (funcType === "SPI") return { mode: "Master", speed: "fosc/16", cpol: 0, cpha: 0 };
   if (funcType === "I2C") return { mode: "Master", speed: 100000 };
   return {};

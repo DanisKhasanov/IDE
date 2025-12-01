@@ -422,7 +422,9 @@
       "triggers": ["LOW", "CHANGE", "RISING", "FALLING"]
     },
     "PCINT": {},
-    "ANALOG_COMPARATOR": {},
+    "ANALOG_COMPARATOR": {
+      "modes": ["Interrupt", "Timer1Capture"]
+    },
     "WATCHDOG": {
       "timeouts": [16, 32, 64, 125, 250, 500, 1000, 2000, 4000, 8000]
     }

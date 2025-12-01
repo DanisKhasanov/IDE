@@ -377,9 +377,46 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
 
     case "TIMER0_PWM":
     case "TIMER1_PWM":
-    case "TIMER2_PWM":
+    case "TIMER2_PWM": {
+      const timerName = func.type.replace("_PWM", "");
+      const timerPeripheral = boardConfig?.peripherals[
+        timerName as keyof typeof boardConfig.peripherals
+      ];
+      const modes = timerPeripheral?.modes || [];
+      const selectedMode = settings.mode || "FastPWM";
+      const isPWM = selectedMode.includes("PWM");
+      const isCTC = selectedMode === "CTC";
+      const isNormal = selectedMode === "Normal";
+      const isInputCapture = selectedMode === "InputCapture";
+      const isTimer1 = timerName === "TIMER1";
+      
+      // Определяем максимальное значение для OCR в зависимости от таймера
+      const maxOCRValue = timerName === "TIMER1" ? 65535 : 255;
+      const defaultDutyCycle = timerName === "TIMER1" ? 32768 : 128;
+      
       return (
         <>
+          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+            <InputLabel>Режим</InputLabel>
+            <Select
+              value={selectedMode}
+              label="Режим"
+              onChange={(e) =>
+                handleSettingChange("mode", e.target.value)
+              }
+            >
+              {modes.map((mode: string) => (
+                <MenuItem key={mode} value={mode}>
+                  {mode === "FastPWM" ? "Fast PWM" :
+                   mode === "PhaseCorrectPWM" ? "Phase Correct PWM" :
+                   mode === "PhaseFrequencyCorrectPWM" ? "Phase and Frequency Correct PWM" :
+                   mode === "InputCapture" ? "Input Capture" :
+                   mode}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
           <FormControl fullWidth size="small" sx={{ mt: 1 }}>
             <InputLabel>Предделитель</InputLabel>
             <Select
@@ -389,28 +426,119 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                 handleSettingChange("prescaler", e.target.value)
               }
             >
-              {boardConfig?.peripherals[
-                func.type.replace("_PWM", "") as keyof typeof boardConfig.peripherals
-              ]?.prescalers?.map((prescaler) => (
+              {timerPeripheral?.prescalers?.map((prescaler: number) => (
                 <MenuItem key={prescaler} value={prescaler}>
                   {prescaler}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
-          <TextField
-            fullWidth
-            size="small"
-            type="number"
-            label="Duty Cycle"
-            value={settings.dutyCycle || 128}
-            onChange={(e) =>
-              handleSettingChange("dutyCycle", parseInt(e.target.value))
-            }
-            sx={{ mt: 1 }}
-          />
+          
+          {isPWM && (
+            <TextField
+              fullWidth
+              size="small"
+              type="number"
+              label="Duty Cycle / OCR"
+              value={settings.dutyCycle || defaultDutyCycle}
+              onChange={(e) =>
+                handleSettingChange("dutyCycle", parseInt(e.target.value))
+              }
+              inputProps={{ min: 0, max: maxOCRValue }}
+              sx={{ mt: 1 }}
+              helperText={`0-${maxOCRValue}`}
+            />
+          )}
+          
+          {isCTC && (
+            <>
+              <TextField
+                fullWidth
+                size="small"
+                type="number"
+                label="OCR / TOP Value"
+                value={settings.topValue || defaultDutyCycle}
+                onChange={(e) =>
+                  handleSettingChange("topValue", parseInt(e.target.value))
+                }
+                inputProps={{ min: 1, max: maxOCRValue }}
+                sx={{ mt: 1 }}
+                helperText={`1-${maxOCRValue}`}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={settings.enableInterrupt || false}
+                    onChange={(e) =>
+                      handleSettingChange("enableInterrupt", e.target.checked)
+                    }
+                  />
+                }
+                label="Включить прерывание по совпадению (OCIE)"
+                sx={{ mt: 1 }}
+              />
+            </>
+          )}
+          
+          {isNormal && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={settings.enableInterrupt || false}
+                  onChange={(e) =>
+                    handleSettingChange("enableInterrupt", e.target.checked)
+                  }
+                />
+              }
+              label="Включить прерывание по переполнению (TOIE)"
+              sx={{ mt: 1 }}
+            />
+          )}
+          
+          {isInputCapture && isTimer1 && (
+            <>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>Триггер</InputLabel>
+                <Select
+                  value={settings.trigger || "RISING"}
+                  label="Триггер"
+                  onChange={(e) =>
+                    handleSettingChange("trigger", e.target.value)
+                  }
+                >
+                  <MenuItem value="RISING">Rising Edge</MenuItem>
+                  <MenuItem value="FALLING">Falling Edge</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={settings.noiseCanceler || false}
+                    onChange={(e) =>
+                      handleSettingChange("noiseCanceler", e.target.checked)
+                    }
+                  />
+                }
+                label="Подавление шума (ICNC1)"
+                sx={{ mt: 1 }}
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={settings.enableInterrupt || false}
+                    onChange={(e) =>
+                      handleSettingChange("enableInterrupt", e.target.checked)
+                    }
+                  />
+                }
+                label="Включить прерывание Input Capture (ICIE1)"
+                sx={{ mt: 1 }}
+              />
+            </>
+          )}
         </>
       );
+    }
 
     case "ADC":
       return (
@@ -434,7 +562,7 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
           <FormControl fullWidth size="small" sx={{ mt: 1 }}>
             <InputLabel>Предделитель</InputLabel>
             <Select
-              value={settings.prescaler || 0}
+              value={settings.prescaler || 128}
               label="Предделитель"
               onChange={(e) =>
                 handleSettingChange("prescaler", parseInt(e.target.value))
@@ -510,32 +638,45 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
         </Alert>
       );
 
-    case "ANALOG_COMPARATOR":
+    case "ANALOG_COMPARATOR": {
+      const comparatorMode = settings.mode || "Interrupt";
       return (
         <>
           <Alert severity="info" sx={{ mt: 1 }}>
             <Typography variant="body2">
               Аналоговый компаратор сравнивает напряжение на AIN0 (PD6) и AIN1
-              (PD7). Прерывание будет срабатывать при изменении результата
-              сравнения.
+              (PD7).
             </Typography>
           </Alert>
           <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Режим прерывания</InputLabel>
+            <InputLabel>Режим работы</InputLabel>
             <Select
-              value={settings.interruptMode || "Both"}
-              label="Режим прерывания"
-              onChange={(e) =>
-                handleSettingChange("interruptMode", e.target.value)
-              }
+              value={comparatorMode}
+              label="Режим работы"
+              onChange={(e) => handleSettingChange("mode", e.target.value)}
             >
-              <MenuItem value="Both">Оба фронта</MenuItem>
-              <MenuItem value="Rising">Восходящий фронт</MenuItem>
-              <MenuItem value="Falling">Нисходящий фронт</MenuItem>
+              {boardConfig?.peripherals.ANALOG_COMPARATOR?.modes?.map((mode) => (
+                <MenuItem key={mode} value={mode}>
+                  {mode === "Interrupt"
+                    ? "Прерывание при изменении результата"
+                    : mode === "Timer1Capture"
+                      ? "Использовать с Timer1 Input Capture"
+                      : mode}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
+          {comparatorMode === "Timer1Capture" && (
+            <Alert severity="warning" sx={{ mt: 1 }}>
+              <Typography variant="body2">
+                В этом режиме компаратор используется как источник для Timer1 Input Capture.
+                Необходимо также настроить Timer1 в режиме Input Capture.
+              </Typography>
+            </Alert>
+          )}
         </>
       );
+    }
 
     default:
       return null;

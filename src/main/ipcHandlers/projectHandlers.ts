@@ -12,12 +12,10 @@ import {
   removeOpenProject,
   type ProjectState,
 } from "@utils/ConfigStorage";
-import {
-  buildProjectTree,
-  createProjectData,
-} from "@utils/ProjectUtils";
+import { buildProjectTree, createProjectData } from "@utils/ProjectUtils";
 import { projectManager } from "@main/managers/ProjectManager";
 import { windowManager } from "@main/managers/WindowManager";
+import type { ProjectPinConfig } from "../../types/boardConfig";
 
 /**
  * Регистрация IPC обработчиков для работы с проектами
@@ -253,10 +251,7 @@ export function registerProjectHandlers(): void {
 
       // Устанавливаем последний проект как текущий
       const lastProjectPath = await getLastProjectPath();
-      if (
-        lastProjectPath &&
-        projectManager.hasProject(lastProjectPath)
-      ) {
+      if (lastProjectPath && projectManager.hasProject(lastProjectPath)) {
         projectManager.setCurrentProjectPath(lastProjectPath);
       } else if (loadedProjects.length > 0) {
         projectManager.setCurrentProjectPath(loadedProjects[0].path);
@@ -294,7 +289,12 @@ export function registerProjectHandlers(): void {
   // Создание нового проекта (создание папки и открытие)
   ipcMain.handle(
     "create-new-project",
-    async (_event, parentPath: string, projectName: string, pinConfig?: any) => {
+    async (
+      _event,
+      parentPath: string,
+      projectName: string,
+      pinConfig?: ProjectPinConfig
+    ) => {
       try {
         if (!projectName || !projectName.trim()) {
           throw new Error("Название проекта не может быть пустым");
@@ -322,23 +322,30 @@ export function registerProjectHandlers(): void {
 
         // Генерируем код инициализации
         let mainCode: string;
-        if (pinConfig && pinConfig.selectedPins && pinConfig.selectedPins.length > 0) {
+        if (
+          pinConfig &&
+          pinConfig.selectedPins &&
+          pinConfig.selectedPins.length > 0
+        ) {
           // Импортируем конфигурацию платы и генератор кода
           // Определяем путь к конфигурационному файлу
           const appPath = app.getAppPath();
-          let boardConfigPath: string;
-          
+
           // Определяем базовый путь проекта
           // В dev: используем путь относительно исходного кода
           // В prod: файл должен быть скопирован в out/main/config при сборке
-          const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
-          
+          const isDev =
+            process.env.NODE_ENV === "development" || !app.isPackaged;
+
           // Пробуем разные варианты путей
           const possiblePaths = isDev
             ? [
                 // Dev режим - относительно исходного кода
                 path.join(process.cwd(), "src/config/boards/atmega328p.json"),
-                path.resolve(__dirname, "../../../src/config/boards/atmega328p.json"),
+                path.resolve(
+                  __dirname,
+                  "../../../src/config/boards/atmega328p.json"
+                ),
               ]
             : [
                 // Prod режим - в собранном приложении
@@ -347,10 +354,10 @@ export function registerProjectHandlers(): void {
                 path.join(appPath, "config/boards/atmega328p.json"),
                 path.join(__dirname, "../../config/boards/atmega328p.json"),
               ];
-          
-          boardConfigPath = possiblePaths.find((p) => existsSync(p)) || "";
-          
-          if (!boardConfigPath || !existsSync(boardConfigPath)) {
+
+          const boardConfigPath = possiblePaths.find((p) => existsSync(p));
+
+          if (!boardConfigPath) {
             console.error("Не удалось найти конфигурацию платы.");
             console.error("isDev:", isDev);
             console.error("__dirname:", __dirname);
@@ -361,26 +368,61 @@ export function registerProjectHandlers(): void {
               `Не удалось найти конфигурацию платы. Проверьте, что файл src/config/boards/atmega328p.json существует и скопирован при сборке.`
             );
           }
-          
-          const boardConfig = JSON.parse(await fs.readFile(boardConfigPath, "utf-8"));
-          
+
+          const boardConfig = JSON.parse(
+            await fs.readFile(boardConfigPath, "utf-8")
+          );
+
           // Используем динамический импорт для CodeGenerator
           const { CodeGenerator } = await import("../../utils/CodeGenerator");
-          const generator = new CodeGenerator(boardConfig, pinConfig.fCpu || "16000000L");
-          mainCode = generator.generateInitCode(pinConfig.selectedPins);
+          const generator = new CodeGenerator(
+            boardConfig,
+            pinConfig.fCpu || "16000000L"
+          );
+
+          // Генерируем заголовочный файл и файл реализации
+          const headerCode = generator.generateInitHeader(
+            pinConfig.selectedPins
+          );
+          const implementationCode = generator.generateInitImplementation(
+            pinConfig.selectedPins
+          );
+
+          // Создаем файлы pins_init.h и pins_init.cpp
+          const pinsInitHeaderPath = path.join(srcPath, "pins_init.h");
+          const pinsInitCppPath = path.join(srcPath, "pins_init.cpp");
+
+          await fs.writeFile(pinsInitHeaderPath, headerCode, "utf-8");
+          await fs.writeFile(pinsInitCppPath, implementationCode, "utf-8");
+
+          // Генерируем main.cpp с подключением заголовочного файла
+          mainCode = `#include <Arduino.h>
+            #include "pins_init.h"
+
+            void setup() {
+              // Инициализация пинов
+              pins_init_all();
+            }
+
+            void loop() {
+              // Основной цикл
+              
+            }
+            `;
         } else {
           // Базовый код по умолчанию
           mainCode = `#include <Arduino.h>
 
-void setup() {
-  // Инициализация
-  Serial.begin(9600);
-}
+            void setup() {
+              // Инициализация
 
-void loop() {
-  // Основной цикл
-}
-`;
+              }
+
+            void loop() {
+              // Основной цикл
+              
+            }
+            `;
         }
 
         // Создаем базовую структуру проекта (файл main.cpp в папке src)
@@ -447,4 +489,3 @@ void loop() {
     }
   );
 }
-
