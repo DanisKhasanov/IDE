@@ -15,12 +15,12 @@ import type {
   SelectedPinFunction,
   PinConfig,
   PinFunction,
-} from "../types/boardConfig";
+} from "@/types/boardConfig";
 import { BoardSelectionPanel } from "./BoardSelectionPanel";
 import { SelectedPinsPanel } from "./SelectedPinsPanel";
 import { PinsListPanel } from "./PinsListPanel";
 import atmega328pConfigData from "@config/boards/atmega328p.json";
-const atmega328pConfig = atmega328pConfigData as BoardConfig;
+const atmega328pConfig = atmega328pConfigData as unknown as BoardConfig;
 
 // Маппинг плат к конфигурациям микроконтроллеров
 const BOARD_CONFIGS: Record<

@@ -10,7 +10,7 @@ import {
   Button,
 } from "@mui/material";
 import FolderIcon from "@mui/icons-material/Folder";
-import type { BoardConfig } from "../types/boardConfig";
+import type { BoardConfig } from "@/types/boardConfig";
 
 const CPU_FREQUENCIES = [
   { value: "8000000L", label: "8 MHz" },

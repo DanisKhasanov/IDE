@@ -8,7 +8,7 @@ import type {
   BoardConfig,
   PlatformConfig,
   ArduinoProjectInfo,
-} from "../types/arduino";
+} from "@/types/arduino";
 
 const execAsync = promisify(exec);
 
