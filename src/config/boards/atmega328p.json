@@ -4,11 +4,7 @@
   "fCpu": "16000000L",
   "pins": [
     {
-      "port": "PB",
-      "bit": 0,
-      "arduinoPin": 8,
-      "name": "PB0",
-      "arduinoName": "D8",
+      "pin": "PB0",
       "functions": [
         {
           "type": "GPIO",
@@ -21,11 +17,7 @@
       ]
     },
     {
-      "port": "PB",
-      "bit": 1,
-      "arduinoPin": 9,
-      "name": "PB1",
-      "arduinoName": "D9",
+      "pin": "PB1",
       "functions": [
         {
           "type": "GPIO",
@@ -42,11 +34,7 @@
       ]
     },
     {
-      "port": "PB",
-      "bit": 2,
-      "arduinoPin": 10,
-      "name": "PB2",
-      "arduinoName": "D10",
+      "pin": "PB2",
       "functions": [
         {
           "type": "GPIO",
@@ -67,11 +55,7 @@
       ]
     },
     {
-      "port": "PB",
-      "bit": 3,
-      "arduinoPin": 11,
-      "name": "PB3",
-      "arduinoName": "D11",
+      "pin": "PB3",
       "functions": [
         {
           "type": "GPIO",
@@ -92,11 +76,7 @@
       ]
     },
     {
-      "port": "PB",
-      "bit": 4,
-      "arduinoPin": 12,
-      "name": "PB4",
-      "arduinoName": "D12",
+      "pin": "PB4",
       "functions": [
         {
           "type": "GPIO",
@@ -113,11 +93,7 @@
       ]
     },
     {
-      "port": "PB",
-      "bit": 5,
-      "arduinoPin": 13,
-      "name": "PB5",
-      "arduinoName": "D13",
+      "pin": "PB5",
       "functions": [
         {
           "type": "GPIO",
@@ -134,11 +110,7 @@
       ]
     },
     {
-      "port": "PC",
-      "bit": 0,
-      "arduinoPin": 14,
-      "name": "PC0",
-      "arduinoName": "A0",
+      "pin": "PC0",
       "functions": [
         {
           "type": "GPIO",
@@ -155,11 +127,7 @@
       ]
     },
     {
-      "port": "PC",
-      "bit": 1,
-      "arduinoPin": 15,
-      "name": "PC1",
-      "arduinoName": "A1",
+      "pin": "PC1",
       "functions": [
         {
           "type": "GPIO",
@@ -176,11 +144,7 @@
       ]
     },
     {
-      "port": "PC",
-      "bit": 2,
-      "arduinoPin": 16,
-      "name": "PC2",
-      "arduinoName": "A2",
+      "pin": "PC2",
       "functions": [
         {
           "type": "GPIO",
@@ -197,11 +161,7 @@
       ]
     },
     {
-      "port": "PC",
-      "bit": 3,
-      "arduinoPin": 17,
-      "name": "PC3",
-      "arduinoName": "A3",
+      "pin": "PC3",
       "functions": [
         {
           "type": "GPIO",
@@ -218,11 +178,7 @@
       ]
     },
     {
-      "port": "PC",
-      "bit": 4,
-      "arduinoPin": 18,
-      "name": "PC4",
-      "arduinoName": "A4",
+      "pin": "PC4",
       "functions": [
         {
           "type": "GPIO",
@@ -243,11 +199,7 @@
       ]
     },
     {
-      "port": "PC",
-      "bit": 5,
-      "arduinoPin": 19,
-      "name": "PC5",
-      "arduinoName": "A5",
+      "pin": "PC5",
       "functions": [
         {
           "type": "GPIO",
@@ -268,11 +220,7 @@
       ]
     },
     {
-      "port": "PD",
-      "bit": 0,
-      "arduinoPin": 0,
-      "name": "PD0",
-      "arduinoName": "D0",
+      "pin": "PD0",
       "functions": [
         {
           "type": "GPIO",
@@ -289,11 +237,7 @@
       ]
     },
     {
-      "port": "PD",
-      "bit": 1,
-      "arduinoPin": 1,
-      "name": "PD1",
-      "arduinoName": "D1",
+      "pin": "PD1",
       "functions": [
         {
           "type": "GPIO",
@@ -310,11 +254,7 @@
       ]
     },
     {
-      "port": "PD",
-      "bit": 2,
-      "arduinoPin": 2,
-      "name": "PD2",
-      "arduinoName": "D2",
+      "pin": "PD2",
       "functions": [
         {
           "type": "GPIO",
@@ -332,11 +272,7 @@
       ]
     },
     {
-      "port": "PD",
-      "bit": 3,
-      "arduinoPin": 3,
-      "name": "PD3",
-      "arduinoName": "D3",
+      "pin": "PD3",
       "functions": [
         {
           "type": "GPIO",
@@ -358,11 +294,7 @@
       ]
     },
     {
-      "port": "PD",
-      "bit": 4,
-      "arduinoPin": 4,
-      "name": "PD4",
-      "arduinoName": "D4",
+      "pin": "PD4",
       "functions": [
         {
           "type": "GPIO",
@@ -375,11 +307,7 @@
       ]
     },
     {
-      "port": "PD",
-      "bit": 5,
-      "arduinoPin": 5,
-      "name": "PD5",
-      "arduinoName": "D5",
+      "pin": "PD5",
       "functions": [
         {
           "type": "GPIO",
@@ -396,11 +324,7 @@
       ]
     },
     {
-      "port": "PD",
-      "bit": 6,
-      "arduinoPin": 6,
-      "name": "PD6",
-      "arduinoName": "D6",
+      "pin": "PD6",
       "functions": [
         {
           "type": "GPIO",
@@ -421,11 +345,7 @@
       ]
     },
     {
-      "port": "PD",
-      "bit": 7,
-      "arduinoPin": 7,
-      "name": "PD7",
-      "arduinoName": "D7",
+      "pin": "PD7",
       "functions": [
         {
           "type": "GPIO",
@@ -444,9 +364,6 @@
   ],
   "peripherals": {
     "UART": {
-      "available": true,
-      "pins": ["PD0", "PD1"],
-      "defaultBaud": 9600,
       "baudRates": [9600, 19200, 38400, 57600, 115200],
       "dataBits": [5, 6, 7, 8, 9],
       "stopBits": [1, 2],
@@ -454,22 +371,17 @@
       "modes": ["Asynchronous", "Synchronous"],
       "interrupts": {
         "RX": {
-          "available": true,
           "description": "Прерывание при приёме данных (USART_RX_vect)"
         },
         "TX": {
-          "available": true,
           "description": "Прерывание при завершении передачи (USART_TX_vect)"
         },
         "UDRE": {
-          "available": true,
           "description": "Прерывание при пустом регистре данных (USART_UDRE_vect)"
         }
       }
     },
     "SPI": {
-      "available": true,
-      "pins": ["PB2", "PB3", "PB4", "PB5"],
       "modes": ["Master", "Slave"],
       "cpol": [0, 1],
       "cpha": [0, 1],
@@ -477,61 +389,41 @@
       "enableInterrupt": true
     },
     "I2C": {
-      "available": true,
-      "pins": ["PC4", "PC5"],
       "modes": ["Master", "Slave"],
       "speeds": [100000, 400000],
       "slaveAddressRange": [8, 119],
       "enableInterrupt": true,
       "interrupts": {
         "TWI": {
-          "available": true,
           "description": "Прерывание при событии на шине I2C (TWI_vect)"
         }
       }
     },
     "TIMER0": {
-      "available": true,
-      "pins": ["PD5", "PD6"],
       "modes": ["Normal", "CTC", "FastPWM", "PhaseCorrectPWM", "PhaseFrequencyCorrectPWM"],
       "prescalers": [1, 8, 64, 256, 1024]
     },
     "TIMER1": {
-      "available": true,
-      "pins": ["PB1", "PB2"],
       "modes": ["Normal", "CTC", "FastPWM", "PhaseCorrectPWM", "PhaseFrequencyCorrectPWM", "InputCapture"],
       "prescalers": [1, 8, 64, 256, 1024]
     },
     "TIMER2": {
-      "available": true,
-      "pins": ["PB3", "PD3"],
       "modes": ["Normal", "CTC", "FastPWM", "PhaseCorrectPWM", "PhaseFrequencyCorrectPWM"],
       "prescalers": [1, 8, 32, 64, 128, 256, 1024]
     },
     "ADC": {
-      "available": true,
       "channels": [0, 1, 2, 3, 4, 5],
-      "pins": ["PC0", "PC1", "PC2", "PC3", "PC4", "PC5"],
       "reference": ["AVcc", "AREF", "Internal1.1V"],
       "prescalers": [2, 4, 8, 16, 32, 64, 128],
       "modes": ["Single", "FreeRunning"]
     },
     "EXTERNAL_INTERRUPT": {
-      "available": true,
-      "pins": ["PD2", "PD3"],
       "interrupts": ["INT0", "INT1"],
       "triggers": ["LOW", "CHANGE", "RISING", "FALLING"]
     },
-    "PCINT": {
-      "available": true,
-      "pins": ["PB0", "PB1", "PB2", "PB3", "PB4", "PB5", "PC0", "PC1", "PC2", "PC3", "PC4", "PC5", "PD0", "PD1", "PD2", "PD3", "PD4", "PD5", "PD6", "PD7"]
-    },
-    "ANALOG_COMPARATOR": {
-      "available": true,
-      "pins": ["PD6", "PD7"]
-    },
+    "PCINT": {},
+    "ANALOG_COMPARATOR": {},
     "WATCHDOG": {
-      "available": true,
       "timeouts": [16, 32, 64, 125, 250, 500, 1000, 2000, 4000, 8000]
     }
   },

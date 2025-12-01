@@ -109,7 +109,7 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
               </TableHead>
               <TableBody>
                 {Object.entries(selectedPinFunctions).map(([pinName, functions]) => {
-                  const pin = boardConfig?.pins.find((p) => p.name === pinName);
+                  const pin = boardConfig?.pins.find((p) => p.pin === pinName);
                   if (!pin || functions.length === 0) return null;
 
                   return functions.map((func, funcIndex) => {
@@ -147,7 +147,7 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
                             sx={{ py: 0.75, verticalAlign: "top" }}
                           >
                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              {pin.arduinoName}
+                              {pin.pin}
                             </Typography>
                           </TableCell>
                         )}
@@ -209,7 +209,7 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
                 const functions = selectedPinFunctions[selectedPin] || [];
                 const func = functions.find((f) => f.functionType === selectedFunctionType);
                 const pin = boardConfig?.pins.find(
-                  (p) => p.name === selectedPin
+                  (p) => p.pin === selectedPin
                 );
                 if (!pin || !func) return null;
                 const pinFunc = pin.functions.find(
@@ -223,7 +223,7 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
                       variant="subtitle1"
                       sx={{ fontWeight: "bold", mb: 2 }}
                     >
-                      {pin.arduinoName} ({pin.name}) - {func.functionType}
+                      {pin.pin} - {func.functionType}
                       {pinFunc.role && ` (${pinFunc.role})`}
                     </Typography>
                     <Box sx={{ overflow: "auto", flex: 1 }}>

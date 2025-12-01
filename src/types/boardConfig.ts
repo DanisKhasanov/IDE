@@ -13,16 +13,12 @@ export interface PinFunction {
 }
 
 export interface PinConfig {
-  port: string;
-  bit: number;
-  arduinoPin: number;
-  name: string;
-  arduinoName: string;
+  pin: string;
   functions: PinFunction[];
 }
 
 export interface PeripheralConfig {
-  available: boolean;
+  available?: boolean;
   pins?: string[];
   channels?: number[];
   defaultBaud?: number;
@@ -40,6 +36,7 @@ export interface PeripheralConfig {
   interrupts?: string[];
   triggers?: string[];
   timeouts?: number[];
+  enableInterrupt?: boolean;
 }
 
 export interface ConflictRule {

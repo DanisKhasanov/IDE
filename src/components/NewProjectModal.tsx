@@ -60,6 +60,17 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
 
   const currentBoardConfig = BOARD_CONFIGS[selectedBoard]?.config;
 
+  // Вспомогательная функция для получения пинов периферии из массива pins
+  const getPeripheralPins = (functionType: string): string[] => {
+    if (!currentBoardConfig) return [];
+    
+    return currentBoardConfig.pins
+      .filter((pin) => 
+        pin.functions.some((func) => func.type === functionType)
+      )
+      .map((pin) => pin.pin);
+  };
+
   // Проверка конфликтов при изменении выбранных функций
   useEffect(() => {
     if (!currentBoardConfig) return;
@@ -92,20 +103,20 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       if (hasConflictTrigger) {
         const conflictingPins = activeFunctions.filter((func) => {
           const pin = currentBoardConfig.pins.find(
-            (p) => p.name === func.pinName
+            (p) => p.pin === func.pinName
           );
-          return pin && conflict.pins.includes(pin.name);
+          return pin && conflict.pins.includes(pin.pin);
         });
 
         if (conflictingPins.length > 0) {
           // Проверяем, действительно ли есть конфликт
           conflictingPins.forEach((func) => {
             const pin = currentBoardConfig.pins.find(
-              (p) => p.name === func.pinName
+              (p) => p.pin === func.pinName
             );
             if (pin && conflict.conflictsWith.includes(func.functionType)) {
               detectedConflicts.push(
-                `${conflict.description}: пин ${pin.arduinoName} (${pin.name})`
+                `${conflict.description}: пин ${pin.pin}`
               );
             }
           });
@@ -209,7 +220,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       
       for (const conflict of currentBoardConfig.conflicts) {
         const conflictPins = conflict.pins || [];
-        if (!conflictPins.includes(pin.name)) continue;
+        if (!conflictPins.includes(pin.pin)) continue;
         
         const conflictsWith = conflict.conflictsWith || [];
         const otherFunc = func1 === "GPIO" ? func2 : func1;
@@ -239,7 +250,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     functionType: string,
     settings: Record<string, unknown>
   ) => {
-    const pin = currentBoardConfig?.pins.find((p) => p.name === pinName);
+    const pin = currentBoardConfig?.pins.find((p) => p.pin === pinName);
     const existingFunctions = selectedPinFunctions[pinName] || [];
 
     // Проверяем, не выбрана ли уже эта функция
@@ -259,7 +270,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     );
 
     if (incompatible) {
-      const pinDisplay = pin ? `${pin.arduinoName} (${pin.name})` : pinName;
+      const pinDisplay = pin ? pin.pin : pinName;
       alert(
         `Функция ${functionType} несовместима с уже выбранными функциями на пине ${pinDisplay}`
       );
@@ -267,12 +278,12 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     }
 
     // Для SPI автоматически добавляем все 4 пина SPI с одинаковыми настройками
-    if (functionType === "SPI" && currentBoardConfig?.peripherals?.SPI?.pins) {
-      const spiPins = currentBoardConfig.peripherals.SPI.pins;
+    if (functionType === "SPI") {
+      const spiPins = getPeripheralPins("SPI");
       const updatedFunctions: Record<string, SelectedPinFunction[]> = { ...selectedPinFunctions };
       
       spiPins.forEach((spiPinName) => {
-        const spiPin = currentBoardConfig?.pins.find((p) => p.name === spiPinName);
+        const spiPin = currentBoardConfig?.pins.find((p) => p.pin === spiPinName);
         if (!spiPin) return;
         
         const spiPinFunctions = updatedFunctions[spiPinName] || [];
@@ -322,8 +333,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   const handleFunctionRemove = (pinName: string, functionType?: string) => {
     setSelectedPinFunctions((prev) => {
       // Для SPI удаляем все 4 пина SPI одновременно
-      if (functionType === "SPI" && currentBoardConfig?.peripherals?.SPI?.pins) {
-        const spiPins = currentBoardConfig.peripherals.SPI.pins;
+      if (functionType === "SPI") {
+        const spiPins = getPeripheralPins("SPI");
         const newState = { ...prev };
         
         spiPins.forEach((spiPinName) => {
@@ -375,8 +386,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   ) => {
     setSelectedPinFunctions((prev) => {
       // Для SPI обновляем настройки на всех 4 пинах одновременно
-      if (functionType === "SPI" && currentBoardConfig?.peripherals?.SPI?.pins) {
-        const spiPins = currentBoardConfig.peripherals.SPI.pins;
+      if (functionType === "SPI") {
+        const spiPins = getPeripheralPins("SPI");
         const newState = { ...prev };
         
         spiPins.forEach((spiPinName) => {

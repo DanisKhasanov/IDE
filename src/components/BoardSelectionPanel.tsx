@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -48,6 +48,20 @@ export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
   onFrequencyChange,
   onSelectFolder,
 }) => {
+  const projectNameInputRef = useRef<HTMLInputElement>(null);
+  const prevParentPathRef = useRef<string>(parentPath);
+
+  useEffect(() => {
+    // Устанавливаем фокус на поле названия проекта, если папка была выбрана
+    if (parentPath && parentPath !== prevParentPathRef.current) {
+      // Используем setTimeout для гарантии, что DOM обновился
+      setTimeout(() => {
+        projectNameInputRef.current?.focus();
+      }, 100);
+    }
+    prevParentPathRef.current = parentPath;
+  }, [parentPath]);
+
   return (
     <Box
       sx={{
@@ -82,6 +96,7 @@ export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
 
       <Box sx={{ mt: "auto", pt: 2 }}>
         <TextField
+          inputRef={projectNameInputRef}
           label="Название проекта"
           value={projectName}
           onChange={(e) => onProjectNameChange(e.target.value)}

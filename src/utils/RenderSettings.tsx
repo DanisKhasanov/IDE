@@ -69,7 +69,7 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
           <FormControl fullWidth size="small" sx={{ mt: 1 }}>
             <InputLabel>Скорость (baud)</InputLabel>
             <Select
-              value={settings.baud || 9600}
+              value={settings.baud || boardConfig?.peripherals.UART?.baudRates?.[0] || 9600}
               label="Скорость (baud)"
               onChange={(e) => handleSettingChange("baud", e.target.value)}
             >

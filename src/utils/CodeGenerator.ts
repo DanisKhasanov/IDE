@@ -1,4 +1,5 @@
 import type { BoardConfig, PinConfig, SelectedPinFunction } from "../types/boardConfig";
+import { getPortFromPin, getBitFromPin } from "./PinUtils";
 
 /**
  * Генератор кода инициализации для Arduino проектов
@@ -77,7 +78,7 @@ export class CodeGenerator {
       }
     }
     if (functionsByType.ANALOG_COMPARATOR && functionsByType.ANALOG_COMPARATOR.length > 0) {
-      initFunctions.push(this.generateAnalogComparatorInit(functionsByType.ANALOG_COMPARATOR[0]));
+      initFunctions.push(this.generateAnalogComparatorInit());
       isrFunctions.push(this.generateAnalogComparatorISR());
     }
     if (functionsByType.WATCHDOG && functionsByType.WATCHDOG.length > 0) {
@@ -184,10 +185,12 @@ ${isrFunctions.join("\n\n")}
 
       const mode = pinFunc.settings.mode || "OUTPUT";
       const initialState = pinFunc.settings.initialState || "LOW";
-      if (!portGroups[pin.port]) {
-        portGroups[pin.port] = { port: pin.port, pins: [] };
+      const port = getPortFromPin(pin.pin);
+      const bit = getBitFromPin(pin.pin);
+      if (!portGroups[port]) {
+        portGroups[port] = { port, pins: [] };
       }
-      portGroups[pin.port].pins.push({ bit: pin.bit, mode, initialState });
+      portGroups[port].pins.push({ bit, mode, initialState });
     });
 
     const code: string[] = ["void gpio_init() {"];
@@ -525,10 +528,11 @@ ${isrFunctions.join("\n\n")}
       const pcintFunc = pin.functions.find((f) => f.type === "PCINT");
       if (!pcintFunc || pcintFunc.pcintNumber === undefined) return;
 
+      const port = getPortFromPin(pin.pin);
       let portGroup: string;
-      if (pin.port === "PB") {
+      if (port === "PB") {
         portGroup = "PCIE0";
-      } else if (pin.port === "PC") {
+      } else if (port === "PC") {
         portGroup = "PCIE1";
       } else {
         portGroup = "PCIE2";
@@ -538,9 +542,9 @@ ${isrFunctions.join("\n\n")}
         portGroups[portGroup] = [];
       }
       portGroups[portGroup].push({
-        bit: pin.bit,
+        bit: getBitFromPin(pin.pin),
         pcintNumber: pcintFunc.pcintNumber,
-        pinName: pin.name,
+        pinName: pin.pin,
       });
     });
 
@@ -552,7 +556,7 @@ ${isrFunctions.join("\n\n")}
       pinData.forEach((pin) => {
         const pinConfig = this.findPinByName(pin.pinName);
         if (!pinConfig) return;
-        const portLetter = this.getPortLetter(pinConfig.port);
+        const portLetter = this.getPortLetter(getPortFromPin(pinConfig.pin));
         code.push(`    DDR${portLetter} &= ~(1 << DD${portLetter}${pin.bit}); // ${pin.pinName} как INPUT`);
         code.push(`    PORT${portLetter} |= (1 << PORT${portLetter}${pin.bit}); // Включить подтяжку на ${pin.pinName}`);
       });
@@ -571,7 +575,7 @@ ${isrFunctions.join("\n\n")}
   }
 
   private generatePCINTISR(pins: SelectedPinFunction[]): string {
-    const portGroups: Record<string, Array<{ bit: number; pcintNumber: number; pinName: string; arduinoName: string }>> = {};
+    const portGroups: Record<string, Array<{ bit: number; pcintNumber: number; pinName: string }>> = {};
 
     pins.forEach((pinFunc) => {
       const pin = this.findPinByName(pinFunc.pinName);
@@ -580,10 +584,11 @@ ${isrFunctions.join("\n\n")}
       const pcintFunc = pin.functions.find((f) => f.type === "PCINT");
       if (!pcintFunc || pcintFunc.pcintNumber === undefined) return;
 
+      const port = getPortFromPin(pin.pin);
       let portGroup: string;
-      if (pin.port === "PB") {
+      if (port === "PB") {
         portGroup = "PCINT0";
-      } else if (pin.port === "PC") {
+      } else if (port === "PC") {
         portGroup = "PCINT1";
       } else {
         portGroup = "PCINT2";
@@ -593,10 +598,9 @@ ${isrFunctions.join("\n\n")}
         portGroups[portGroup] = [];
       }
       portGroups[portGroup].push({
-        bit: pin.bit,
+        bit: getBitFromPin(pin.pin),
         pcintNumber: pcintFunc.pcintNumber,
-        pinName: pin.name,
-        arduinoName: pin.arduinoName,
+        pinName: pin.pin,
       });
     });
 
@@ -612,11 +616,11 @@ ${isrFunctions.join("\n\n")}
       
       // Генерируем проверки для каждого настроенного пина
       pinData.forEach((pin) => {
-        isrCode.push(`    // Проверка изменения ${pin.arduinoName} (${pin.pinName}) - PCINT${pin.pcintNumber}`);
+        isrCode.push(`    // Проверка изменения ${pin.pinName} - PCINT${pin.pcintNumber}`);
         isrCode.push(`    if (pin_state & (1 << PIN${portLetter}${pin.bit})) {`);
-        isrCode.push(`        // ${pin.arduinoName} (${pin.pinName}) стал HIGH`);
+        isrCode.push(`        // ${pin.pinName} стал HIGH`);
         isrCode.push(`    } else {`);
-        isrCode.push(`        // ${pin.arduinoName} (${pin.pinName}) стал LOW`);
+        isrCode.push(`        // ${pin.pinName} стал LOW`);
         isrCode.push(`    }`);
         if (pinData.length > 1 && pin !== pinData[pinData.length - 1]) {
           isrCode.push("");
@@ -647,8 +651,10 @@ ${isrFunctions.join("\n\n")}
     };
 
     const code: string[] = ["void timer0_pwm_init() {"];
-    const portLetter = this.getPortLetter(pin.port);
-    code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${pin.bit}); // ${channel} как OUTPUT`);
+    const port = getPortFromPin(pin.pin);
+    const bit = getBitFromPin(pin.pin);
+    const portLetter = this.getPortLetter(port);
+    code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
     code.push(`    TCCR0A |= (1 << WGM01) | (1 << WGM00); // Fast PWM`);
     code.push(`    TCCR0A |= (1 << COM0${channel.slice(-1)}1); // Clear on compare match`);
     code.push(`    TCCR0B |= ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
@@ -675,8 +681,10 @@ ${isrFunctions.join("\n\n")}
     };
 
     const code: string[] = ["void timer1_pwm_init() {"];
-    const portLetter = this.getPortLetter(pin.port);
-    code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${pin.bit}); // ${channel} как OUTPUT`);
+    const port = getPortFromPin(pin.pin);
+    const bit = getBitFromPin(pin.pin);
+    const portLetter = this.getPortLetter(port);
+    code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
     code.push(`    TCCR1A |= (1 << COM1${channel.slice(-1)}1) | (1 << WGM10); // Fast PWM`);
     code.push(`    TCCR1B |= (1 << WGM12) | ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
     code.push(`    OCR1${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
@@ -704,8 +712,10 @@ ${isrFunctions.join("\n\n")}
     };
 
     const code: string[] = ["void timer2_pwm_init() {"];
-    const portLetter = this.getPortLetter(pin.port);
-    code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${pin.bit}); // ${channel} как OUTPUT`);
+    const port = getPortFromPin(pin.pin);
+    const bit = getBitFromPin(pin.pin);
+    const portLetter = this.getPortLetter(port);
+    code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
     code.push(`    TCCR2A |= (1 << WGM21) | (1 << WGM20); // Fast PWM`);
     code.push(`    TCCR2A |= (1 << COM2${channel.slice(-1)}1); // Clear on compare match`);
     code.push(`    TCCR2B |= ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
@@ -763,8 +773,8 @@ ${isrFunctions.join("\n\n")}
 }`;
   }
 
-  private generateAnalogComparatorInit(_func: SelectedPinFunction): string {
-    // Параметр func зарезервирован для будущих настроек компаратора
+  private generateAnalogComparatorInit(): string {
+    // Параметр зарезервирован для будущих настроек компаратора
     const code: string[] = ["void analog_comparator_init() {"];
     code.push("    ACSR = (1 << ACIE); // Enable interrupt");
     code.push("    sei(); // Включить глобальные прерывания");
@@ -820,7 +830,8 @@ ${isrFunctions.join("\n\n")}
   private generateMainFunction(initFunctions: string[], selectedPins: SelectedPinFunction[]): string {
     // Находим настройки UART для передачи параметра baud
     const uartFunc = selectedPins.find((p) => p.functionType === "UART");
-    const uartBaud = uartFunc?.settings?.baud || 9600;
+    const defaultBaud = this.boardConfig.peripherals.UART?.baudRates?.[0] || 9600;
+    const uartBaud = uartFunc?.settings?.baud || defaultBaud;
 
     const functionCalls = initFunctions.map((func) => {
       const match = func.match(/void\s+(\w+)\s*\(/);
@@ -846,7 +857,7 @@ ${functionCalls.join("\n")}
   }
 
   private findPinByName(pinName: string): PinConfig | undefined {
-    return this.boardConfig.pins.find((p) => p.name === pinName);
+    return this.boardConfig.pins.find((p) => p.pin === pinName);
   }
 
   /**

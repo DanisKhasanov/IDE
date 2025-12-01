@@ -68,7 +68,7 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
   selectedPinFunctions,
 }) => {
   const functions = getPinFunctions(pin);
-  const selectedFunctions = selectedPinFunctions[pin.name] || [];
+  const selectedFunctions = selectedPinFunctions[pin.pin] || [];
   const selectedFunctionTypes = selectedFunctions.map((f) => f.functionType);
 
   return (
@@ -87,7 +87,7 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
     >
       <Box sx={{ p: 1, minWidth: 200 }}>
         <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold", fontSize: "0.75rem" }}>
-          {pin.arduinoName} ({pin.name})
+          {pin.pin}
         </Typography>
         <Divider sx={{ mb: 1 }} />
         {functions.length === 0 ? (
@@ -133,6 +133,7 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
 
 // Функция для получения дефолтных настроек функции
 const getDefaultSettings = (funcType: string): Record<string, unknown> => {
+  if (funcType === "GPIO") return { mode: "INPUT" };
   if (funcType === "PCINT") return {};
   if (funcType === "ANALOG_COMPARATOR") return { interruptMode: "Both" };
   if (funcType === "SPI") return { mode: "Master", speed: "fosc/16", cpol: 0, cpha: 0 };
@@ -186,13 +187,13 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
   ) => {
     event.stopPropagation();
     // Всегда используем интерактивную область как anchor, чтобы меню позиционировалось одинаково
-    const interactiveArea = pinRefs.current[pin.name];
+    const interactiveArea = pinRefs.current[pin.pin];
     if (interactiveArea) {
       setMenuAnchor({ el: interactiveArea, pin });
     } else {
       setMenuAnchor({ el: event.currentTarget, pin });
     }
-    onPinClick(pin.name);
+    onPinClick(pin.pin);
   };
 
   const handleMenuClose = () => {
@@ -203,7 +204,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
     if (!menuAnchor) return;
     // Сразу выбираем функцию с дефолтными настройками
     const defaultSettings = getDefaultSettings(func.type);
-    onFunctionSelect(menuAnchor.pin.name, func.type, defaultSettings);
+    onFunctionSelect(menuAnchor.pin.pin, func.type, defaultSettings);
     setMenuAnchor(null);
   };
 
@@ -253,14 +254,14 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
           
           {/* Точки для визуализации координат пинов */}
           {boardConfig.pins.map((pin) => {
-            const coords = PIN_COORDINATES[pin.name];
+            const coords = PIN_COORDINATES[pin.pin];
             if (!coords || !imageLoaded) return null;
 
             // Центр области пина
             const centerX = coords.x + coords.width / 2;
             const centerY = coords.y + coords.height / 2;
-            const isSelected = selectedPin === pin.name;
-            const hasFunction = selectedPinFunctions[pin.name] && selectedPinFunctions[pin.name].length > 0;
+            const isSelected = selectedPin === pin.pin;
+            const hasFunction = selectedPinFunctions[pin.pin] && selectedPinFunctions[pin.pin].length > 0;
 
             // Определяем цвет точки: зеленый если есть в настройках (приоритет), синий если выбран, красный если нет
             const dotColor = hasFunction
@@ -271,7 +272,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
 
             return (
               <Box
-                key={`dot-${pin.name}`}
+                key={`dot-${pin.pin}`}
                 sx={{
                   position: "absolute",
                   left: `${centerX}%`,
@@ -295,7 +296,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
                     borderRadius: "50%",
                     backgroundColor: dotColor,
                   }}
-                  title={`${pin.arduinoName} (${pin.name}): x=${coords.x}%, y=${coords.y}%`}
+                  title={`${pin.pin}: x=${coords.x}%, y=${coords.y}%`}
                 />
                 <Typography
                   variant="caption"
@@ -305,20 +306,20 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {pin.name}
+                  {pin.pin}
                 </Typography>
               </Box>
             );
           })}
           {/* Интерактивные области для пинов */}
           {boardConfig.pins.map((pin) => {
-            const coords = PIN_COORDINATES[pin.name];
+            const coords = PIN_COORDINATES[pin.pin];
             if (!coords || !imageLoaded) return null;
 
-            const hasFunction = selectedPinFunctions[pin.name] && selectedPinFunctions[pin.name].length > 0;
-            const isSelected = selectedPin === pin.name;
+            const hasFunction = selectedPinFunctions[pin.pin] && selectedPinFunctions[pin.pin].length > 0;
+            const isSelected = selectedPin === pin.pin;
             const functionTypes = hasFunction 
-              ? selectedPinFunctions[pin.name].map(f => f.functionType).join(", ")
+              ? selectedPinFunctions[pin.pin].map(f => f.functionType).join(", ")
               : "";
 
             // Определяем цвета: зеленый если есть в настройках (приоритет), синий если выбран, прозрачный если нет
@@ -335,10 +336,10 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
 
             return (
               <Box
-                key={pin.name}
+                key={pin.pin}
                 ref={(el: HTMLDivElement | null) => {
                   if (el) {
-                    pinRefs.current[pin.name] = el;
+                    pinRefs.current[pin.pin] = el;
                   }
                 }}
                 onClick={(e) => handlePinClick(e, pin)}
@@ -363,7 +364,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
                   justifyContent: "center",
                   zIndex: 2,
                 }}
-                title={`${pin.arduinoName} (${pin.name})${hasFunction ? ` - ${functionTypes}` : ""}`}
+                title={`${pin.pin}${hasFunction ? ` - ${functionTypes}` : ""}`}
               >
                 <Typography
                   variant="caption"
@@ -374,7 +375,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
                     textShadow: "0 0 2px rgba(255, 255, 255, 0.8)",
                   }}
                 >
-                  {pin.arduinoName}
+                  {pin.pin}
                 </Typography>
               </Box>
             );
