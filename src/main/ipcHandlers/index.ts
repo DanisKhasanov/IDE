@@ -3,6 +3,7 @@ import { registerProjectHandlers } from "./projectHandlers";
 import { registerFileHandlers } from "./fileHandlers";
 import { registerTerminalHandlers } from "./terminalHandlers";
 import { registerArduinoHandlers } from "./arduinoHandlers";
+import { registerToolchainHandlers } from "./toolchainHandlers";
 
 /**
  * Список всех IPC обработчиков для удаления при hot reload
@@ -37,6 +38,12 @@ const ALL_HANDLERS = [
   "arduino-detect-project",
   "arduino-get-boards",
   "arduino-get-board-config",
+  "toolchain-check",
+  "toolchain-get-install-commands",
+  "toolchain-get-install-instructions",
+  "toolchain-get-installed-status",
+  "toolchain-set-installed",
+  "toolchain-install",
 ];
 
 /**
@@ -66,5 +73,6 @@ export function registerIpcHandlers(): void {
   registerFileHandlers();
   registerTerminalHandlers();
   registerArduinoHandlers();
+  registerToolchainHandlers();
 }
 

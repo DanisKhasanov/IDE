@@ -1,5 +1,7 @@
 export {};
 
+import type { ToolchainStatus, InstallCommands, InstallProgress, InstallResult } from './toolchain';
+
 import type { ProjectTreeNode } from './project';
 
 // Типы для импорта изображений
@@ -87,6 +89,14 @@ declare global {
       arduinoDetectProject: (projectPath: string) => Promise<import('./arduino').ArduinoProjectInfo>;
       arduinoGetBoards: () => Promise<string[]>;
       arduinoGetBoardConfig: (boardName?: string) => Promise<import('./arduino').BoardConfig>;
+      // Toolchain API
+      toolchainCheck: () => Promise<ToolchainStatus>;
+      toolchainGetInstallCommands: () => Promise<InstallCommands>;
+      toolchainGetInstallInstructions: () => Promise<string>;
+      toolchainGetInstalledStatus: () => Promise<{ installed: boolean; checked: boolean }>;
+      toolchainSetInstalled: (installed: boolean) => Promise<{ success: boolean; error?: string }>;
+      toolchainInstall: () => Promise<InstallResult>;
+      onToolchainInstallProgress: (callback: (progress: InstallProgress) => void) => () => void;
     };
   }
 }

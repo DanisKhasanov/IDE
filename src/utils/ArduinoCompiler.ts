@@ -12,33 +12,89 @@ import type {
 
 const execAsync = promisify(exec);
 
-// Путь к Arduino библиотеке в IDE
-const getArduinoCorePath = (): string => {
-  // В production это будет в resources/arduino-core
-  // В development может быть относительный путь
-  const devPath = path.join(__dirname, "../../resources/arduino-core");
-  if (existsSync(devPath)) {
-    return devPath;
-  }
+// Вспомогательная функция для проверки наличия ошибок в выводе компилятора
+// Охватывает все типы ошибок AVR-GCC компилятора:
+// 1. Синтаксические ошибки (syntax errors)
+// 2. Ошибки типов (type errors)
+// 3. Ошибки неопределенных ссылок (undefined reference/symbol)
+// 4. Ошибки множественных определений (multiple definition)
+// 5. Ошибки отсутствующих файлов (file not found)
+// 6. Ошибки линковки (linking errors)
+// 7. Ошибки препроцессора (preprocessor errors)
+// 8. Ошибки несовместимости типов (type mismatch)
+// 9. Ошибки переполнения памяти (memory overflow)
+// 10. Ошибки несовместимости архитектуры (architecture mismatch)
+function hasCompilationErrors(output: string): boolean {
+  if (!output) return false;
+  const lowerOutput = output.toLowerCase();
   
-  // Пробуем альтернативные пути для production
-  const prodPaths = [
-    path.join(process.resourcesPath || "", "arduino-core"),
-    path.join(__dirname, "../resources/arduino-core"),
-  ];
-  
-  for (const prodPath of prodPaths) {
-    if (prodPath && existsSync(prodPath)) {
-      return prodPath;
-    }
-  }
-  
-  throw new Error(
-    "Arduino Core не найден. Убедитесь, что resources/arduino-core существует."
+  // Проверяем различные форматы ошибок компилятора
+  return (
+    // Основные форматы ошибок компилятора
+    lowerOutput.includes("error:") ||
+    lowerOutput.includes("fatal error:") ||
+    lowerOutput.includes("internal compiler error") ||
+    
+    // Ошибки линковки
+    lowerOutput.includes("undefined reference") ||
+    lowerOutput.includes("undefined symbol") ||
+    lowerOutput.includes("multiple definition") ||
+    lowerOutput.includes("duplicate symbol") ||
+    lowerOutput.includes("relocation truncated") ||
+    lowerOutput.includes("cannot resolve") ||
+    lowerOutput.includes("unresolved symbol") ||
+    
+    // Ошибки файловой системы
+    lowerOutput.includes("cannot find") ||
+    lowerOutput.includes("no such file") ||
+    lowerOutput.includes("file not found") ||
+    lowerOutput.includes("no such file or directory") ||
+    lowerOutput.includes("cannot open") ||
+    lowerOutput.includes("permission denied") ||
+    
+    // Ошибки препроцессора
+    lowerOutput.includes("#error") ||
+    lowerOutput.includes("preprocessor error") ||
+    lowerOutput.includes("macro redefinition") ||
+    
+    // Ошибки типов и несовместимости
+    lowerOutput.includes("type mismatch") ||
+    lowerOutput.includes("incompatible type") ||
+    lowerOutput.includes("invalid conversion") ||
+    lowerOutput.includes("cannot convert") ||
+    lowerOutput.includes("no matching function") ||
+    lowerOutput.includes("ambiguous") ||
+    
+    // Ошибки памяти
+    lowerOutput.includes("section .text will not fit") ||
+    lowerOutput.includes("section .data will not fit") ||
+    lowerOutput.includes("section .bss will not fit") ||
+    lowerOutput.includes("region") && lowerOutput.includes("overflowed") ||
+    
+    // Ошибки архитектуры
+    lowerOutput.includes("architecture") && lowerOutput.includes("not supported") ||
+    lowerOutput.includes("instruction not supported") ||
+    
+    // Ошибки компилятора (внутренние)
+    lowerOutput.includes("compiler error") ||
+    lowerOutput.includes("internal error") ||
+    lowerOutput.includes("compilation terminated") ||
+    
+    // Формат "error 123" или "error C1234"
+    /error\s+\d+/.test(lowerOutput) ||
+    /error\s+[a-z]\d+/.test(lowerOutput) ||
+    
+    // Ошибки линкера (ld)
+    (lowerOutput.includes("ld:") && (
+      lowerOutput.includes("error") ||
+      lowerOutput.includes("undefined") ||
+      lowerOutput.includes("cannot")
+    )) ||
+    
+    // Ошибки objcopy
+    (lowerOutput.includes("objcopy:") && lowerOutput.includes("error"))
   );
-};
-
-const ARDUINO_CORE_PATH = getArduinoCorePath();
+}
 
 // Проверка: это Arduino проект?
 export async function isArduinoProject(
@@ -83,188 +139,92 @@ export async function isArduinoProject(
   }
 }
 
-// Парсинг platform.txt
+// Получение конфигурации платформы (настройки компилятора)
+// Используются значения по умолчанию, без зависимости от resources
 export async function parsePlatformTxt(): Promise<PlatformConfig> {
-  try {
-    if (!ARDUINO_CORE_PATH || !existsSync(ARDUINO_CORE_PATH)) {
-      throw new Error(`Arduino Core не найден по пути: ${ARDUINO_CORE_PATH || "не определен"}`);
-    }
-    
-    const platformTxtPath = path.join(ARDUINO_CORE_PATH, "platform.txt");
-    const content = await fs.readFile(platformTxtPath, "utf-8");
-
-    // Простой парсер для platform.txt
-    const lines = content.split("\n");
-    const config: Partial<PlatformConfig> = {};
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith("#") || !trimmed.includes("=")) continue;
-
-      const [key, ...valueParts] = trimmed.split("=");
-      const value = valueParts.join("=").trim();
-
-      switch (key.trim()) {
-        case "compiler.cpp.cmd":
-          config.compilerCppCmd = value;
-          break;
-        case "compiler.cpp.flags":
-          config.compilerCppFlags = value;
-          break;
-        case "compiler.c.cmd":
-          config.compilerCCmd = value;
-          break;
-        case "compiler.c.flags":
-          config.compilerCFlags = value;
-          break;
-        case "compiler.c.elf.flags":
-          config.compilerElfFlags = value;
-          break;
-        case "compiler.elf2hex.cmd":
-          config.objcopyCmd = value;
-          break;
-        case "compiler.elf2hex.flags":
-          config.objcopyHexFlags = value;
-          break;
-      }
-    }
-
-    // Значения по умолчанию
-    return {
-      compilerCppCmd: config.compilerCppCmd || "avr-g++",
-      compilerCppFlags: config.compilerCppFlags || "-c -g -Os -w -std=gnu++11",
-      compilerCCmd: config.compilerCCmd || "avr-gcc",
-      compilerCFlags: config.compilerCFlags || "-c -g -Os -w -std=gnu11",
-      compilerElfFlags: config.compilerElfFlags || "-Os -g -Wl,--gc-sections",
-      objcopyCmd: config.objcopyCmd || "avr-objcopy",
-      objcopyHexFlags: config.objcopyHexFlags || "-O ihex -R .eeprom",
-    };
-  } catch (error) {
-    console.error("Ошибка парсинга platform.txt:", error);
-    // Возвращаем значения по умолчанию
-    return {
-      compilerCppCmd: "avr-g++",
-      compilerCppFlags:
-        "-c -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP",
-      compilerCCmd: "avr-gcc",
-      compilerCFlags:
-        "-c -g -Os -w -std=gnu11 -ffunction-sections -fdata-sections -MMD -MP",
-      compilerElfFlags: "-Os -g -Wl,--gc-sections",
-      objcopyCmd: "avr-objcopy",
-      objcopyHexFlags: "-O ihex -R .eeprom",
-    };
-  }
+  // Возвращаем значения по умолчанию согласно документации
+  return {
+    compilerCppCmd: "avr-g++",
+    compilerCppFlags:
+      "-c -g -Os -w -std=gnu++11 -ffunction-sections -fdata-sections -fno-threadsafe-statics -MMD -MP",
+    compilerCCmd: "avr-gcc",
+    compilerCFlags:
+      "-c -g -Os -w -std=gnu11 -ffunction-sections -fdata-sections -MMD -MP",
+    compilerElfFlags: "-Os -g -Wl,--gc-sections",
+    objcopyCmd: "avr-objcopy",
+    objcopyHexFlags: "-O ihex -R .eeprom",
+  };
 }
 
-// Парсинг boards.txt для получения конфигурации платы
+// Получение конфигурации платы
+// Используются значения по умолчанию или хардкод для известных плат, без зависимости от resources
 export async function parseBoardConfig(
   boardName = "uno"
 ): Promise<BoardConfig> {
-  try {
-    if (!ARDUINO_CORE_PATH || !existsSync(ARDUINO_CORE_PATH)) {
-      throw new Error(`Arduino Core не найден по пути: ${ARDUINO_CORE_PATH || "не определен"}`);
-    }
-    
-    const boardsTxtPath = path.join(ARDUINO_CORE_PATH, "boards.txt");
-    const content = await fs.readFile(boardsTxtPath, "utf-8");
-
-    const lines = content.split("\n");
-    const config: Partial<BoardConfig> = { name: boardName };
-
-    let inBoardSection = false;
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith("#") || !trimmed.includes("=")) continue;
-
-      if (trimmed.startsWith(`${boardName}.`)) {
-        inBoardSection = true;
-        const [key, ...valueParts] = trimmed.split("=");
-        const value = valueParts.join("=").trim();
-        const property = key.trim().replace(`${boardName}.`, "");
-
-        switch (property) {
-          case "build.mcu":
-            config.mcu = value;
-            break;
-          case "build.f_cpu":
-            config.fCpu = value;
-            break;
-          case "build.variant":
-            config.variant = value;
-            break;
-          case "build.board":
-            config.boardDefine = value;
-            break;
-        }
-      } else if (inBoardSection && !trimmed.startsWith(`${boardName}.`)) {
-        // Выходим из секции платы
-        break;
-      }
-    }
-
-    // Валидация MCU - должен начинаться с atmega или attiny
-    // Если MCU неправильный (например "atmegang"), используем значения по умолчанию
-    let mcu = config.mcu || "atmega328p";
-    if (!mcu.match(/^(atmega|attiny)\d+/i)) {
-      console.warn(
-        `Некорректный MCU для платы ${boardName}: ${mcu}, используется atmega328p`
-      );
-      // Для таких плат как "atmegang" используем atmega168 как более подходящий
-      if (boardName.toLowerCase().includes("ng")) {
-        mcu = "atmega168";
-      } else {
-        mcu = "atmega328p";
-      }
-    }
-
-    // Значения по умолчанию для Arduino UNO
-    return {
-      name: boardName,
-      mcu,
-      fCpu: config.fCpu || "16000000L",
-      variant: config.variant || "standard",
-      boardDefine: config.boardDefine || `AVR_${boardName.toUpperCase()}`,
-    };
-  } catch (error) {
-    console.error("Ошибка парсинга boards.txt:", error);
-    return {
-      name: boardName,
+  // Конфигурации для известных плат
+  const boardConfigs: Record<string, Partial<BoardConfig>> = {
+    uno: {
       mcu: "atmega328p",
       fCpu: "16000000L",
       variant: "standard",
-      boardDefine: `AVR_${boardName.toUpperCase()}`,
-    };
+      boardDefine: "AVR_UNO",
+    },
+    nano: {
+      mcu: "atmega328p",
+      fCpu: "16000000L",
+      variant: "standard",
+      boardDefine: "AVR_NANO",
+    },
+    mega: {
+      mcu: "atmega2560",
+      fCpu: "16000000L",
+      variant: "mega",
+      boardDefine: "AVR_MEGA",
+    },
+    leonardo: {
+      mcu: "atmega32u4",
+      fCpu: "16000000L",
+      variant: "leonardo",
+      boardDefine: "AVR_LEONARDO",
+    },
+    micro: {
+      mcu: "atmega32u4",
+      fCpu: "16000000L",
+      variant: "micro",
+      boardDefine: "AVR_MICRO",
+    },
+  };
+
+  const config = boardConfigs[boardName.toLowerCase()] || {};
+
+  // Валидация MCU - должен начинаться с atmega или attiny
+  let mcu = config.mcu || "atmega328p";
+  if (!mcu.match(/^(atmega|attiny)\d+/i)) {
+    console.warn(
+      `Некорректный MCU для платы ${boardName}: ${mcu}, используется atmega328p`
+    );
+    // Для таких плат как "atmegang" используем atmega168 как более подходящий
+    if (boardName.toLowerCase().includes("ng")) {
+      mcu = "atmega168";
+    } else {
+      mcu = "atmega328p";
+    }
   }
+
+  // Возвращаем конфигурацию с дефолтными значениями
+  return {
+    name: boardName,
+    mcu,
+    fCpu: config.fCpu || "16000000L",
+    variant: config.variant || "standard",
+    boardDefine: config.boardDefine || `AVR_${boardName.toUpperCase()}`,
+  };
 }
 
 // Получение списка доступных плат
+// Возвращает хардкодный список плат, без зависимости от resources
 export async function getAvailableBoards(): Promise<string[]> {
-  try {
-    if (!ARDUINO_CORE_PATH || !existsSync(ARDUINO_CORE_PATH)) {
-      console.error(`Arduino Core не найден по пути: ${ARDUINO_CORE_PATH || "не определен"}`);
-      return ["uno", "nano", "mega", "leonardo"];
-    }
-    
-    const boardsTxtPath = path.join(ARDUINO_CORE_PATH, "boards.txt");
-    const content = await fs.readFile(boardsTxtPath, "utf-8");
-
-    const lines = content.split("\n");
-    const boards = new Set<string>();
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      // Ищем строки вида "board.name=Board Name"
-      const match = trimmed.match(/^([^.]+)\.name=/);
-      if (match) {
-        boards.add(match[1]);
-      }
-    }
-
-    return Array.from(boards).sort();
-  } catch (error) {
-    console.error("Ошибка получения списка плат:", error);
-    return ["uno", "nano", "mega", "leonardo"];
-  }
+  return ["uno", "nano", "mega", "leonardo", "micro"];
 }
 
 // Поиск всех файлов для компиляции
@@ -361,26 +321,23 @@ export async function compileArduinoProject(
     const buildDir = path.join(projectPath, "build");
     await fs.mkdir(buildDir, { recursive: true });
 
-    // Проверяем существование ARDUINO_CORE_PATH
-    if (!ARDUINO_CORE_PATH || !existsSync(ARDUINO_CORE_PATH)) {
+    // Используем cores и variants только из проекта (согласно документации)
+    const coreDir = path.join(projectPath, "cores", "arduino");
+    const variantDir = path.join(projectPath, "variants", boardConfig.variant);
+    
+    // Проверяем существование директории ядра (для проектов с Arduino.h)
+    if (usesArduinoLib && !existsSync(coreDir)) {
       return {
         success: false,
-        error: `Arduino Core не найден по пути: ${ARDUINO_CORE_PATH || "не определен"}`,
+        error: `Директория ядра Arduino не найдена в проекте: ${coreDir}\nУбедитесь, что папка cores скопирована в проект.`,
       };
     }
-    
-    const coreDir = path.join(ARDUINO_CORE_PATH, "cores", "arduino");
-    const variantDir = path.join(
-      ARDUINO_CORE_PATH,
-      "variants",
-      boardConfig.variant
-    );
     
     // Проверяем существование директории варианта (для проектов с Arduino.h)
     if (usesArduinoLib && !existsSync(variantDir)) {
       return {
         success: false,
-        error: `Директория варианта платы не найдена: ${variantDir}`,
+        error: `Директория варианта платы не найдена в проекте: ${variantDir}\nУбедитесь, что папка variants скопирована в проект.`,
       };
     }
 
@@ -422,13 +379,13 @@ export async function compileArduinoProject(
       const { stderr, stdout } = await execAsync(compileMainCmd, {
         cwd: projectPath,
       });
-      // Проверяем наличие ошибок (не только warnings)
-      const output = (stderr || stdout || "").toLowerCase();
-      if (output.includes("error:") || output.includes("fatal error:")) {
+      // Проверяем наличие ошибок в выводе (даже если команда завершилась успешно)
+      const output = (stderr || stdout || "").trim();
+      if (hasCompilationErrors(output)) {
         return {
           success: false,
-          error: `Ошибка компиляции main.cpp: ${stderr || stdout}`,
-          stderr: stderr || stdout,
+          error: `Ошибка компиляции main.cpp:\n${output}`,
+          stderr: output,
         };
       }
     } catch (error) {
@@ -478,10 +435,10 @@ export async function compileArduinoProject(
 
         try {
           const { stderr, stdout } = await execAsync(compileCmd, { cwd: projectPath });
-          // Проверяем наличие ошибок компиляции
-          const output = (stderr || stdout || "").toLowerCase();
-          if (output.includes("error:") || output.includes("fatal error:")) {
-            projectCompilationErrors.push(`${path.basename(file)}: ${stderr || stdout}`);
+          // Проверяем наличие ошибок компиляции в выводе
+          const output = (stderr || stdout || "").trim();
+          if (hasCompilationErrors(output)) {
+            projectCompilationErrors.push(`${path.basename(file)}: ${output}`);
           } else {
             objectFiles.push(objFile);
           }
@@ -538,10 +495,10 @@ export async function compileArduinoProject(
 
         try {
           const { stderr, stdout } = await execAsync(compileCmd, { cwd: projectPath });
-          // Проверяем наличие ошибок компиляции
-          const output = (stderr || stdout || "").toLowerCase();
-          if (output.includes("error:") || output.includes("fatal error:")) {
-            coreCompilationErrors.push(`${path.basename(file)}: ${stderr || stdout}`);
+          // Проверяем наличие ошибок компиляции в выводе
+          const output = (stderr || stdout || "").trim();
+          if (hasCompilationErrors(output)) {
+            coreCompilationErrors.push(`${path.basename(file)}: ${output}`);
           } else {
             objectFiles.push(objFile);
           }
@@ -573,13 +530,13 @@ export async function compileArduinoProject(
 
     try {
       const { stderr, stdout } = await execAsync(linkCmd, { cwd: projectPath });
-      // Проверяем наличие ошибок линковки (не только warnings)
-      const output = (stderr || stdout || "").toLowerCase();
-      if (output.includes("error:") || output.includes("undefined reference") || output.includes("fatal error:")) {
+      // Проверяем наличие ошибок линковки в выводе
+      const output = (stderr || stdout || "").trim();
+      if (hasCompilationErrors(output)) {
         return {
           success: false,
-          error: `Ошибка линковки: ${stderr || stdout}`,
-          stderr: stderr || stdout,
+          error: `Ошибка линковки:\n${output}`,
+          stderr: output,
         };
       }
     } catch (error) {

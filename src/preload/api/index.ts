@@ -3,6 +3,7 @@ import { fileAPI } from './fileAPI';
 import { terminalAPI } from './terminalAPI';
 import { arduinoAPI } from './arduinoAPI';
 import { menuAPI } from './menuAPI';
+import { toolchainAPI } from './toolchainAPI';
 
 /**
  * Сборка всех API для экспорта через contextBridge
@@ -54,5 +55,14 @@ export const electronAPI = {
   arduinoDetectProject: arduinoAPI.detectProject,
   arduinoGetBoards: arduinoAPI.getBoards,
   arduinoGetBoardConfig: arduinoAPI.getBoardConfig,
+
+  // API для работы с toolchain
+  toolchainCheck: toolchainAPI.check,
+  toolchainGetInstallCommands: toolchainAPI.getInstallCommands,
+  toolchainGetInstallInstructions: toolchainAPI.getInstallInstructions,
+  toolchainGetInstalledStatus: toolchainAPI.getInstalledStatus,
+  toolchainSetInstalled: toolchainAPI.setInstalled,
+  toolchainInstall: toolchainAPI.install,
+  onToolchainInstallProgress: toolchainAPI.onInstallProgress,
 };
 

@@ -14,6 +14,8 @@ export interface IDEConfig {
   lastProjectPath: string | null;
   projects: Record<string, ProjectState>; // ключ - путь к проекту
   openProjects: string[]; // список путей открытых проектов
+  toolchainInstalled?: boolean; // флаг установки toolchain
+  toolchainChecked?: boolean; // флаг проверки toolchain (чтобы не проверять каждый раз)
 }
 
 const CONFIG_FILE_NAME = 'ide-config.json';
@@ -28,6 +30,8 @@ export const loadConfig = async (): Promise<IDEConfig> => {
     lastProjectPath: null,
     projects: {},
     openProjects: [],
+    toolchainInstalled: false,
+    toolchainChecked: false,
   };
 
   try {
@@ -106,6 +110,33 @@ export const addOpenProject = async (projectPath: string): Promise<void> => {
 export const removeOpenProject = async (projectPath: string): Promise<void> => {
   const config = await loadConfig();
   config.openProjects = config.openProjects.filter(path => path !== projectPath);
+  await saveConfig(config);
+};
+
+// Получение статуса установки toolchain
+export const getToolchainInstalled = async (): Promise<boolean> => {
+  const config = await loadConfig();
+  return config.toolchainInstalled ?? false;
+};
+
+// Сохранение статуса установки toolchain
+export const setToolchainInstalled = async (installed: boolean): Promise<void> => {
+  const config = await loadConfig();
+  config.toolchainInstalled = installed;
+  config.toolchainChecked = true;
+  await saveConfig(config);
+};
+
+// Получение статуса проверки toolchain
+export const getToolchainChecked = async (): Promise<boolean> => {
+  const config = await loadConfig();
+  return config.toolchainChecked ?? false;
+};
+
+// Сохранение статуса проверки toolchain
+export const setToolchainChecked = async (checked: boolean): Promise<void> => {
+  const config = await loadConfig();
+  config.toolchainChecked = checked;
   await saveConfig(config);
 };
 

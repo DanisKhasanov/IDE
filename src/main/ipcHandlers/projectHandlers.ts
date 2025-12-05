@@ -18,6 +18,71 @@ import { windowManager } from "@main/managers/WindowManager";
 import type { ProjectPinConfig } from "../../types/boardConfig";
 
 /**
+ * Получение пути к Arduino Core из resources/arduino-core
+ */
+function getArduinoCorePath(): string {
+  const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
+  
+  // В dev режиме используем путь относительно исходного кода
+  if (isDev) {
+    const devPath = path.join(process.cwd(), "resources", "arduino-core");
+    if (existsSync(devPath)) {
+      return devPath;
+    }
+    
+    // Пробуем альтернативный путь
+    const altDevPath = path.resolve(__dirname, "../../../resources/arduino-core");
+    if (existsSync(altDevPath)) {
+      return altDevPath;
+    }
+  }
+  
+  // В production режиме пробуем разные пути
+  const prodPaths = [
+    path.join(process.resourcesPath || "", "arduino-core"),
+    path.join(__dirname, "../resources/arduino-core"),
+    path.join(__dirname, "../../resources/arduino-core"),
+  ];
+  
+  for (const prodPath of prodPaths) {
+    if (prodPath && existsSync(prodPath)) {
+      return prodPath;
+    }
+  }
+  
+  throw new Error(
+    "Arduino Core не найден. Убедитесь, что resources/arduino-core существует."
+  );
+}
+
+/**
+ * Рекурсивное копирование директории
+ */
+async function copyDirectoryRecursive(
+  sourceDir: string,
+  destDir: string
+): Promise<void> {
+  // Создаем целевую директорию, если её нет
+  await fs.mkdir(destDir, { recursive: true });
+
+  // Читаем содержимое исходной директории
+  const entries = await fs.readdir(sourceDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const sourcePath = path.join(sourceDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+
+    if (entry.isDirectory()) {
+      // Рекурсивно копируем поддиректории
+      await copyDirectoryRecursive(sourcePath, destPath);
+    } else {
+      // Копируем файлы
+      await fs.copyFile(sourcePath, destPath);
+    }
+  }
+}
+
+/**
  * Регистрация IPC обработчиков для работы с проектами
  */
 export function registerProjectHandlers(): void {
@@ -334,6 +399,34 @@ export function registerProjectHandlers(): void {
         // Создаем папку src
         const srcPath = path.join(projectPath, "src");
         await fs.mkdir(srcPath, { recursive: true });
+
+        // Копируем папки cores и variants из resources/arduino-core согласно документации
+        try {
+          const arduinoCorePath = getArduinoCorePath();
+          const coresSourcePath = path.join(arduinoCorePath, "cores");
+          const variantsSourcePath = path.join(arduinoCorePath, "variants");
+          
+          const coresDestPath = path.join(projectPath, "cores");
+          const variantsDestPath = path.join(projectPath, "variants");
+
+          // Проверяем существование исходных директорий
+          if (existsSync(coresSourcePath)) {
+            await copyDirectoryRecursive(coresSourcePath, coresDestPath);
+            console.log(`Скопирована папка cores в проект: ${coresDestPath}`);
+          } else {
+            console.warn(`Папка cores не найдена: ${coresSourcePath}`);
+          }
+
+          if (existsSync(variantsSourcePath)) {
+            await copyDirectoryRecursive(variantsSourcePath, variantsDestPath);
+            console.log(`Скопирована папка variants в проект: ${variantsDestPath}`);
+          } else {
+            console.warn(`Папка variants не найдена: ${variantsSourcePath}`);
+          }
+        } catch (error) {
+          console.error("Ошибка копирования папок cores и variants:", error);
+          // Не прерываем создание проекта, но логируем ошибку
+        }
 
         // Генерируем код инициализации
         let mainCode: string;

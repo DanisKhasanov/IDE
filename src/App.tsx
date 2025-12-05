@@ -14,6 +14,7 @@ import InfoPanel from "@components/InfoPanel";
 import ProjectTree from "@components/ProjectTree";
 import ArduinoToolbar from "@components/ArduinoToolbar";
 import NewProjectModal from "@/components/NewProjectModal";
+import ToolchainSetupModal from "@/components/ToolchainSetupModal";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import TerminalIcon from "@mui/icons-material/Terminal";
@@ -39,6 +40,7 @@ const App = () => {
   const [terminalActiveTab, setTerminalActiveTab] = useState<
     "terminal" | "problems"
   >("terminal");
+  const [toolchainModalOpen, setToolchainModalOpen] = useState(false);
   //Выбор темы
   const { mode, theme, toggleMode } = useTheme();
   //Выбор видимости терминала
@@ -132,6 +134,31 @@ const App = () => {
   const { isOpen, handleClose, handleProjectCreate } = useNewProjectModal({
     onProjectCreate: setCurrentProjectPath,
   });
+
+  // Проверка toolchain при первом запуске
+  useEffect(() => {
+    const checkToolchainOnFirstLaunch = async () => {
+      try {
+        if (!window.electronAPI?.toolchainCheck) {
+          return;
+        }
+        
+        // Всегда выполняем реальную проверку toolchain при запуске
+        const status = await window.electronAPI.toolchainCheck();
+        
+        // Если toolchain не установлен, показываем модальное окно
+        if (!status.installed) {
+          setToolchainModalOpen(true);
+        }
+      } catch (error) {
+        console.error("Ошибка проверки toolchain:", error);
+        // В случае ошибки тоже показываем модальное окно для проверки
+        setToolchainModalOpen(true);
+      }
+    };
+
+    checkToolchainOnFirstLaunch();
+  }, []);
 
   return (
     <ThemeProvider theme={theme}>
@@ -246,6 +273,12 @@ const App = () => {
         open={isOpen}
         onClose={handleClose}
         onProjectCreate={handleProjectCreate}
+      />
+      
+      {/* Модальное окно установки toolchain */}
+      <ToolchainSetupModal
+        open={toolchainModalOpen}
+        onClose={() => setToolchainModalOpen(false)}
       />
     </ThemeProvider>
   );

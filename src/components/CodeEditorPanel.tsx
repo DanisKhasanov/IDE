@@ -5,10 +5,11 @@ import {
   useCallback,
   useRef,
 } from "react";
-import { Card, CardContent, Tabs, Tab, Box } from "@mui/material";
+import { Card, CardContent, Tabs, Tab, Box, Snackbar, Alert } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import MonacoEditor from "@monaco-editor/react";
 import CloseIcon from "@mui/icons-material/Close";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { PanelGroup, Panel } from "react-resizable-panels";
 import TerminalPanel from "@components/TerminalPanel";
 import type { EditorFile } from "@/types/editor";
@@ -39,6 +40,7 @@ const CodeEditorPanel = ({
   const editorTheme = theme.palette.mode === "dark" ? "vs-dark" : "vs";
   const [files, setFiles] = useState<EditorFile[]>([]);
   const [activeFileId, setActiveFileId] = useState<string>("");
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
   const openFileHandlerRef = useRef<
     ((filePath: string) => Promise<void>) | null
   >(null);
@@ -232,6 +234,7 @@ const CodeEditorPanel = ({
       try {
         await window.electronAPI.saveFile(activeFile.path, activeFile.content);
         console.log("Файл сохранен:", activeFile.path);
+        setSnackbarOpen(true);
       } catch (error) {
         console.error("Ошибка сохранения файла:", error);
       }
@@ -260,6 +263,7 @@ const CodeEditorPanel = ({
             onActiveFileChange(result.filePath);
           }
           console.log("Файл сохранен как:", result.filePath);
+          setSnackbarOpen(true);
         }
       } catch (error) {
         console.error("Ошибка сохранения файла как:", error);
@@ -382,6 +386,23 @@ const CodeEditorPanel = ({
           onTabChange={onTerminalTabChange}
         />
       </PanelGroup>
+
+      {/* Уведомление о сохранении файла */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          severity="success"
+          icon={<CheckCircleIcon />}
+          onClose={() => setSnackbarOpen(false)}
+          sx={{ width: "100%" }}
+        >
+          Файл сохранен
+        </Alert>
+      </Snackbar>
     </Card>
   );
 };
