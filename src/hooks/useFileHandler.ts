@@ -8,6 +8,8 @@ export const useFileHandler = () => {
   const handleFileOpen = useCallback(async (filePath: string) => {
     if (openFileHandlerRef.current) {
       await openFileHandlerRef.current(filePath);
+    } else {
+      throw new Error("Обработчик открытия файлов еще не готов");
     }
   }, []);
 

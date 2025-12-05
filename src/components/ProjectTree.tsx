@@ -21,6 +21,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import type { ProjectTreeNode } from "@/types/project";
+import NewProjectModal from "./NewProjectModal";
 
 type ProjectTreeProps = {
   onFileOpen?: (filePath: string) => void;
@@ -55,10 +56,7 @@ const ProjectTree = ({
     nodePath: string;
     nodeType: "file" | "folder";
   } | null>(null);
-
-  const activeExpandedFolders = activeProjectPath
-    ? expandedFolders.get(activeProjectPath) || new Set<string>()
-    : new Set<string>();
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
 
   const loadOpenProjects = useCallback(async () => {
     try {
@@ -113,10 +111,52 @@ const ProjectTree = ({
     loadOpenProjects();
   }, [loadOpenProjects]);
 
+  // Функция для обновления конкретного проекта без перезагрузки всех проектов
+  const updateProjectTree = useCallback((updatedProject: OpenProject) => {
+    // Обновляем только конкретный проект в состоянии, сохраняя состояние раскрытых папок
+    setOpenProjects((prev) => {
+      const index = prev.findIndex((p) => p.path === updatedProject.path);
+      if (index >= 0) {
+        const updated = [...prev];
+        updated[index] = updatedProject;
+        return updated;
+      }
+      return prev;
+    });
+  }, []);
+
   // Подписка на событие изменения списка проектов
   useEffect(() => {
-    const handleProjectListChanged = () => {
-      loadOpenProjects();
+    const handleProjectListChanged = async () => {
+      // Увеличиваем задержку для обеспечения обновления файловой системы
+      // Особенно важно после компиляции, когда создаются файлы в build/
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Если есть активный проект, обновляем только его, сохраняя состояние раскрытых папок
+      if (activeProjectPath) {
+        try {
+          if (!window.electronAPI || !window.electronAPI.refreshProjectTree) {
+            return;
+          }
+          const updatedProject = await window.electronAPI.refreshProjectTree(activeProjectPath);
+          if (updatedProject) {
+            updateProjectTree(updatedProject);
+          }
+        } catch (error) {
+          console.error("Ошибка обновления дерева проекта:", error);
+        }
+      } else {
+        // Если активного проекта нет, перезагружаем все проекты
+        loadOpenProjects();
+      }
+    };
+    
+    // Обработчик кастомного события с обновленным деревом проекта
+    const handleProjectTreeUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<OpenProject>;
+      if (customEvent.detail) {
+        updateProjectTree(customEvent.detail);
+      }
     };
 
     const unsubscribe = window.electronAPI.onProjectListChanged(
@@ -125,6 +165,9 @@ const ProjectTree = ({
 
     // Также слушаем кастомное событие из App.tsx
     window.addEventListener("project-list-changed", handleProjectListChanged);
+    
+    // Слушаем кастомное событие с обновленным деревом проекта (от ArduinoToolbar)
+    window.addEventListener("project-tree-updated", handleProjectTreeUpdated);
 
     return () => {
       unsubscribe();
@@ -132,8 +175,12 @@ const ProjectTree = ({
         "project-list-changed",
         handleProjectListChanged
       );
+      window.removeEventListener(
+        "project-tree-updated",
+        handleProjectTreeUpdated
+      );
     };
-  }, [loadOpenProjects]);
+  }, [loadOpenProjects, activeProjectPath, updateProjectTree]);
 
   // Сохранение раскрытых папок при изменении
   useEffect(() => {
@@ -370,19 +417,21 @@ const ProjectTree = ({
     }
   };
 
-  const toggleFolder = (nodeId: string) => {
-    if (!activeProjectPath) return;
+  const toggleFolder = (nodeId: string, projectPath?: string) => {
+    // Используем переданный projectPath или активный проект
+    const targetProjectPath = projectPath || activeProjectPath;
+    if (!targetProjectPath) return;
 
     setExpandedFolders((prev) => {
       const newMap = new Map(prev);
-      const currentFolders = newMap.get(activeProjectPath) || new Set<string>();
+      const currentFolders = newMap.get(targetProjectPath) || new Set<string>();
       const newSet = new Set(currentFolders);
       if (newSet.has(nodeId)) {
         newSet.delete(nodeId);
       } else {
         newSet.add(nodeId);
       }
-      newMap.set(activeProjectPath, newSet);
+      newMap.set(targetProjectPath, newSet);
       return newMap;
     });
   };
@@ -576,11 +625,40 @@ const ProjectTree = ({
     }
   };
 
+  const handleNewProjectClick = () => {
+    setIsNewProjectModalOpen(true);
+  };
+
+  const handleNewProjectClose = () => {
+    setIsNewProjectModalOpen(false);
+  };
+
+  const handleNewProjectCreate = async (projectPath: string) => {
+    // Обновляем список проектов
+    await loadOpenProjects();
+    // Устанавливаем созданный проект как активный
+    setActiveProjectPath(projectPath);
+    if (onProjectPathChange) {
+      onProjectPathChange(projectPath);
+    }
+    // Раскрываем новый проект
+    setExpandedProjects((prev) => {
+      const newSet = new Set(prev);
+      newSet.add(projectPath);
+      return newSet;
+    });
+    // Закрываем модальное окно
+    setIsNewProjectModalOpen(false);
+  };
+
   const renderTreeNode = (
     node: ProjectTreeNode,
+    projectPath: string,
     level = 0
   ): React.JSX.Element => {
-    const isExpanded = activeExpandedFolders.has(node.id);
+    // Используем раскрытые папки конкретного проекта, а не только активного
+    const projectExpandedFolders = expandedFolders.get(projectPath) || new Set<string>();
+    const isExpanded = projectExpandedFolders.has(node.id);
     const isDirectory = node.type === "directory";
     const isActive = activeFilePath === node.path;
 
@@ -596,7 +674,7 @@ const ProjectTree = ({
           <ListItemButton
             onClick={() => {
               if (isDirectory) {
-                toggleFolder(node.id);
+                toggleFolder(node.id, projectPath);
               } else {
                 handleFileClick(node.path);
               }
@@ -631,7 +709,7 @@ const ProjectTree = ({
         </ListItem>
         {isDirectory && isExpanded && node.children && (
           <List component="div" disablePadding>
-            {node.children.map((child) => renderTreeNode(child, level + 1))}
+            {node.children.map((child) => renderTreeNode(child, projectPath, level + 1))}
           </List>
         )}
       </Box>
@@ -677,16 +755,28 @@ const ProjectTree = ({
             <Typography variant="body2" color="text.secondary" align="center">
               Папка еще не открыта
             </Typography>
-            <Button
-              variant="outlined"
-              size="large"
-              onClick={handleSelectProject}
-              sx={{
-                textTransform: "none",
-              }}
-            >
-              Открыть папку
-            </Button>
+            <Box sx={{ display: "flex", gap: 2, flexDirection: "column" }}>
+              <Button
+                variant="contained"
+                size="large"
+                onClick={handleNewProjectClick}
+                sx={{
+                  textTransform: "none",
+                }}
+              >
+                Новый проект
+              </Button>
+              <Button
+                variant="outlined"
+                size="large"
+                onClick={handleSelectProject}
+                sx={{
+                  textTransform: "none",
+                }}
+              >
+                Открыть папку
+              </Button>
+            </Box>
           </Box>
         ) : (
           <List
@@ -796,7 +886,7 @@ const ProjectTree = ({
                     <Box sx={{ pl: 2 }}>
                       <List component="div" disablePadding>
                         {project.tree.children.map((child) =>
-                          renderTreeNode(child)
+                          renderTreeNode(child, project.path)
                         )}
                       </List>
                     </Box>
@@ -828,6 +918,13 @@ const ProjectTree = ({
           <MenuItem onClick={handleDeleteFolder}>Удалить папку</MenuItem>
         )}
       </Menu>
+
+      {/* Модальное окно создания нового проекта */}
+      <NewProjectModal
+        open={isNewProjectModalOpen}
+        onClose={handleNewProjectClose}
+        onProjectCreate={handleNewProjectCreate}
+      />
     </Card>
   );
 };

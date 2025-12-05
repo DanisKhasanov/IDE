@@ -238,11 +238,21 @@ export function registerProjectHandlers(): void {
 
       for (const projectPath of openProjectsPaths) {
         if (existsSync(projectPath)) {
-          const children = await buildProjectTree(projectPath, projectPath);
-          const projectData = createProjectData(projectPath, children);
+          // Проверяем, есть ли уже обновленное дерево в projectManager
+          // Это важно после refreshProjectTree, чтобы использовать актуальное дерево
+          const existingProject = projectManager.getProject(projectPath);
+          
+          if (existingProject) {
+            // Используем существующее дерево из projectManager
+            loadedProjects.push(existingProject);
+          } else {
+            // Если дерева нет, пересобираем его
+            const children = await buildProjectTree(projectPath, projectPath);
+            const projectData = createProjectData(projectPath, children);
 
-          projectManager.addProject(projectPath, projectData);
-          loadedProjects.push(projectData);
+            projectManager.addProject(projectPath, projectData);
+            loadedProjects.push(projectData);
+          }
         } else {
           // Удаляем несуществующий проект из списка
           await removeOpenProject(projectPath);
@@ -300,6 +310,11 @@ export function registerProjectHandlers(): void {
           throw new Error("Название проекта не может быть пустым");
         }
 
+        // Проверяем, что parentPath определен
+        if (!parentPath || typeof parentPath !== 'string') {
+          throw new Error("Родительская папка не указана");
+        }
+
         // Проверяем, что родительская папка существует
         if (!existsSync(parentPath)) {
           throw new Error("Родительская папка не существует");
@@ -349,10 +364,17 @@ export function registerProjectHandlers(): void {
               ]
             : [
                 // Prod режим - в собранном приложении
-                path.join(__dirname, "../config/boards/atmega328p.json"), // out/main/config/boards
-                path.join(appPath, "dist/config/boards/atmega328p.json"),
+                // В упакованном приложении файлы находятся в asar архиве
+                // __dirname указывает на .vite/build/ внутри asar
+                // Конфигурация должна быть в .vite/build/config/boards/atmega328p.json
+                path.join(__dirname, "config/boards/atmega328p.json"), // .vite/build/config/boards
+                path.join(__dirname, "../config/boards/atmega328p.json"), // .vite/build/../config/boards
+                path.join(appPath, ".vite/build/config/boards/atmega328p.json"),
                 path.join(appPath, "config/boards/atmega328p.json"),
-                path.join(__dirname, "../../config/boards/atmega328p.json"),
+                path.join(appPath, "dist/config/boards/atmega328p.json"),
+                // Также пробуем путь относительно ресурсов приложения
+                path.join(process.resourcesPath, "app", "config", "boards", "atmega328p.json"),
+                path.join(process.resourcesPath, "app", ".vite", "build", "config", "boards", "atmega328p.json"),
               ];
 
           const boardConfigPath = possiblePaths.find((p) => existsSync(p));
@@ -362,8 +384,20 @@ export function registerProjectHandlers(): void {
             console.error("isDev:", isDev);
             console.error("__dirname:", __dirname);
             console.error("app.getAppPath():", appPath);
+            console.error("process.resourcesPath:", process.resourcesPath);
             console.error("process.cwd():", process.cwd());
             console.error("Проверенные пути:", possiblePaths);
+            // Попробуем вывести список файлов в директориях для отладки
+            try {
+              const configDir = path.join(__dirname, "../config");
+              console.error("Содержимое __dirname/../config:", existsSync(configDir) ? "существует" : "не существует");
+              if (existsSync(configDir)) {
+                const files = await fs.readdir(configDir);
+                console.error("Файлы в config:", files);
+              }
+            } catch (e) {
+              console.error("Ошибка при проверке директории:", e);
+            }
             throw new Error(
               `Не удалось найти конфигурацию платы. Проверьте, что файл src/config/boards/atmega328p.json существует и скопирован при сборке.`
             );
@@ -397,32 +431,32 @@ export function registerProjectHandlers(): void {
 
           // Генерируем main.cpp с подключением заголовочного файла
           mainCode = `#include <Arduino.h>
-            #include "pins_init.h"
+#include "pins_init.h"
 
-            void setup() {
-              // Инициализация пинов
-              pins_init_all();
-            }
+void setup() {
+  // Инициализация пинов
+  pins_init_all();
+}
 
-            void loop() {
-              // Основной цикл
-              
-            }
-            `;
+void loop() {
+  // Основной цикл
+  
+}
+`;
         } else {
           // Базовый код по умолчанию
           mainCode = `#include <Arduino.h>
 
-            void setup() {
-              // Инициализация
+void setup() {
+  // Инициализация
 
-              }
+  }
 
-            void loop() {
-              // Основной цикл
-              
-            }
-            `;
+void loop() {
+  // Основной цикл
+  
+}
+`;
         }
 
         // Создаем базовую структуру проекта (файл main.cpp в папке src)

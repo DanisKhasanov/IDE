@@ -1,5 +1,4 @@
 import { app, BrowserWindow, globalShortcut } from "electron";
-import started from "electron-squirrel-startup";
 import { registerIpcHandlers } from "./main/ipcHandlers";
 import { windowManager } from "./main/managers/WindowManager";
 import { terminalManager } from "./main/managers/TerminalManager";
@@ -11,7 +10,9 @@ import { createApplicationMenu } from "./main/menu/menu";
  * Этот файл отвечает за инициализацию приложения и управление жизненным циклом.
  * Вся бизнес-логика вынесена в отдельные модули для лучшей организации кода.
  */
-
+if (process.env.NODE_ENV === 'development') {
+  app.commandLine.appendSwitch('no-sandbox');
+}
 // Отключаем sandbox для Linux (решает проблему с SUID sandbox helper)
 // Должно быть вызвано ДО app.ready() и ДО любых других операций с app
 if (process.platform === "linux") {
@@ -20,6 +21,18 @@ if (process.platform === "linux") {
 }
 
 // Обработка создания/удаления ярлыков на Windows при установке/удалении приложения
+// electron-squirrel-startup нужен только на Windows, поэтому импортируем его условно
+let started = false;
+if (process.platform === "win32") {
+  try {
+    // Используем require вместо import, так как модуль может быть недоступен на других платформах
+    started = require("electron-squirrel-startup");
+  } catch (e) {
+    // Игнорируем ошибку, если модуль недоступен (это нормально на Linux/macOS)
+    console.warn("electron-squirrel-startup недоступен (это нормально на не-Windows платформах):", e);
+  }
+}
+
 // Если приложение запущено через electron-squirrel-startup, завершаем его
 if (started) {
   app.quit();

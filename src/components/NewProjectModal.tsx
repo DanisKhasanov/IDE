@@ -52,13 +52,42 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   const [selectedFrequency, setSelectedFrequency] =
     useState<string>("16000000L");
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
+  const [selectedFunctionType, setSelectedFunctionType] = useState<string | null>(null);
   // Храним массив функций на пин (ключ - pinName, значение - массив функций)
   const [selectedPinFunctions, setSelectedPinFunctions] = useState<
     Record<string, SelectedPinFunction[]>
   >({});
+  // Храним системные периферии (не привязанные к пинам) - ключ: functionType, значение: SelectedPinFunction
+  const [systemPeripherals, setSystemPeripherals] = useState<
+    Record<string, SelectedPinFunction>
+  >({});
   const [conflicts, setConflicts] = useState<string[]>([]);
 
   const currentBoardConfig = BOARD_CONFIGS[selectedBoard]?.config;
+  
+  // Функция для определения системных периферий (те, что есть в peripherals, но не привязаны к пинам)
+  const getSystemPeripherals = (): string[] => {
+    if (!currentBoardConfig) return [];
+    
+    const peripheralsInConfig = Object.keys(currentBoardConfig.peripherals);
+    const peripheralsOnPins = new Set<string>();
+    
+    // Собираем все типы периферий, которые есть на пинах
+    currentBoardConfig.pins.forEach((pin) => {
+      pin.functions.forEach((func) => {
+        peripheralsOnPins.add(func.type);
+        
+        // Обрабатываем специальные случаи: TIMER0_PWM -> TIMER0, TIMER1_PWM -> TIMER1, TIMER2_PWM -> TIMER2
+        if (func.type.startsWith("TIMER") && func.type.includes("_PWM")) {
+          const timerName = func.type.split("_PWM")[0]; // Извлекаем TIMER0, TIMER1, TIMER2
+          peripheralsOnPins.add(timerName);
+        }
+      });
+    });
+    
+    // Системные периферии - те, что в конфигурации, но не на пинах
+    return peripheralsInConfig.filter((peripheral) => !peripheralsOnPins.has(peripheral));
+  };
 
   // Вспомогательная функция для получения пинов периферии из массива pins
   const getPeripheralPins = (functionType: string): string[] => {
@@ -157,10 +186,15 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       // Подготавливаем конфигурацию пинов для передачи
       // Преобразуем Record<string, SelectedPinFunction[]> в плоский массив
       const allSelectedPins = Object.values(selectedPinFunctions).flat();
+      // Добавляем системные периферии (используем виртуальный pinName "SYSTEM")
+      const systemPeripheralsArray = Object.values(systemPeripherals).map((peripheral) => ({
+        ...peripheral,
+        pinName: "SYSTEM", // Виртуальный pinName для системных периферий
+      }));
       const pinConfig = {
         boardId: selectedBoard,
         fCpu: selectedFrequency,
-        selectedPins: allSelectedPins,
+        selectedPins: [...allSelectedPins, ...systemPeripheralsArray],
       };
 
       const project = await window.electronAPI.createNewProject(
@@ -170,6 +204,12 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       );
       if (project) {
         window.dispatchEvent(new CustomEvent("project-list-changed"));
+        // Отправляем событие для автоматического открытия main.cpp
+        window.dispatchEvent(
+          new CustomEvent("open-main-cpp", {
+            detail: { projectPath: project.path },
+          })
+        );
         onProjectCreate(project.path);
         handleClose();
       }
@@ -188,7 +228,9 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     setSelectedBoard("uno");
     setSelectedFrequency("16000000L");
     setSelectedPin(null);
+    setSelectedFunctionType(null);
     setSelectedPinFunctions({});
+    setSystemPeripherals({});
     setConflicts([]);
     onClose();
   };
@@ -314,6 +356,11 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       });
       
       setSelectedPinFunctions(updatedFunctions);
+      // Для SPI выбираем первый пин SPI и функцию SPI
+      if (spiPins.length > 0) {
+        setSelectedPin(spiPins[0]);
+        setSelectedFunctionType("SPI");
+      }
     } else {
       // Для других функций добавляем только на выбранный пин
       setSelectedPinFunctions((prev) => ({
@@ -327,6 +374,9 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
           },
         ],
       }));
+      // Автоматически выбираем добавленную функцию
+      setSelectedPin(pinName);
+      setSelectedFunctionType(functionType);
     }
   };
 
@@ -350,6 +400,12 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
           }
         });
         
+        // Если удаляется выбранная функция SPI, сбрасываем выбор
+        if (selectedPin && spiPins.includes(selectedPin) && selectedFunctionType === "SPI") {
+          setSelectedPin(null);
+          setSelectedFunctionType(null);
+        }
+        
         return newState;
       }
       
@@ -361,6 +417,19 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
         const filtered = existingFunctions.filter(
           (f) => f.functionType !== functionType
         );
+        
+        // Если удаляется выбранная функция, сбрасываем или обновляем выбор
+        if (selectedPin === pinName && selectedFunctionType === functionType) {
+          if (filtered.length > 0) {
+            // Выбираем первую оставшуюся функцию
+            setSelectedFunctionType(filtered[0].functionType);
+          } else {
+            // Если функций не осталось, сбрасываем выбор
+            setSelectedPin(null);
+            setSelectedFunctionType(null);
+          }
+        }
+        
         if (filtered.length === 0) {
           const newState = { ...prev };
           delete newState[pinName];
@@ -375,6 +444,13 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       // Если тип не указан, удаляем все функции пина
       const newState = { ...prev };
       delete newState[pinName];
+      
+      // Если удаляется выбранный пин, сбрасываем выбор
+      if (selectedPin === pinName) {
+        setSelectedPin(null);
+        setSelectedFunctionType(null);
+      }
+      
       return newState;
     });
   };
@@ -477,7 +553,9 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
             onBoardChange={(boardId) => {
               setSelectedBoard(boardId);
               setSelectedPinFunctions({});
+              setSystemPeripherals({});
               setSelectedPin(null);
+              setSelectedFunctionType(null);
             }}
             onProjectNameChange={setProjectName}
             onParentPathChange={setParentPath}
@@ -486,10 +564,40 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
           />
           <SelectedPinsPanel
             selectedPinFunctions={selectedPinFunctions}
+            systemPeripherals={systemPeripherals}
             conflicts={conflicts}
             boardConfig={currentBoardConfig}
             onRemoveFunction={handleFunctionRemove}
             onFunctionSettingsUpdate={handleFunctionSettingsUpdate}
+            onSystemPeripheralAdd={(functionType: string, settings: Record<string, unknown>) => {
+              setSystemPeripherals((prev) => ({
+                ...prev,
+                [functionType]: {
+                  pinName: "", // Пустой pinName для системных периферий
+                  functionType,
+                  settings,
+                },
+              }));
+            }}
+            onSystemPeripheralRemove={(functionType: string) => {
+              setSystemPeripherals((prev) => {
+                const newState = { ...prev };
+                delete newState[functionType];
+                return newState;
+              });
+            }}
+            onSystemPeripheralSettingsUpdate={(functionType: string, settings: Record<string, unknown>) => {
+              setSystemPeripherals((prev) => ({
+                ...prev,
+                [functionType]: {
+                  ...prev[functionType],
+                  settings,
+                },
+              }));
+            }}
+            getSystemPeripherals={getSystemPeripherals}
+            selectedPin={selectedPin}
+            selectedFunctionType={selectedFunctionType}
           />
           <PinsListPanel
             boardConfig={currentBoardConfig}

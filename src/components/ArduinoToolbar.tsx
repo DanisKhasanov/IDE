@@ -1,34 +1,37 @@
 import { useState, useEffect } from "react";
 import {
   Box,
-  Button,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
+  IconButton,
+  Tooltip,
   CircularProgress,
   Alert,
   Snackbar,
 } from "@mui/material";
-import BuildIcon from "@mui/icons-material/Build";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
+import type { CompileResult } from "@/types/arduino";
 
 interface ArduinoToolbarProps {
   currentProjectPath: string | null;
+  onCompilationResult?: (result: CompileResult) => void;
 }
 
-const ArduinoToolbar = ({ currentProjectPath }: ArduinoToolbarProps) => {
+const ArduinoToolbar = ({
+  currentProjectPath,
+  onCompilationResult,
+}: ArduinoToolbarProps) => {
   const [isArduinoProject, setIsArduinoProject] = useState(false);
   const [isCompiling, setIsCompiling] = useState(false);
-  const [boards, setBoards] = useState<string[]>([]);
-  const [selectedBoard, setSelectedBoard] = useState<string>("uno");
   const [result, setResult] = useState<{
     success: boolean;
     message?: string;
     error?: string;
   } | null>(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  
+  // Фиксированная плата - Arduino UNO
+  const BOARD = "uno";
 
   // Проверка, является ли проект Arduino проектом
   useEffect(() => {
@@ -51,27 +54,6 @@ const ArduinoToolbar = ({ currentProjectPath }: ArduinoToolbarProps) => {
     checkArduinoProject();
   }, [currentProjectPath]);
 
-  // Загрузка списка плат
-  useEffect(() => {
-    const loadBoards = async () => {
-      try {
-        const boardList = await window.electronAPI.arduinoGetBoards();
-        setBoards(boardList);
-        // Устанавливаем первую плату по умолчанию
-        if (boardList.length > 0 && !selectedBoard) {
-          setSelectedBoard(boardList[0]);
-        }
-      } catch (error) {
-        console.error("Ошибка загрузки списка плат:", error);
-        setBoards(["uno", "nano", "mega", "leonardo"]);
-      }
-    };
-
-    if (isArduinoProject) {
-      loadBoards();
-    }
-  }, [isArduinoProject]);
-
   // Обработка компиляции
   const handleCompile = async () => {
     if (!currentProjectPath || !isArduinoProject) {
@@ -84,29 +66,60 @@ const ArduinoToolbar = ({ currentProjectPath }: ArduinoToolbarProps) => {
     try {
       const compileResult = await window.electronAPI.arduinoCompile(
         currentProjectPath,
-        selectedBoard
+        BOARD
       );
 
-      setResult({
-        success: compileResult.success,
-        message: compileResult.message || "Компиляция завершена успешно!",
-        error: compileResult.error,
-      });
+      // Передаем результат компиляции в родительский компонент
+      if (onCompilationResult) {
+        onCompilationResult(compileResult);
+      }
 
-      setSnackbarOpen(true);
+      // Показываем уведомление при успехе или ошибке
+      if (compileResult.success) {
+        setResult({
+          success: true,
+          message: "Компиляция завершена успешно",
+        });
+        setSnackbarOpen(true);
+      } else {
+        // Показываем уведомление об ошибке (без полного текста ошибки)
+        setResult({
+          success: false,
+        });
+        setSnackbarOpen(true);
+      }
 
       // Если успешно, обновляем дерево проекта для отображения build/firmware.hex
       if (compileResult.success && currentProjectPath) {
         try {
-          await window.electronAPI.refreshProjectTree(currentProjectPath);
+          // Увеличиваем задержку для обеспечения создания всех файлов в build/
+          // Особенно важно для новых проектов, где файловая система может быть медленнее
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const updatedProject = await window.electronAPI.refreshProjectTree(currentProjectPath);
+          
+          // Отправляем кастомное событие с обновленным деревом проекта
+          if (updatedProject) {
+            window.dispatchEvent(new CustomEvent("project-tree-updated", {
+              detail: updatedProject
+            }));
+          }
         } catch (error) {
           console.error("Ошибка обновления дерева проекта:", error);
         }
       }
     } catch (error) {
-      setResult({
+      const errorResult: CompileResult = {
         success: false,
         error: error instanceof Error ? error.message : "Ошибка компиляции",
+        stderr: error instanceof Error ? error.message : String(error),
+      };
+      // Передаем результат ошибки в родительский компонент
+      if (onCompilationResult) {
+        onCompilationResult(errorResult);
+      }
+      // Показываем уведомление об ошибке (без полного текста ошибки)
+      setResult({
+        success: false,
       });
       setSnackbarOpen(true);
     } finally {
@@ -125,60 +138,55 @@ const ArduinoToolbar = ({ currentProjectPath }: ArduinoToolbarProps) => {
         sx={{
           display: "flex",
           alignItems: "center",
-          gap: 2,
-          padding: 1,
+          justifyContent: "flex-end",
+          gap: 1,
+          padding: 0.5,
           borderBottom: 1,
           borderColor: "divider",
         }}
       >
-        {/* <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel id="board-select-label">Плата</InputLabel>
-          <Select
-            labelId="board-select-label"
-            value={selectedBoard}
-            label="Плата"
-            onChange={(e) => setSelectedBoard(e.target.value)}
+        <Tooltip title={isCompiling ? "Компиляция..." : "Скомпилировать"}>
+          <IconButton
+            onClick={handleCompile}
             disabled={isCompiling}
+            size="small"
+            sx={{
+              padding: 1,
+              color: "success.main",
+              "&:hover": {
+                backgroundColor: "action.hover",
+                color: "success.dark",
+              },
+              "&:disabled": {
+                color: "action.disabled",
+              },
+            }}
           >
-            {boards.map((board) => (
-              <MenuItem key={board} value={board}>
-                {board.toUpperCase()}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl> */}
-
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={
-            isCompiling ? (
-              <CircularProgress size={16} color="inherit" />
+            {isCompiling ? (
+              <CircularProgress size={30} color="inherit" />
             ) : (
-              <BuildIcon />
-            )
-          }
-          onClick={handleCompile}
-          disabled={isCompiling}
-          sx={{ minWidth: 150 }}
-        >
-          {isCompiling ? "Компиляция..." : "Скомпилировать"}
-        </Button>
+              <PlayArrowIcon sx={{ fontSize: 30 }} />
+            )}
+          </IconButton>
+        </Tooltip>
       </Box>
 
+      {/* Уведомление о результате компиляции */}
       <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={6000}
+        open={snackbarOpen && result !== null}
+        autoHideDuration={result?.success ? 3000 : 5000}
         onClose={() => setSnackbarOpen(false)}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
         <Alert
-          onClose={() => setSnackbarOpen(false)}
           severity={result?.success ? "success" : "error"}
-          sx={{ width: "100%" }}
           icon={result?.success ? <CheckCircleIcon /> : <ErrorIcon />}
+          onClose={() => setSnackbarOpen(false)}
+          sx={{ width: "100%" }}
         >
-          {result?.success ? result.message : result?.error}
+          {result?.success
+            ? "Компиляция завершена успешно"
+            : "Произошла ошибка компиляции"}
         </Alert>
       </Snackbar>
     </>

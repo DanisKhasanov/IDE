@@ -13,13 +13,29 @@ import type {
 const execAsync = promisify(exec);
 
 // Путь к Arduino библиотеке в IDE
-const getArduinoCorePath = () => {
+const getArduinoCorePath = (): string => {
   // В production это будет в resources/arduino-core
   // В development может быть относительный путь
   const devPath = path.join(__dirname, "../../resources/arduino-core");
   if (existsSync(devPath)) {
     return devPath;
   }
+  
+  // Пробуем альтернативные пути для production
+  const prodPaths = [
+    path.join(process.resourcesPath || "", "arduino-core"),
+    path.join(__dirname, "../resources/arduino-core"),
+  ];
+  
+  for (const prodPath of prodPaths) {
+    if (prodPath && existsSync(prodPath)) {
+      return prodPath;
+    }
+  }
+  
+  throw new Error(
+    "Arduino Core не найден. Убедитесь, что resources/arduino-core существует."
+  );
 };
 
 const ARDUINO_CORE_PATH = getArduinoCorePath();
@@ -70,6 +86,10 @@ export async function isArduinoProject(
 // Парсинг platform.txt
 export async function parsePlatformTxt(): Promise<PlatformConfig> {
   try {
+    if (!ARDUINO_CORE_PATH || !existsSync(ARDUINO_CORE_PATH)) {
+      throw new Error(`Arduino Core не найден по пути: ${ARDUINO_CORE_PATH || "не определен"}`);
+    }
+    
     const platformTxtPath = path.join(ARDUINO_CORE_PATH, "platform.txt");
     const content = await fs.readFile(platformTxtPath, "utf-8");
 
@@ -141,6 +161,10 @@ export async function parseBoardConfig(
   boardName = "uno"
 ): Promise<BoardConfig> {
   try {
+    if (!ARDUINO_CORE_PATH || !existsSync(ARDUINO_CORE_PATH)) {
+      throw new Error(`Arduino Core не найден по пути: ${ARDUINO_CORE_PATH || "не определен"}`);
+    }
+    
     const boardsTxtPath = path.join(ARDUINO_CORE_PATH, "boards.txt");
     const content = await fs.readFile(boardsTxtPath, "utf-8");
 
@@ -216,6 +240,11 @@ export async function parseBoardConfig(
 // Получение списка доступных плат
 export async function getAvailableBoards(): Promise<string[]> {
   try {
+    if (!ARDUINO_CORE_PATH || !existsSync(ARDUINO_CORE_PATH)) {
+      console.error(`Arduino Core не найден по пути: ${ARDUINO_CORE_PATH || "не определен"}`);
+      return ["uno", "nano", "mega", "leonardo"];
+    }
+    
     const boardsTxtPath = path.join(ARDUINO_CORE_PATH, "boards.txt");
     const content = await fs.readFile(boardsTxtPath, "utf-8");
 
@@ -264,6 +293,46 @@ async function findCoreFiles(
   return files;
 }
 
+// Поиск всех файлов проекта в директории src/ (рекурсивно)
+async function findProjectFiles(
+  srcDir: string,
+  excludeMainCpp = true,
+  extensions: Array<string> = [".cpp", ".c"]
+): Promise<string[]> {
+  const files: string[] = [];
+
+  try {
+    if (!existsSync(srcDir)) {
+      return files;
+    }
+
+    const entries = await fs.readdir(srcDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(srcDir, entry.name);
+      
+      if (entry.isFile()) {
+        const ext = path.extname(entry.name);
+        if (extensions.includes(ext)) {
+          // Исключаем main.cpp, так как он компилируется отдельно
+          if (excludeMainCpp && entry.name === "main.cpp") {
+            continue;
+          }
+          files.push(fullPath);
+        }
+      } else if (entry.isDirectory()) {
+        // Рекурсивно ищем файлы в поддиректориях
+        const subFiles = await findProjectFiles(fullPath, false, extensions);
+        files.push(...subFiles);
+      }
+    }
+  } catch (error) {
+    console.error("Ошибка поиска файлов проекта:", error);
+  }
+
+  return files;
+}
+
 // Основная функция компиляции
 export async function compileArduinoProject(
   projectPath: string,
@@ -292,12 +361,28 @@ export async function compileArduinoProject(
     const buildDir = path.join(projectPath, "build");
     await fs.mkdir(buildDir, { recursive: true });
 
+    // Проверяем существование ARDUINO_CORE_PATH
+    if (!ARDUINO_CORE_PATH || !existsSync(ARDUINO_CORE_PATH)) {
+      return {
+        success: false,
+        error: `Arduino Core не найден по пути: ${ARDUINO_CORE_PATH || "не определен"}`,
+      };
+    }
+    
     const coreDir = path.join(ARDUINO_CORE_PATH, "cores", "arduino");
     const variantDir = path.join(
       ARDUINO_CORE_PATH,
       "variants",
       boardConfig.variant
     );
+    
+    // Проверяем существование директории варианта (для проектов с Arduino.h)
+    if (usesArduinoLib && !existsSync(variantDir)) {
+      return {
+        success: false,
+        error: `Директория варианта платы не найдена: ${variantDir}`,
+      };
+    }
 
     // 5. Подготовка флагов компиляции
     const warningFlags = "-w";
@@ -334,32 +419,112 @@ export async function compileArduinoProject(
     const compileMainCmd = `${platformConfig.compilerCppCmd} ${cxxFlags} -c "${mainCpp}" -o "${appObj}"`;
 
     try {
-      const { stderr } = await execAsync(compileMainCmd, {
+      const { stderr, stdout } = await execAsync(compileMainCmd, {
         cwd: projectPath,
       });
-      if (stderr && !stderr.includes("warning")) {
+      // Проверяем наличие ошибок (не только warnings)
+      const output = (stderr || stdout || "").toLowerCase();
+      if (output.includes("error:") || output.includes("fatal error:")) {
         return {
           success: false,
-          error: `Ошибка компиляции main.cpp: ${stderr}`,
-          stderr,
+          error: `Ошибка компиляции main.cpp: ${stderr || stdout}`,
+          stderr: stderr || stdout,
         };
       }
     } catch (error) {
-      const err = error as Error & { stderr?: string; message: string };
+      const err = error as Error & { stderr?: string; stdout?: string; message: string };
+      // Объединяем stdout и stderr для полной информации об ошибке
+      // Удаляем из message команду компиляции, если она там есть
+      let fullError = err.stderr || err.stdout || err.message;
+      
+      // Если в сообщении есть команда компиляции, удаляем её
+      if (fullError.includes("Command failed:")) {
+        const lines = fullError.split("\n");
+        fullError = lines
+          .filter(line => !line.trim().startsWith("Command failed:"))
+          .join("\n");
+      }
+      
       return {
         success: false,
-        error: `Ошибка компиляции main.cpp: ${err.message}`,
-        stderr: err.stderr || err.message,
+        error: `Ошибка компиляции main.cpp: ${fullError}`,
+        stderr: fullError,
       };
     }
 
-    // 7. Компиляция файлов ядра (только для проектов с Arduino.h)
+    // 6.5. Компиляция остальных файлов проекта из src/
+    const srcDir = path.join(projectPath, "src");
+    const projectFiles = await findProjectFiles(srcDir, true, [".cpp", ".c"]);
     const objectFiles: string[] = [appObj];
     
+    if (projectFiles.length > 0) {
+      console.log(`Компиляция файлов проекта (${projectFiles.length} файлов)...`);
+      const projectCompilationErrors: string[] = [];
+      
+      for (const file of projectFiles) {
+        const ext = path.extname(file);
+        const compiler =
+          ext === ".cpp"
+            ? platformConfig.compilerCppCmd
+            : platformConfig.compilerCCmd;
+        const flags = ext === ".cpp" ? cxxFlags : cFlags;
+        
+        // Создаем уникальное имя объектного файла на основе относительного пути от src/
+        const relativePath = path.relative(srcDir, file);
+        const objFileName = relativePath.replace(/[/\\]/g, "_").replace(ext, ".o");
+        const objFile = path.join(buildDir, objFileName);
+
+        const compileCmd = `${compiler} ${flags} -c "${file}" -o "${objFile}"`;
+
+        try {
+          const { stderr, stdout } = await execAsync(compileCmd, { cwd: projectPath });
+          // Проверяем наличие ошибок компиляции
+          const output = (stderr || stdout || "").toLowerCase();
+          if (output.includes("error:") || output.includes("fatal error:")) {
+            projectCompilationErrors.push(`${path.basename(file)}: ${stderr || stdout}`);
+          } else {
+            objectFiles.push(objFile);
+          }
+        } catch (error) {
+          const err = error as Error & { stderr?: string; stdout?: string; message: string };
+          const errorMsg = err.stderr || err.stdout || err.message;
+          projectCompilationErrors.push(`${path.basename(file)}: ${errorMsg}`);
+        }
+      }
+      
+      // Если есть критические ошибки компиляции файлов проекта, прерываем процесс
+      if (projectCompilationErrors.length > 0) {
+        return {
+          success: false,
+          error: `Ошибки компиляции файлов проекта:\n${projectCompilationErrors.join("\n")}`,
+          stderr: projectCompilationErrors.join("\n"),
+        };
+      }
+    }
+
+    // 7. Компиляция файлов ядра (только для проектов с Arduino.h)
+    
     if (usesArduinoLib) {
+      // Проверяем существование директории ядра
+      if (!existsSync(coreDir)) {
+        return {
+          success: false,
+          error: `Директория ядра Arduino не найдена: ${coreDir}`,
+        };
+      }
+      
       console.log("Компиляция ядра Arduino...");
       const coreFiles = await findCoreFiles(coreDir);
+      
+      if (coreFiles.length === 0) {
+        return {
+          success: false,
+          error: `Не найдены файлы для компиляции в директории ядра: ${coreDir}`,
+        };
+      }
 
+      const coreCompilationErrors: string[] = [];
+      
       for (const file of coreFiles) {
         const ext = path.extname(file);
         const compiler =
@@ -372,13 +537,28 @@ export async function compileArduinoProject(
         const compileCmd = `${compiler} ${flags} -c "${file}" -o "${objFile}"`;
 
         try {
-          await execAsync(compileCmd, { cwd: projectPath });
-          objectFiles.push(objFile);
+          const { stderr, stdout } = await execAsync(compileCmd, { cwd: projectPath });
+          // Проверяем наличие ошибок компиляции
+          const output = (stderr || stdout || "").toLowerCase();
+          if (output.includes("error:") || output.includes("fatal error:")) {
+            coreCompilationErrors.push(`${path.basename(file)}: ${stderr || stdout}`);
+          } else {
+            objectFiles.push(objFile);
+          }
         } catch (error) {
-          // Пропускаем ошибки компиляции отдельных файлов (может быть устаревший файл)
-          const err = error as Error;
-          console.warn(`Предупреждение при компиляции ${file}:`, err.message);
+          const err = error as Error & { stderr?: string; stdout?: string; message: string };
+          const errorMsg = err.stderr || err.stdout || err.message;
+          coreCompilationErrors.push(`${path.basename(file)}: ${errorMsg}`);
         }
+      }
+      
+      // Если есть критические ошибки компиляции ядра, прерываем процесс
+      if (coreCompilationErrors.length > 0) {
+        return {
+          success: false,
+          error: `Ошибки компиляции файлов ядра Arduino:\n${coreCompilationErrors.join("\n")}`,
+          stderr: coreCompilationErrors.join("\n"),
+        };
       }
     } else {
       console.log("Чистый AVR проект - компиляция ядра не требуется");
@@ -392,20 +572,34 @@ export async function compileArduinoProject(
     const linkCmd = `avr-gcc ${ldFlags} -o "${elfFile}" ${objectFilesStr} -lm`;
 
     try {
-      const { stderr } = await execAsync(linkCmd, { cwd: projectPath });
-      if (stderr && !stderr.includes("warning")) {
+      const { stderr, stdout } = await execAsync(linkCmd, { cwd: projectPath });
+      // Проверяем наличие ошибок линковки (не только warnings)
+      const output = (stderr || stdout || "").toLowerCase();
+      if (output.includes("error:") || output.includes("undefined reference") || output.includes("fatal error:")) {
         return {
           success: false,
-          error: `Ошибка линковки: ${stderr}`,
-          stderr,
+          error: `Ошибка линковки: ${stderr || stdout}`,
+          stderr: stderr || stdout,
         };
       }
     } catch (error) {
-      const err = error as Error & { stderr?: string; message: string };
+      const err = error as Error & { stderr?: string; stdout?: string; message: string };
+      // Объединяем stdout и stderr для полной информации об ошибке
+      // Удаляем из message команду компиляции, если она там есть
+      let fullError = err.stderr || err.stdout || err.message;
+      
+      // Если в сообщении есть команда компиляции, удаляем её
+      if (fullError.includes("Command failed:")) {
+        const lines = fullError.split("\n");
+        fullError = lines
+          .filter(line => !line.trim().startsWith("Command failed:"))
+          .join("\n");
+      }
+      
       return {
         success: false,
-        error: `Ошибка линковки: ${err.message}`,
-        stderr: err.stderr || err.message,
+        error: `Ошибка линковки: ${fullError}`,
+        stderr: fullError,
       };
     }
 
@@ -417,11 +611,23 @@ export async function compileArduinoProject(
     try {
       await execAsync(objcopyCmd, { cwd: projectPath });
     } catch (error) {
-      const err = error as Error & { stderr?: string; message: string };
+      const err = error as Error & { stderr?: string; stdout?: string; message: string };
+      // Объединяем stdout и stderr для полной информации об ошибке
+      // Удаляем из message команду компиляции, если она там есть
+      let fullError = err.stderr || err.stdout || err.message;
+      
+      // Если в сообщении есть команда компиляции, удаляем её
+      if (fullError.includes("Command failed:")) {
+        const lines = fullError.split("\n");
+        fullError = lines
+          .filter(line => !line.trim().startsWith("Command failed:"))
+          .join("\n");
+      }
+      
       return {
         success: false,
-        error: `Ошибка создания HEX файла: ${err.message}`,
-        stderr: err.stderr || err.message,
+        error: `Ошибка создания HEX файла: ${fullError}`,
+        stderr: fullError,
       };
     }
 
@@ -432,11 +638,23 @@ export async function compileArduinoProject(
       message: "Компиляция завершена успешно!",
     };
   } catch (error) {
-    const err = error as Error;
+    const err = error as Error & { stderr?: string; stdout?: string; message: string };
+    // Объединяем stdout и stderr для полной информации об ошибке
+    // Удаляем из message команду компиляции, если она там есть
+    let fullError = err.stderr || err.stdout || err.message;
+    
+    // Если в сообщении есть команда компиляции, удаляем её
+    if (fullError.includes("Command failed:")) {
+      const lines = fullError.split("\n");
+      fullError = lines
+        .filter(line => !line.trim().startsWith("Command failed:"))
+        .join("\n");
+    }
+    
     return {
       success: false,
-      error: `Ошибка компиляции: ${err.message}`,
-      stderr: err.message,
+      error: `Ошибка компиляции: ${fullError}`,
+      stderr: fullError,
     };
   }
 }

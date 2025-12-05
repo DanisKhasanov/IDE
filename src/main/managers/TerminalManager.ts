@@ -1,11 +1,109 @@
-import * as pty from "node-pty";
-import { BrowserWindow } from "electron";
+import { BrowserWindow, app } from "electron";
+import type { IPty } from "node-pty";
+import { join, dirname } from "path";
+import { existsSync } from "fs";
+import Module from "module";
+
+// Динамический импорт node-pty для правильной работы в упакованном приложении
+// Нативные модули должны загружаться через require в runtime
+let pty: typeof import("node-pty") | null = null;
+
+function getPty(): typeof import("node-pty") {
+  if (!pty) {
+    try {
+      if (app.isPackaged) {
+        // В упакованном приложении пробуем несколько вариантов путей
+        // process.resourcesPath указывает на директорию resources (например, /path/to/app/resources)
+        // app.asar находится в resources/app.asar
+        // app.asar.unpacked находится в resources/app.asar.unpacked (рядом с app.asar)
+        const resourcesPath = process.resourcesPath;
+        
+        if (!resourcesPath) {
+          throw new Error("process.resourcesPath не определен в упакованном приложении");
+        }
+        
+        // Добавляем путь к app.asar.unpacked/node_modules в NODE_PATH для правильного разрешения модулей
+        const unpackedNodeModulesPath = join(resourcesPath, "app.asar.unpacked", "node_modules");
+        if (existsSync(unpackedNodeModulesPath)) {
+          // Добавляем путь в Module._nodeModulePaths для текущего модуля
+          // Используем type assertion, так как это внутренний API Node.js
+          const ModuleInternal = Module as any;
+          if (ModuleInternal._nodeModulePaths) {
+            const originalNodeModulePaths = ModuleInternal._nodeModulePaths;
+            ModuleInternal._nodeModulePaths = function(from: string) {
+              const paths = originalNodeModulePaths.call(this, from);
+              if (!paths.includes(unpackedNodeModulesPath)) {
+                paths.unshift(unpackedNodeModulesPath);
+              }
+              return paths;
+            };
+          }
+        }
+        
+        // Вариант 1: Стандартный require (должен работать с AutoUnpackNativesPlugin и настроенным NODE_PATH)
+        try {
+          pty = require("node-pty");
+          return pty;
+        } catch (standardError) {
+          // Игнорируем ошибку, пробуем прямые пути
+        }
+        
+        // Вариант 2: Прямой путь к app.asar.unpacked
+        // app.asar.unpacked находится в той же директории, что и app.asar (resources/)
+        const unpackedPaths = [
+          join(resourcesPath, "app.asar.unpacked", "node_modules", "node-pty"),
+          // Альтернативный вариант: если resourcesPath указывает не туда
+          join(dirname(app.getAppPath()), "app.asar.unpacked", "node_modules", "node-pty"),
+        ];
+        
+        for (const nodePtyPath of unpackedPaths) {
+          if (existsSync(nodePtyPath)) {
+            try {
+              pty = require(nodePtyPath);
+              return pty;
+            } catch (pathError) {
+              // Пробуем следующий путь
+              continue;
+            }
+          }
+        }
+        
+        // Если все варианты не сработали, выбрасываем ошибку с подробной информацией
+        throw new Error(
+          `Не удалось загрузить node-pty из следующих путей:\n` +
+          `  - require("node-pty")\n` +
+          unpackedPaths.map(p => `  - ${p}${existsSync(p) ? ' (существует)' : ' (не существует)'}`).join('\n') +
+          `\nResources path: ${resourcesPath}\n` +
+          `App path: ${app.getAppPath()}\n` +
+          `Unpacked node_modules path: ${unpackedNodeModulesPath}${existsSync(unpackedNodeModulesPath) ? ' (существует)' : ' (не существует)'}\n` +
+          `Проверьте, что AutoUnpackNativesPlugin правильно распаковал модуль в app.asar.unpacked`
+        );
+      } else {
+        // В режиме разработки используем стандартный require
+        pty = require("node-pty");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const appPath = app.getAppPath();
+      const isPackaged = app.isPackaged;
+      const resourcesPath = process.resourcesPath;
+      
+      throw new Error(
+        `Не удалось загрузить модуль node-pty: ${errorMessage}\n` +
+        `App path: ${appPath}\n` +
+        `Resources path: ${resourcesPath}\n` +
+        `Is packaged: ${isPackaged}`
+      );
+    }
+  }
+  return pty;
+}
 
 /**
  * Менеджер для управления терминалами
  */
 export class TerminalManager {
-  private terminals = new Map<number, pty.IPty>();
+  private terminals = new Map<number, IPty>();
   private nextTerminalId = 1;
   private mainWindow: BrowserWindow | null = null;
 
@@ -20,13 +118,14 @@ export class TerminalManager {
    * Создать новый терминал
    */
   createTerminal(cwd?: string): number {
+    const ptyModule = getPty();
     const shell =
       process.platform === "win32"
         ? "powershell.exe"
         : process.env.SHELL || "/bin/bash";
     const terminalId = this.nextTerminalId++;
 
-    const ptyProcess = pty.spawn(shell, [], {
+    const ptyProcess = ptyModule.spawn(shell, [], {
       name: "xterm-color",
       cols: 80,
       rows: 24,

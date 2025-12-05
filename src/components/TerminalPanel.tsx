@@ -1,32 +1,60 @@
-import { useEffect, useRef } from "react";
-import { Box, Typography, IconButton } from "@mui/material";
+import { useEffect, useRef, useState, SyntheticEvent } from "react";
+import { Box, Typography, IconButton, Tabs, Tab } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import CloseIcon from "@mui/icons-material/Close";
 import { Panel, PanelResizeHandle } from "react-resizable-panels";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
+import ProblemsTab, { CompilationProblem } from "@components/ProblemsTab";
 
 interface TerminalPanelProps {
   isVisible: boolean;
   onClose?: () => void;
   currentProjectPath?: string | null;
+  problems?: CompilationProblem[];
+  activeTab?: "terminal" | "problems";
+  onTabChange?: (tab: "terminal" | "problems") => void;
 }
 
 const TerminalPanel = ({
   isVisible,
   onClose,
   currentProjectPath,
+  problems = [],
+  activeTab: externalActiveTab,
+  onTabChange,
 }: TerminalPanelProps) => {
   const theme = useTheme();
+  const [internalActiveTab, setInternalActiveTab] = useState<
+    "terminal" | "problems"
+  >("terminal");
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstanceRef = useRef<Terminal | null>(null);
   const terminalIdRef = useRef<number | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const unsubscribeDataRef = useRef<(() => void) | null>(null);
 
+  // Используем внешний activeTab, если он передан, иначе внутренний
+  const activeTab = externalActiveTab ?? internalActiveTab;
+
+  // Обработчик изменения таба
+  const handleTabChange = (_event: SyntheticEvent, newValue: string) => {
+    const newTab = newValue as "terminal" | "problems";
+    if (onTabChange) {
+      onTabChange(newTab);
+    } else {
+      setInternalActiveTab(newTab);
+    }
+  };
+
   // Инициализация терминала
   useEffect(() => {
-    if (!isVisible || !terminalRef.current) {
+    if (!isVisible || !terminalRef.current || activeTab !== "terminal") {
+      return;
+    }
+
+    // Если терминал уже создан, не создаем заново
+    if (terminalInstanceRef.current) {
       return;
     }
 
@@ -144,7 +172,7 @@ const TerminalPanel = ({
       terminalInstanceRef.current = null;
       unsubscribeDataRef.current = null;
     };
-  }, [isVisible, currentProjectPath, theme]);
+  }, [isVisible, currentProjectPath, theme, activeTab]);
 
   // Обновление темы терминала
   useEffect(() => {
@@ -172,7 +200,7 @@ const TerminalPanel = ({
           borderTop={1}
           borderColor="divider"
         >
-          {/* Заголовок с кнопкой закрытия */}
+          {/* Заголовок с табами и кнопкой закрытия */}
           <Box
             sx={{
               display: "flex",
@@ -183,33 +211,81 @@ const TerminalPanel = ({
               backgroundColor: "transparent",
             }}
           >
-            <Typography
-              variant="body2"
-              sx={{ px: 2, color: theme.palette.text.secondary }}
+            <Tabs
+              value={activeTab}
+              onChange={handleTabChange}
+              sx={{ flex: 1, minHeight: "auto" }}
             >
-              Терминал
-            </Typography>
+              <Tab
+                label={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography variant="body2">Проблемы</Typography>
+                    {problems.length > 0 && (
+                      <Box
+                        sx={{
+                          backgroundColor: theme.palette.error.main,
+                          color: theme.palette.error.contrastText,
+                          borderRadius: "50%",
+                          width: 17,
+                          height: 17,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "0.75rem",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {problems.filter((p) => p.type === "error").length}
+                      </Box>
+                    )}
+                  </Box>
+                }
+                value="problems"
+                sx={{ minHeight: "auto", py: 1 }}
+              />
+              <Tab
+                label="Терминал"
+                value="terminal"
+                sx={{ minHeight: "auto", py: 1 }}
+              />
+            </Tabs>
             {onClose && (
               <IconButton
                 size="small"
                 onClick={onClose}
                 aria-label="Закрыть терминал"
+                sx={{ mr: 1 }}
               >
                 <CloseIcon fontSize="inherit" />
               </IconButton>
             )}
           </Box>
-          {/* Контент терминала */}
+
+          
+          {/* Контент табов */}
           <Box
-            ref={terminalRef}
             sx={{
               flex: 1,
-              width: "100%",
-              padding: "8px",
               overflow: "hidden",
-              backgroundColor: theme.palette.background.paper,
+              display: "flex",
+              flexDirection: "column",
             }}
-          />
+          >
+            {activeTab === "problems" ? (
+              <ProblemsTab problems={problems} />
+            ) : (
+              <Box
+                ref={terminalRef}
+                sx={{
+                  flex: 1,
+                  width: "100%",
+                  padding: "8px",
+                  overflow: "hidden",
+                  backgroundColor: theme.palette.background.paper,
+                }}
+              />
+            )}
+          </Box>
         </Box>
       </Panel>
     </>

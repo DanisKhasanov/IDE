@@ -20,6 +20,7 @@ export async function buildProjectTree(
 
   for (const entry of entries) {
     // Пропускаем скрытые файлы и node_modules
+    // НЕ пропускаем папку build - она должна отображаться
     if (entry.name.startsWith(".") || entry.name === "node_modules") {
       continue;
     }

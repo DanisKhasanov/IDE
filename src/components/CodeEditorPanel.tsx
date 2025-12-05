@@ -12,6 +12,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import { PanelGroup, Panel } from "react-resizable-panels";
 import TerminalPanel from "@components/TerminalPanel";
 import type { EditorFile } from "@/types/editor";
+import type { CompilationProblem } from "@components/ProblemsTab";
 
 interface CodeEditorPanelProps {
   onFileOpenRequest?: (handler: (filePath: string) => Promise<void>) => void;
@@ -19,6 +20,9 @@ interface CodeEditorPanelProps {
   onActiveFileChange?: (filePath: string | null) => void;
   isTerminalVisible?: boolean;
   onTerminalClose?: () => void;
+  compilationProblems?: CompilationProblem[];
+  terminalActiveTab?: "terminal" | "problems";
+  onTerminalTabChange?: (tab: "terminal" | "problems") => void;
 }
 
 const CodeEditorPanel = ({
@@ -27,6 +31,9 @@ const CodeEditorPanel = ({
   onActiveFileChange,
   isTerminalVisible = false,
   onTerminalClose,
+  compilationProblems = [],
+  terminalActiveTab,
+  onTerminalTabChange,
 }: CodeEditorPanelProps) => {
   const theme = useTheme();
   const editorTheme = theme.palette.mode === "dark" ? "vs-dark" : "vs";
@@ -370,6 +377,9 @@ const CodeEditorPanel = ({
           isVisible={isTerminalVisible}
           onClose={onTerminalClose}
           currentProjectPath={currentProjectPath}
+          problems={compilationProblems}
+          activeTab={terminalActiveTab}
+          onTabChange={onTerminalTabChange}
         />
       </PanelGroup>
     </Card>
