@@ -41,6 +41,10 @@ const CodeEditorPanel = ({
   const [files, setFiles] = useState<EditorFile[]>([]);
   const [activeFileId, setActiveFileId] = useState<string>("");
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  // Храним оригинальное содержимое файлов для сравнения
+  const originalContentsRef = useRef<Map<string, string>>(new Map());
+  // Отслеживаем измененные файлы
+  const [modifiedFiles, setModifiedFiles] = useState<Set<string>>(new Set());
   const openFileHandlerRef = useRef<
     ((filePath: string) => Promise<void>) | null
   >(null);
@@ -89,6 +93,12 @@ const CodeEditorPanel = ({
           );
           if (validFiles.length > 0) {
             setFiles(validFiles);
+            // Сохраняем оригинальное содержимое файлов
+            validFiles.forEach((file) => {
+              originalContentsRef.current.set(file.id, file.content);
+            });
+            // Очищаем список измененных файлов при загрузке
+            setModifiedFiles(new Set());
             // Устанавливаем активный файл, если он существует
             const activeFile = validFiles.find(
               (f) => f.id === savedState.activeFileId
@@ -104,6 +114,8 @@ const CodeEditorPanel = ({
           } else {
             setFiles([]);
             setActiveFileId("");
+            originalContentsRef.current.clear();
+            setModifiedFiles(new Set());
             if (onActiveFileChange) {
               onActiveFileChange(null);
             }
@@ -112,6 +124,8 @@ const CodeEditorPanel = ({
           // Если сохраненных файлов нет, очищаем
           setFiles([]);
           setActiveFileId("");
+          originalContentsRef.current.clear();
+          setModifiedFiles(new Set());
           if (onActiveFileChange) {
             onActiveFileChange(null);
           }
@@ -120,6 +134,8 @@ const CodeEditorPanel = ({
         console.error("Ошибка загрузки сохраненных файлов:", error);
         setFiles([]);
         setActiveFileId("");
+        originalContentsRef.current.clear();
+        setModifiedFiles(new Set());
         if (onActiveFileChange) {
           onActiveFileChange(null);
         }
@@ -184,6 +200,8 @@ const CodeEditorPanel = ({
             setActiveFileId(existingFile.id);
             return prevFiles;
           }
+          // Сохраняем оригинальное содержимое нового файла
+          originalContentsRef.current.set(newFile.id, newFile.content);
           return [...prevFiles, newFile];
         });
         setActiveFileId(newFile.id);
@@ -216,11 +234,26 @@ const CodeEditorPanel = ({
 
   // Обработчик изменения содержимого редактора
   const handleEditorChange = (value: string | undefined) => {
+    const newContent = value ?? "";
     setFiles((prevFiles) =>
       prevFiles.map((file) =>
-        file.id === activeFileId ? { ...file, content: value ?? "" } : file
+        file.id === activeFileId ? { ...file, content: newContent } : file
       )
     );
+    
+    // Проверяем, изменился ли файл относительно оригинала
+    const originalContent = originalContentsRef.current.get(activeFileId) ?? "";
+    const isModified = newContent !== originalContent;
+    
+    setModifiedFiles((prevModified) => {
+      const newModified = new Set(prevModified);
+      if (isModified) {
+        newModified.add(activeFileId);
+      } else {
+        newModified.delete(activeFileId);
+      }
+      return newModified;
+    });
   };
 
   // Обработка событий меню
@@ -234,6 +267,13 @@ const CodeEditorPanel = ({
       try {
         await window.electronAPI.saveFile(activeFile.path, activeFile.content);
         console.log("Файл сохранен:", activeFile.path);
+        // Обновляем оригинальное содержимое и убираем из списка измененных
+        originalContentsRef.current.set(activeFileId, activeFile.content);
+        setModifiedFiles((prevModified) => {
+          const newModified = new Set(prevModified);
+          newModified.delete(activeFileId);
+          return newModified;
+        });
         setSnackbarOpen(true);
       } catch (error) {
         console.error("Ошибка сохранения файла:", error);
@@ -259,6 +299,13 @@ const CodeEditorPanel = ({
               file.id === activeFileId ? updatedFile : file
             )
           );
+          // Обновляем оригинальное содержимое и убираем из списка измененных
+          originalContentsRef.current.set(activeFileId, activeFile.content);
+          setModifiedFiles((prevModified) => {
+            const newModified = new Set(prevModified);
+            newModified.delete(activeFileId);
+            return newModified;
+          });
           if (onActiveFileChange) {
             onActiveFileChange(result.filePath);
           }
@@ -286,6 +333,13 @@ const CodeEditorPanel = ({
     event.stopPropagation();
     const newFiles = files.filter((f) => f.id !== fileId);
     setFiles(newFiles);
+    // Удаляем оригинальное содержимое и из списка измененных
+    originalContentsRef.current.delete(fileId);
+    setModifiedFiles((prevModified) => {
+      const newModified = new Set(prevModified);
+      newModified.delete(fileId);
+      return newModified;
+    });
     if (activeFileId === fileId) {
       if (newFiles.length > 0) {
         setActiveFileId(newFiles[0].id);
@@ -325,27 +379,42 @@ const CodeEditorPanel = ({
         scrollButtons={false}
         sx={{ borderBottom: 1, borderColor: "divider" }}
       >
-        {files.map((file) => (
-          <Tab
-            key={file.id}
-            sx={{}}
-            label={
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <span style={{ textTransform: "none" }}>{file.name}</span>
-                <Box
-                  component="span"
-                  onClick={(e: React.MouseEvent) => {
-                    e.stopPropagation();
-                    handleCloseTab(e, file.id);
-                  }}
-                >
-                  <CloseIcon fontSize="small" />
+        {files.map((file) => {
+          const isModified = modifiedFiles.has(file.id);
+          return (
+            <Tab
+              key={file.id}
+              sx={{}}
+              label={
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <span style={{ textTransform: "none" }}>{file.name}</span>
+                  {isModified && (
+                    <Box
+                      component="span"
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        backgroundColor: theme.palette.text.secondary,
+                        display: "inline-block",
+                      }}
+                    />
+                  )}
+                  <Box
+                    component="span"
+                    onClick={(e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      handleCloseTab(e, file.id);
+                    }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </Box>
                 </Box>
-              </Box>
-            }
-            value={file.id}
-          />
-        ))}
+              }
+              value={file.id}
+            />
+          );
+        })}
       </Tabs>
       <PanelGroup direction="vertical">
         {/* Редактор кода */}
