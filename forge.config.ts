@@ -19,6 +19,8 @@ const config: ForgeConfig = {
     asarUnpack: [
       '**/node_modules/node-pty/**/*',
       'node_modules/node-pty/**/*',
+      '**/node_modules/serialport/**/*',
+      'node_modules/serialport/**/*',
     ],
     // Убеждаемся, что нативные модули пересобираются
     ignore: [
@@ -63,7 +65,7 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {
     // Пересобираем только необходимые нативные модули
-    onlyModules: ['node-pty'],
+    onlyModules: ['node-pty', 'serialport'],
     // Разрешаем пересборку для целевой платформы
     force: true,
   },

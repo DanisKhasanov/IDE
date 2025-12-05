@@ -5,6 +5,8 @@ import {
   getAvailableBoards,
   parseBoardConfig,
 } from "@utils/ArduinoCompiler";
+import { listSerialPorts, detectArduinoPorts } from "@utils/SerialPortManager";
+import { uploadFirmware } from "@utils/FirmwareUploader";
 
 /**
  * Регистрация IPC обработчиков для работы с Arduino
@@ -65,6 +67,55 @@ export function registerArduinoHandlers(): void {
           mcu: "atmega328p",
           fCpu: "16000000L",
           variant: "standard",
+        };
+      }
+    }
+  );
+
+  // Arduino: получить список всех COM-портов
+  ipcMain.handle("arduino-list-ports", async () => {
+    try {
+      return await listSerialPorts();
+    } catch (error) {
+      console.error("Ошибка получения списка портов:", error);
+      return [];
+    }
+  });
+
+  // Arduino: обнаружить Arduino порты
+  ipcMain.handle("arduino-detect-ports", async () => {
+    try {
+      return await detectArduinoPorts();
+    } catch (error) {
+      console.error("Ошибка обнаружения Arduino портов:", error);
+      return [];
+    }
+  });
+
+  // Arduino: залить прошивку
+  ipcMain.handle(
+    "arduino-upload-firmware",
+    async (
+      _event,
+      hexFilePath: string,
+      portPath: string,
+      boardName: string = "uno"
+    ) => {
+      try {
+        console.log("Запуск заливки прошивки:", {
+          hexFile: hexFilePath,
+          port: portPath,
+          board: boardName,
+        });
+        const boardConfig = await parseBoardConfig(boardName);
+        const result = await uploadFirmware(hexFilePath, portPath, boardConfig);
+        console.log("Результат заливки:", result);
+        return result;
+      } catch (error) {
+        console.error("Ошибка заливки прошивки:", error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
         };
       }
     }

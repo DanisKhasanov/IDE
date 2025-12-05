@@ -28,6 +28,7 @@ import {
 
 import type { CompilationProblem } from "@components/ProblemsTab";
 import { parseCompilationErrors } from "@utils/CompilationErrorParser";
+import type { UploadResult } from "@/types/arduino";
 
 const App = () => {
   const [currentProjectPath, setCurrentProjectPath] = useState<string | null>(
@@ -214,6 +215,47 @@ const App = () => {
                 }
               } else {
                 // Очищаем проблемы при успешной компиляции
+                setCompilationProblems([]);
+              }
+            }}
+            onUploadResult={(result: UploadResult) => {
+              // Обрабатываем ошибки заливки
+              if (!result.success) {
+                // Создаем проблемы из ошибок заливки
+                const problems: CompilationProblem[] = [];
+                const errorText = result.stderr || result.error || result.stdout || "";
+                
+                if (errorText) {
+                  // Разбиваем текст ошибки на строки и создаем проблемы
+                  const lines = errorText.split("\n").filter(line => line.trim());
+                  lines.forEach((line) => {
+                    const trimmed = line.trim();
+                    if (trimmed) {
+                      problems.push({
+                        type: "error",
+                        message: trimmed,
+                        raw: trimmed,
+                      });
+                    }
+                  });
+                } else {
+                  // Если нет текста ошибки, создаем общую проблему
+                  problems.push({
+                    type: "error",
+                    message: result.error || "Ошибка заливки прошивки",
+                  });
+                }
+                
+                setCompilationProblems(problems);
+                // Если есть ошибки, открываем терминал и переключаемся на вкладку "Проблемы"
+                if (problems.length > 0 && !isTerminalVisible) {
+                  toggleTerminal();
+                  setTerminalActiveTab("problems");
+                } else if (problems.length > 0) {
+                  setTerminalActiveTab("problems");
+                }
+              } else {
+                // Очищаем проблемы при успешной заливке
                 setCompilationProblems([]);
               }
             }}

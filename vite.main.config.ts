@@ -62,6 +62,7 @@ export default defineConfig({
       external: [
         // Нативные модули должны быть внешними зависимостями
         'node-pty',
+        'serialport',
         // Другие нативные модули Electron
         'electron',
         'electron-squirrel-startup',

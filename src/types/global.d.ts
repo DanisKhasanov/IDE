@@ -89,6 +89,10 @@ declare global {
       arduinoDetectProject: (projectPath: string) => Promise<import('./arduino').ArduinoProjectInfo>;
       arduinoGetBoards: () => Promise<string[]>;
       arduinoGetBoardConfig: (boardName?: string) => Promise<import('./arduino').BoardConfig>;
+      // Arduino заливка прошивки и работа с портами
+      arduinoListPorts: () => Promise<import('./arduino').SerialPortInfo[]>;
+      arduinoDetectPorts: () => Promise<import('./arduino').SerialPortInfo[]>;
+      arduinoUploadFirmware: (hexFilePath: string, portPath: string, boardName?: string) => Promise<import('./arduino').UploadResult>;
       // Toolchain API
       toolchainCheck: () => Promise<ToolchainStatus>;
       toolchainGetInstallCommands: () => Promise<InstallCommands>;

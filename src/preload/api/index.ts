@@ -55,6 +55,9 @@ export const electronAPI = {
   arduinoDetectProject: arduinoAPI.detectProject,
   arduinoGetBoards: arduinoAPI.getBoards,
   arduinoGetBoardConfig: arduinoAPI.getBoardConfig,
+  arduinoListPorts: arduinoAPI.listPorts,
+  arduinoDetectPorts: arduinoAPI.detectArduinoPorts,
+  arduinoUploadFirmware: arduinoAPI.uploadFirmware,
 
   // API для работы с toolchain
   toolchainCheck: toolchainAPI.check,

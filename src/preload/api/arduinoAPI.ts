@@ -23,5 +23,20 @@ export const arduinoAPI = {
   getBoardConfig: async (boardName: string = 'uno') => {
     return safeInvoke('arduino-get-board-config', boardName);
   },
+
+  // Получение списка всех COM-портов
+  listPorts: async () => {
+    return safeInvoke('arduino-list-ports');
+  },
+
+  // Обнаружение Arduino портов
+  detectArduinoPorts: async () => {
+    return safeInvoke('arduino-detect-ports');
+  },
+
+  // Заливка прошивки
+  uploadFirmware: async (hexFilePath: string, portPath: string, boardName: string = 'uno') => {
+    return safeInvoke('arduino-upload-firmware', hexFilePath, portPath, boardName);
+  },
 };
 

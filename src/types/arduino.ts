@@ -34,3 +34,21 @@ export interface ArduinoProjectInfo {
   projectPath: string;
 }
 
+// Типы для работы с COM-портами
+export interface SerialPortInfo {
+  path: string;
+  manufacturer?: string;
+  vendorId?: string;
+  productId?: string;
+  friendlyName?: string;
+}
+
+// Типы для заливки прошивки
+export interface UploadResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+  stdout?: string;
+  stderr?: string;
+}
+
