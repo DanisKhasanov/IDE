@@ -8,7 +8,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableRow,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
@@ -71,7 +70,11 @@ export const PinsTab: React.FC<PinsTabProps> = ({
       setSelectedPin(null);
       setSelectedFunctionType(null);
     }
-  }, [selectedPinFromParent, selectedFunctionTypeFromParent, selectedPinFunctions]);
+  }, [
+    selectedPinFromParent,
+    selectedFunctionTypeFromParent,
+    selectedPinFunctions,
+  ]);
 
   // Автоматически выбираем новую функцию, если она была добавлена для выбранного пина
   useEffect(() => {
@@ -89,15 +92,17 @@ export const PinsTab: React.FC<PinsTabProps> = ({
         setSelectedFunctionType(null);
       }
     }
-  }, [selectedPinFunctions, selectedPin, selectedPinFromParent, selectedFunctionType]);
+  }, [
+    selectedPinFunctions,
+    selectedPin,
+    selectedPinFromParent,
+    selectedFunctionType,
+  ]);
 
   return (
     <PanelGroup direction="vertical" style={{ flex: 1, minHeight: 0 }}>
       {/* Панель со списком */}
-      <Panel 
-        defaultSize={60} 
-        minSize={30}
-      >
+      <Panel defaultSize={60} minSize={30}>
         <Box
           sx={{
             height: "100%",
@@ -108,7 +113,6 @@ export const PinsTab: React.FC<PinsTabProps> = ({
         >
           <Paper sx={{ overflow: "auto", flex: 1, minHeight: 0 }}>
             <Table stickyHeader size="small" sx={{ p: 2 }}>
-            
               <TableBody>
                 {Object.entries(selectedPinFunctions).map(
                   ([pinName, functions]) => {
@@ -140,9 +144,7 @@ export const PinsTab: React.FC<PinsTabProps> = ({
                             },
                             "& td": {
                               py: 0.75,
-                              borderTop: isFirstFunc
-                                ? undefined
-                                : "none",
+                              borderTop: isFirstFunc ? undefined : "none",
                             },
                           }}
                           onClick={() => {
@@ -185,16 +187,12 @@ export const PinsTab: React.FC<PinsTabProps> = ({
                                 e.stopPropagation();
                                 if (
                                   selectedPin === pinName &&
-                                  selectedFunctionType ===
-                                    func.functionType
+                                  selectedFunctionType === func.functionType
                                 ) {
                                   setSelectedPin(null);
                                   setSelectedFunctionType(null);
                                 }
-                                onRemoveFunction(
-                                  pinName,
-                                  func.functionType
-                                );
+                                onRemoveFunction(pinName, func.functionType);
                               }}
                               color="error"
                               sx={{
@@ -219,9 +217,7 @@ export const PinsTab: React.FC<PinsTabProps> = ({
       </Panel>
 
       {/* Панель с настройками пина - всегда видна */}
-      <Panel 
-        defaultSize={50} 
-      >
+      <Panel defaultSize={50}>
         <Paper
           sx={{
             p: 2,
@@ -239,9 +235,7 @@ export const PinsTab: React.FC<PinsTabProps> = ({
               const func = functions.find(
                 (f) => f.functionType === selectedFunctionType
               );
-              const pin = boardConfig?.pins.find(
-                (p) => p.pin === selectedPin
-              );
+              const pin = boardConfig?.pins.find((p) => p.pin === selectedPin);
               if (!pin || !func) return null;
               const pinFunc = pin.functions.find(
                 (f) => f.type === func.functionType
@@ -301,4 +295,3 @@ export const PinsTab: React.FC<PinsTabProps> = ({
     </PanelGroup>
   );
 };
-

@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "fs/promises";
 import { existsSync } from "fs";
-import type { ProjectTreeNode } from "@types/project";
+import type { ProjectTreeNode } from "@/types/project";
 
 // Тип для данных открытого проекта
 export type OpenProjectData = {
@@ -19,9 +19,8 @@ export async function buildProjectTree(
   const nodes: ProjectTreeNode[] = [];
 
   for (const entry of entries) {
-    // Пропускаем скрытые файлы и node_modules
-    // НЕ пропускаем папку build - она должна отображаться
-    if (entry.name.startsWith(".") || entry.name === "node_modules") {
+    // Пропускаем скрытые файлы 
+    if (entry.name.startsWith(".") ) {
       continue;
     }
 
