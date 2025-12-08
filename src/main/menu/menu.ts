@@ -1,5 +1,6 @@
-import { app, Menu, BrowserWindow } from "electron";
+import { app, Menu } from "electron";
 import { windowManager } from "@main/managers/WindowManager";
+import process from "node:process";
 
 /**
  * Создание меню приложения с горячими клавишами
@@ -79,20 +80,6 @@ export function createApplicationMenu(): void {
             const mainWindow = windowManager.getMainWindow();
             if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send("toggle-terminal");
-            }
-          },
-        },
-        {
-          label: "Переключить DevTools",
-          accelerator: "F12",
-          click: () => {
-            const mainWindow = windowManager.getMainWindow();
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              if (mainWindow.webContents.isDevToolsOpened()) {
-                mainWindow.webContents.closeDevTools();
-              } else {
-                mainWindow.webContents.openDevTools();
-              }
             }
           },
         },

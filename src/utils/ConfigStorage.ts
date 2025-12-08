@@ -42,15 +42,25 @@ export const loadConfig = async (): Promise<IDEConfig> => {
   try {
     if (existsSync(configPath)) {
       const content = await fs.readFile(configPath, 'utf-8');
-      const parsed = JSON.parse(content);
+      // Проверяем, что файл не пустой
+      const trimmedContent = content.trim();
+      if (trimmedContent === '') {
+        return defaultConfig;
+      }
+      const parsed = JSON.parse(trimmedContent);
       return { ...defaultConfig, ...parsed };
     } else {
-      console.log('[ConfigStorage] Конфигурационный файл не найден, используется конфигурация по умолчанию');
-      console.log('[ConfigStorage] Путь к конфигу:', configPath);
+      console.log('[ConfigStorage] Файл конфигурации не существует, используем конфигурацию по умолчанию');
     }
   } catch (error) {
-    console.error('Ошибка загрузки конфигурации:', error);
-    console.error('Путь к конфигу:', configPath);
+    // Если файл поврежден, возвращаем конфигурацию по умолчанию
+    // и пытаемся перезаписать файл корректной конфигурацией
+    try {
+      await saveConfig(defaultConfig);
+      console.log('[ConfigStorage] Создан новый файл конфигурации с настройками по умолчанию');
+    } catch (saveError) {
+      console.error('[ConfigStorage] Не удалось сохранить конфигурацию по умолчанию:', saveError);
+    }
   }
 
   return defaultConfig;
@@ -60,10 +70,8 @@ export const saveConfig = async (config: IDEConfig): Promise<void> => {
   const configPath = getConfigPath();
   try {
     await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
-    console.log('[ConfigStorage] Конфигурация сохранена в:', configPath);
   } catch (error) {
     console.error('Ошибка сохранения конфигурации:', error);
-    console.error('Путь к конфигу:', configPath);
     throw error;
   }
 };
