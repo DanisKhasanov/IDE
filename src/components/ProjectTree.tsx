@@ -168,18 +168,25 @@ const ProjectTree = ({
     };
   }, [loadOpenProjects, activeProjectPath, updateProjectTree]);
 
-  // Сохранение раскрытых папок при изменении
+  // Сохранение раскрытых папок при изменении (с debounce)
   useEffect(() => {
-    const saveExpandedFolders = async () => {
-      if (!activeProjectPath) {
-        return;
-      }
+    if (!activeProjectPath) {
+      return;
+    }
 
-      const folders = expandedFolders.get(activeProjectPath);
-      if (!folders || folders.size === 0) {
-        return;
-      }
+    // Проверяем, что проект все еще открыт
+    const projectExists = openProjects.some(p => p.path === activeProjectPath);
+    if (!projectExists) {
+      return;
+    }
 
+    const folders = expandedFolders.get(activeProjectPath);
+    if (!folders || folders.size === 0) {
+      return;
+    }
+
+    // Debounce: сохраняем состояние через 500ms после последнего изменения
+    const timeoutId = setTimeout(async () => {
       try {
         await window.electronAPI.saveProjectState(activeProjectPath, {
           expandedFolders: Array.from(folders),
@@ -187,10 +194,12 @@ const ProjectTree = ({
       } catch (error) {
         console.error("Ошибка сохранения раскрытых папок:", error);
       }
-    };
+    }, 500);
 
-    saveExpandedFolders();
-  }, [expandedFolders, activeProjectPath]);
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [expandedFolders, activeProjectPath, openProjects]);
 
   // Автоматическое раскрытие родительских папок активного файла
   useEffect(() => {

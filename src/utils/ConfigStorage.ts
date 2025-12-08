@@ -29,6 +29,37 @@ export const getConfigFilePath = (): string => {
   return getConfigPath();
 };
 
+/**
+ * Попытка восстановить данные из поврежденного JSON
+ */
+const tryRepairJson = (content: string): IDEConfig | null => {
+  try {
+    // Пытаемся найти последнюю закрывающую скобку объекта
+    let lastBrace = content.lastIndexOf('}');
+    if (lastBrace === -1) {
+      return null;
+    }
+    
+    // Берем часть до последней закрывающей скобки
+    let candidate = content.substring(0, lastBrace + 1);
+    
+    // Пытаемся найти начало объекта
+    let firstBrace = candidate.indexOf('{');
+    if (firstBrace === -1) {
+      return null;
+    }
+    
+    // Берем только JSON объект
+    candidate = candidate.substring(firstBrace);
+    
+    // Пытаемся распарсить
+    const parsed = JSON.parse(candidate);
+    return parsed as IDEConfig;
+  } catch {
+    return null;
+  }
+};
+
 export const loadConfig = async (): Promise<IDEConfig> => {
   const configPath = getConfigPath();
   const defaultConfig: IDEConfig = {
@@ -47,19 +78,71 @@ export const loadConfig = async (): Promise<IDEConfig> => {
       if (trimmedContent === '') {
         return defaultConfig;
       }
-      const parsed = JSON.parse(trimmedContent);
-      return { ...defaultConfig, ...parsed };
-    } else {
-      console.log('[ConfigStorage] Файл конфигурации не существует, используем конфигурацию по умолчанию');
+      
+      try {
+        const parsed = JSON.parse(trimmedContent);
+        const mergedConfig = { ...defaultConfig, ...parsed };
+        
+        // Восстанавливаем openProjects, если он пустой, но есть проекты в projects или lastProjectPath
+        if ((!mergedConfig.openProjects || mergedConfig.openProjects.length === 0) && 
+            (mergedConfig.lastProjectPath || Object.keys(mergedConfig.projects || {}).length > 0)) {
+          // Восстанавливаем из projects
+          const projectPaths = Object.keys(mergedConfig.projects || {});
+          if (projectPaths.length > 0) {
+            mergedConfig.openProjects = projectPaths;
+            console.log(`[ConfigStorage] Восстановлен список открытых проектов из projects: ${projectPaths.length} проектов`);
+            // Сохраняем восстановленную конфигурацию
+            await saveConfig(mergedConfig);
+          } else if (mergedConfig.lastProjectPath) {
+            // Если есть только lastProjectPath, добавляем его в openProjects
+            mergedConfig.openProjects = [mergedConfig.lastProjectPath];
+            console.log(`[ConfigStorage] Восстановлен список открытых проектов из lastProjectPath: ${mergedConfig.lastProjectPath}`);
+            // Сохраняем восстановленную конфигурацию
+            await saveConfig(mergedConfig);
+          }
+        }
+        
+        console.log(`[ConfigStorage] Конфигурация загружена: ${mergedConfig.openProjects?.length || 0} открытых проектов, последний: ${mergedConfig.lastProjectPath || 'нет'}`);
+        return mergedConfig;
+      } catch (parseError) {
+        // Пытаемся восстановить данные из поврежденного JSON
+        console.error('[ConfigStorage] Ошибка парсинга JSON, пытаемся восстановить данные...');
+        const repaired = tryRepairJson(trimmedContent);
+        if (repaired) {
+          const mergedConfig = { ...defaultConfig, ...repaired };
+          
+          // Восстанавливаем openProjects, если он пустой
+          if ((!mergedConfig.openProjects || mergedConfig.openProjects.length === 0) && 
+              (mergedConfig.lastProjectPath || Object.keys(mergedConfig.projects || {}).length > 0)) {
+            const projectPaths = Object.keys(mergedConfig.projects || {});
+            if (projectPaths.length > 0) {
+              mergedConfig.openProjects = projectPaths;
+            } else if (mergedConfig.lastProjectPath) {
+              mergedConfig.openProjects = [mergedConfig.lastProjectPath];
+            }
+          }
+          
+          console.log(`[ConfigStorage] Данные восстановлены: ${mergedConfig.openProjects?.length || 0} открытых проектов, последний: ${mergedConfig.lastProjectPath || 'нет'}`);
+          // Сохраняем восстановленную конфигурацию
+          await saveConfig(mergedConfig);
+          return mergedConfig;
+        }
+        throw parseError;
+      }
     }
   } catch (error) {
-    // Если файл поврежден, возвращаем конфигурацию по умолчанию
-    // и пытаемся перезаписать файл корректной конфигурацией
-    try {
-      await saveConfig(defaultConfig);
-      console.log('[ConfigStorage] Создан новый файл конфигурации с настройками по умолчанию');
-    } catch (saveError) {
-      console.error('[ConfigStorage] Не удалось сохранить конфигурацию по умолчанию:', saveError);
+    // Если файл поврежден и не удалось восстановить, логируем ошибку
+    console.error('[ConfigStorage] Ошибка загрузки конфигурации:', error instanceof Error ? error.message : error);
+    console.error('[ConfigStorage] Путь к конфигу:', configPath);
+    // Создаем резервную копию поврежденного файла
+    if (existsSync(configPath)) {
+      const backupPath = `${configPath}.backup.${Date.now()}`;
+      try {
+        await fs.copyFile(configPath, backupPath);
+        console.error(`[ConfigStorage] Создана резервная копия: ${backupPath}`);
+      } catch (backupError) {
+        console.error('[ConfigStorage] Не удалось создать резервную копию:', backupError);
+      }
     }
   }
 
@@ -68,10 +151,38 @@ export const loadConfig = async (): Promise<IDEConfig> => {
 
 export const saveConfig = async (config: IDEConfig): Promise<void> => {
   const configPath = getConfigPath();
+  const configDir = path.dirname(configPath);
+  const tempPath = `${configPath}.tmp`;
+  
   try {
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    // Создаем директорию, если её нет (с рекурсивным созданием родительских директорий)
+    await fs.mkdir(configDir, { recursive: true });
+    
+    const configJson = JSON.stringify(config, null, 2);
+    
+    // Записываем во временный файл для атомарности операции
+    await fs.writeFile(tempPath, configJson, 'utf-8');
+    
+    // Проверяем, что директория все еще существует перед переименованием
+    // Это защита от race condition, когда директория может быть удалена между операциями
+    if (!existsSync(configDir)) {
+      await fs.mkdir(configDir, { recursive: true });
+    }
+    
+    // Атомарно заменяем старый файл новым
+    await fs.rename(tempPath, configPath);
+    
+    console.log(`[ConfigStorage] Конфигурация сохранена: ${config.openProjects?.length || 0} открытых проектов, последний: ${config.lastProjectPath || 'нет'}`);
   } catch (error) {
-    console.error('Ошибка сохранения конфигурации:', error);
+    // Удаляем временный файл в случае ошибки
+    try {
+      if (existsSync(tempPath)) {
+        await fs.unlink(tempPath);
+      }
+    } catch {
+      // Игнорируем ошибку удаления временного файла
+    }
+    console.error('[ConfigStorage] Ошибка сохранения конфигурации:', error instanceof Error ? error.message : error);
     throw error;
   }
 };
@@ -119,15 +230,10 @@ export const getOpenProjects = async (): Promise<string[]> => {
 // Добавление проекта в список открытых
 export const addOpenProject = async (projectPath: string): Promise<void> => {
   const config = await loadConfig();
-  console.log("[addOpenProject] Текущие открытые проекты:", config.openProjects);
   if (!config.openProjects.includes(projectPath)) {
     config.openProjects.push(projectPath);
-    console.log("[addOpenProject] Добавлен проект:", projectPath);
-    console.log("[addOpenProject] Обновленный список:", config.openProjects);
     await saveConfig(config);
-    console.log("[addOpenProject] Конфиг сохранен");
-  } else {
-    console.log("[addOpenProject] Проект уже в списке:", projectPath);
+    console.log(`[ConfigStorage] Проект добавлен: ${projectPath}`);
   }
 };
 

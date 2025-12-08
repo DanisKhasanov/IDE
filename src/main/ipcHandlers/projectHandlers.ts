@@ -89,24 +89,18 @@ export function registerProjectHandlers(): void {
   // Выбор папки проекта
   ipcMain.handle("select-project-folder", async () => {
     try {
-      console.log("Показываем диалог выбора папки...");
       const mainWindow = windowManager.getActiveWindow();
-      console.log("mainWindow:", mainWindow ? "существует" : "не существует");
 
       const result = await dialog.showOpenDialog(mainWindow || undefined, {
         properties: ["openDirectory"],
         title: "Выберите папку проекта",
       });
 
-      console.log("Результат диалога:", JSON.stringify(result));
-
       if (result.canceled || result.filePaths.length === 0) {
-        console.log("Диалог отменен или файлы не выбраны");
         return null;
       }
 
       const projectPath = result.filePaths[0];
-      console.log("Выбранный путь проекта:", projectPath);
 
       // Проверяем, не открыт ли уже этот проект
       if (projectManager.hasProject(projectPath)) {
@@ -125,10 +119,7 @@ export function registerProjectHandlers(): void {
       await saveLastProjectPath(projectPath);
       await addOpenProject(projectPath);
 
-      console.log("Строим дерево проекта...");
       const children = await buildProjectTree(projectPath, projectPath);
-      console.log("Дерево проекта построено, элементов:", children.length);
-
       const projectData = createProjectData(projectPath, children);
 
       // Сохраняем проект в Map
@@ -140,9 +131,10 @@ export function registerProjectHandlers(): void {
         mainWin.webContents.send("project-list-changed");
       }
 
+      console.log(`[select-project-folder] Проект открыт: ${projectPath}`);
       return projectData;
     } catch (error) {
-      console.error("Ошибка в select-project-folder:", error);
+      console.error("[select-project-folder] Ошибка:", error);
       throw error;
     }
   });
@@ -152,9 +144,7 @@ export function registerProjectHandlers(): void {
     try {
       const targetProjectPath =
         projectPath || projectManager.getCurrentProjectPath();
-      console.log("get-project-tree вызван, projectPath:", targetProjectPath);
       if (!targetProjectPath) {
-        console.log("Проект не открыт, возвращаем null");
         return null;
       }
 
@@ -169,13 +159,12 @@ export function registerProjectHandlers(): void {
         targetProjectPath,
         targetProjectPath
       );
-      console.log("Дерево проекта построено, элементов:", children.length);
       const projectData = createProjectData(targetProjectPath, children);
 
       projectManager.addProject(targetProjectPath, projectData);
       return projectData;
     } catch (error) {
-      console.error("Ошибка в get-project-tree:", error);
+      console.error("[get-project-tree] Ошибка:", error);
       throw error;
     }
   });
@@ -332,16 +321,19 @@ export function registerProjectHandlers(): void {
 
       // Устанавливаем последний проект как текущий
       const lastProjectPath = await getLastProjectPath();
+      
       if (lastProjectPath && projectManager.hasProject(lastProjectPath)) {
         projectManager.setCurrentProjectPath(lastProjectPath);
+        console.log(`[load-open-projects] Восстановлен последний проект: ${lastProjectPath}`);
       } else if (loadedProjects.length > 0) {
         projectManager.setCurrentProjectPath(loadedProjects[0].path);
         await saveLastProjectPath(loadedProjects[0].path);
+        console.log(`[load-open-projects] Загружено проектов: ${loadedProjects.length}, активный: ${loadedProjects[0].path}`);
       }
 
       return loadedProjects;
     } catch (error) {
-      console.error("Ошибка загрузки открытых проектов:", error);
+      console.error("[load-open-projects] Ошибка загрузки открытых проектов:", error);
       return [];
     }
   });
