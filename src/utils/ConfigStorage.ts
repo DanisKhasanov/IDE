@@ -29,13 +29,27 @@ export const getConfigFilePath = (): string => {
   return getConfigPath();
 };
 
+// Singleton объект конфига в памяти
+let configCache: IDEConfig | null = null;
+let configLoadPromise: Promise<IDEConfig> | null = null;
+let saveTimeoutId: NodeJS.Timeout | null = null;
+const SAVE_DEBOUNCE_MS = 300; // Задержка перед сохранением (debounce)
+
+const defaultConfig: IDEConfig = {
+  lastProjectPath: null,
+  projects: {},
+  openProjects: [],
+  toolchainInstalled: false,
+  toolchainChecked: false,
+};
+
 /**
  * Попытка восстановить данные из поврежденного JSON
  */
 const tryRepairJson = (content: string): IDEConfig | null => {
   try {
     // Пытаемся найти последнюю закрывающую скобку объекта
-    let lastBrace = content.lastIndexOf('}');
+    const lastBrace = content.lastIndexOf('}');
     if (lastBrace === -1) {
       return null;
     }
@@ -44,7 +58,7 @@ const tryRepairJson = (content: string): IDEConfig | null => {
     let candidate = content.substring(0, lastBrace + 1);
     
     // Пытаемся найти начало объекта
-    let firstBrace = candidate.indexOf('{');
+    const firstBrace = candidate.indexOf('{');
     if (firstBrace === -1) {
       return null;
     }
@@ -60,131 +74,181 @@ const tryRepairJson = (content: string): IDEConfig | null => {
   }
 };
 
-export const loadConfig = async (): Promise<IDEConfig> => {
-  const configPath = getConfigPath();
-  const defaultConfig: IDEConfig = {
-    lastProjectPath: null,
-    projects: {},
-    openProjects: [],
-    toolchainInstalled: false,
-    toolchainChecked: false,
-  };
+// Внутренняя функция загрузки конфига из файла (только один раз или при принудительной перезагрузке)
+const loadConfigFromFile = async (forceReload = false): Promise<IDEConfig> => {
+  // Если уже идет загрузка, ждем её
+  if (configLoadPromise && !forceReload) {
+    return configLoadPromise;
+  }
 
-  try {
-    if (existsSync(configPath)) {
-      const content = await fs.readFile(configPath, 'utf-8');
-      // Проверяем, что файл не пустой
-      const trimmedContent = content.trim();
-      if (trimmedContent === '') {
-        return defaultConfig;
-      }
-      
-      try {
-        const parsed = JSON.parse(trimmedContent);
-        const mergedConfig = { ...defaultConfig, ...parsed };
-        
-        // Восстанавливаем openProjects, если он пустой, но есть проекты в projects или lastProjectPath
-        if ((!mergedConfig.openProjects || mergedConfig.openProjects.length === 0) && 
-            (mergedConfig.lastProjectPath || Object.keys(mergedConfig.projects || {}).length > 0)) {
-          // Восстанавливаем из projects
-          const projectPaths = Object.keys(mergedConfig.projects || {});
-          if (projectPaths.length > 0) {
-            mergedConfig.openProjects = projectPaths;
-            console.log(`[ConfigStorage] Восстановлен список открытых проектов из projects: ${projectPaths.length} проектов`);
-            // Сохраняем восстановленную конфигурацию
-            await saveConfig(mergedConfig);
-          } else if (mergedConfig.lastProjectPath) {
-            // Если есть только lastProjectPath, добавляем его в openProjects
-            mergedConfig.openProjects = [mergedConfig.lastProjectPath];
-            console.log(`[ConfigStorage] Восстановлен список открытых проектов из lastProjectPath: ${mergedConfig.lastProjectPath}`);
-            // Сохраняем восстановленную конфигурацию
-            await saveConfig(mergedConfig);
-          }
+  // Если конфиг уже загружен и не требуется перезагрузка, возвращаем кэш
+  if (configCache && !forceReload) {
+    return configCache;
+  }
+
+  const configPath = getConfigPath();
+
+  configLoadPromise = (async () => {
+    try {
+      if (existsSync(configPath)) {
+        const content = await fs.readFile(configPath, 'utf-8');
+        const trimmedContent = content.trim();
+        if (trimmedContent === '') {
+          configCache = { ...defaultConfig };
+          configLoadPromise = null;
+          return configCache;
         }
         
-        console.log(`[ConfigStorage] Конфигурация загружена: ${mergedConfig.openProjects?.length || 0} открытых проектов, последний: ${mergedConfig.lastProjectPath || 'нет'}`);
-        return mergedConfig;
-      } catch (parseError) {
-        // Пытаемся восстановить данные из поврежденного JSON
-        console.error('[ConfigStorage] Ошибка парсинга JSON, пытаемся восстановить данные...');
-        const repaired = tryRepairJson(trimmedContent);
-        if (repaired) {
-          const mergedConfig = { ...defaultConfig, ...repaired };
+        try {
+          const parsed = JSON.parse(trimmedContent);
+          const mergedConfig = { ...defaultConfig, ...parsed };
           
-          // Восстанавливаем openProjects, если он пустой
-          if ((!mergedConfig.openProjects || mergedConfig.openProjects.length === 0) && 
+          // Восстанавливаем openProjects, если нужно
+          // Восстанавливаем только если openProjects отсутствует в исходном JSON (undefined) или null,
+          // но НЕ если это явно пустой массив (что означает, что пользователь закрыл все проекты)
+          // Проверяем исходный parsed объект ДО слияния с defaultConfig
+          const shouldRestore = parsed.openProjects === undefined || parsed.openProjects === null;
+          if (shouldRestore && 
               (mergedConfig.lastProjectPath || Object.keys(mergedConfig.projects || {}).length > 0)) {
             const projectPaths = Object.keys(mergedConfig.projects || {});
             if (projectPaths.length > 0) {
               mergedConfig.openProjects = projectPaths;
+              console.log(`[ConfigStorage] Восстановлен список открытых проектов из projects: ${projectPaths.length} проектов`);
             } else if (mergedConfig.lastProjectPath) {
               mergedConfig.openProjects = [mergedConfig.lastProjectPath];
+              console.log(`[ConfigStorage] Восстановлен список открытых проектов из lastProjectPath: ${mergedConfig.lastProjectPath}`);
             }
+            
+            // Сохраняем восстановленную конфигурацию синхронно (без debounce)
+            await saveConfigToFile(mergedConfig, false);
           }
           
-          console.log(`[ConfigStorage] Данные восстановлены: ${mergedConfig.openProjects?.length || 0} открытых проектов, последний: ${mergedConfig.lastProjectPath || 'нет'}`);
-          // Сохраняем восстановленную конфигурацию
-          await saveConfig(mergedConfig);
+          configCache = mergedConfig;
+          configLoadPromise = null;
+          console.log(`[ConfigStorage] Конфигурация загружена: ${mergedConfig.openProjects?.length || 0} открытых проектов, последний: ${mergedConfig.lastProjectPath || 'нет'}`);
           return mergedConfig;
+        } catch (parseError) {
+          console.error('[ConfigStorage] Ошибка парсинга JSON, пытаемся восстановить данные...');
+          const repaired = tryRepairJson(trimmedContent);
+          if (repaired) {
+            const mergedConfig = { ...defaultConfig, ...repaired };
+            
+            // Восстанавливаем только если openProjects отсутствует в исходном JSON (undefined) или null
+            // Проверяем исходный repaired объект ДО слияния с defaultConfig
+            const shouldRestore = repaired.openProjects === undefined || repaired.openProjects === null;
+            if (shouldRestore && 
+                (mergedConfig.lastProjectPath || Object.keys(mergedConfig.projects || {}).length > 0)) {
+              const projectPaths = Object.keys(mergedConfig.projects || {});
+              if (projectPaths.length > 0) {
+                mergedConfig.openProjects = projectPaths;
+              } else if (mergedConfig.lastProjectPath) {
+                mergedConfig.openProjects = [mergedConfig.lastProjectPath];
+              }
+              await saveConfigToFile(mergedConfig, false);
+            }
+            
+            configCache = mergedConfig;
+            configLoadPromise = null;
+            console.log(`[ConfigStorage] Данные восстановлены: ${mergedConfig.openProjects?.length || 0} открытых проектов, последний: ${mergedConfig.lastProjectPath || 'нет'}`);
+            return mergedConfig;
+          }
+          throw parseError;
         }
-        throw parseError;
       }
+    } catch (error) {
+      console.error('[ConfigStorage] Ошибка загрузки конфигурации:', error instanceof Error ? error.message : error);
+      console.error('[ConfigStorage] Путь к конфигу:', configPath);
     }
-  } catch (error) {
-    // Если файл поврежден и не удалось восстановить, логируем ошибку
-    console.error('[ConfigStorage] Ошибка загрузки конфигурации:', error instanceof Error ? error.message : error);
-    console.error('[ConfigStorage] Путь к конфигу:', configPath);
-    // Создаем резервную копию поврежденного файла
-    if (existsSync(configPath)) {
-      const backupPath = `${configPath}.backup.${Date.now()}`;
-      try {
-        await fs.copyFile(configPath, backupPath);
-        console.error(`[ConfigStorage] Создана резервная копия: ${backupPath}`);
-      } catch (backupError) {
-        console.error('[ConfigStorage] Не удалось создать резервную копию:', backupError);
-      }
-    }
-  }
 
-  return defaultConfig;
+    configCache = { ...defaultConfig };
+    configLoadPromise = null;
+    return configCache;
+  })();
+
+  return configLoadPromise;
 };
 
-export const saveConfig = async (config: IDEConfig): Promise<void> => {
-  const configPath = getConfigPath();
-  const configDir = path.dirname(configPath);
-  const tempPath = `${configPath}.tmp`;
-  
-  try {
-    // Создаем директорию, если её нет (с рекурсивным созданием родительских директорий)
-    await fs.mkdir(configDir, { recursive: true });
-    
-    const configJson = JSON.stringify(config, null, 2);
-    
-    // Записываем во временный файл для атомарности операции
-    await fs.writeFile(tempPath, configJson, 'utf-8');
-    
-    // Проверяем, что директория все еще существует перед переименованием
-    // Это защита от race condition, когда директория может быть удалена между операциями
-    if (!existsSync(configDir)) {
-      await fs.mkdir(configDir, { recursive: true });
-    }
-    
-    // Атомарно заменяем старый файл новым
-    await fs.rename(tempPath, configPath);
-    
-    console.log(`[ConfigStorage] Конфигурация сохранена: ${config.openProjects?.length || 0} открытых проектов, последний: ${config.lastProjectPath || 'нет'}`);
-  } catch (error) {
-    // Удаляем временный файл в случае ошибки
-    try {
-      if (existsSync(tempPath)) {
-        await fs.unlink(tempPath);
-      }
-    } catch {
-      // Игнорируем ошибку удаления временного файла
-    }
-    console.error('[ConfigStorage] Ошибка сохранения конфигурации:', error instanceof Error ? error.message : error);
-    throw error;
+// Внутренняя функция сохранения конфига на диск
+const saveConfigToFile = async (config: IDEConfig, debounce = true): Promise<void> => {
+  // Отменяем предыдущий таймер сохранения, если есть
+  if (saveTimeoutId) {
+    clearTimeout(saveTimeoutId);
+    saveTimeoutId = null;
   }
+
+  const doSave = async () => {
+    const configPath = getConfigPath();
+    const configDir = path.dirname(configPath);
+    const tempPath = `${configPath}.tmp`;
+    
+    try {
+      await fs.mkdir(configDir, { recursive: true });
+      const configJson = JSON.stringify(config, null, 2);
+      await fs.writeFile(tempPath, configJson, 'utf-8');
+      
+      if (!existsSync(configDir)) {
+        await fs.mkdir(configDir, { recursive: true });
+      }
+      
+      await fs.rename(tempPath, configPath);
+      
+      // Обновляем кэш после успешного сохранения
+      configCache = config;
+      
+      console.log(`[ConfigStorage] Конфигурация сохранена: ${config.openProjects?.length || 0} открытых проектов, последний: ${config.lastProjectPath || 'нет'}`);
+    } catch (error) {
+      // Инвалидируем кэш при ошибке, чтобы при следующей загрузке прочитать из файла
+      configCache = null;
+      
+      try {
+        if (existsSync(tempPath)) {
+          await fs.unlink(tempPath);
+        }
+      } catch {
+        // Игнорируем ошибку удаления временного файла
+      }
+      console.error('[ConfigStorage] Ошибка сохранения конфигурации:', error instanceof Error ? error.message : error);
+      throw error;
+    }
+  };
+
+  if (debounce) {
+    // Используем debounce для частых изменений
+    saveTimeoutId = setTimeout(() => {
+      doSave();
+      saveTimeoutId = null;
+    }, SAVE_DEBOUNCE_MS);
+  } else {
+    // Сохраняем немедленно (для критичных операций)
+    await doSave();
+  }
+};
+
+// Публичный API - всегда возвращает актуальный конфиг из памяти
+export const loadConfig = async (): Promise<IDEConfig> => {
+  return loadConfigFromFile(false);
+};
+
+// Принудительная перезагрузка конфига из файла
+export const reloadConfig = async (): Promise<IDEConfig> => {
+  return loadConfigFromFile(true);
+};
+
+// Сохранение конфига (с debounce)
+export const saveConfig = async (config: IDEConfig): Promise<void> => {
+  // Обновляем кэш сразу
+  configCache = config;
+  // Сохраняем на диск с debounce
+  await saveConfigToFile(config, true);
+};
+
+// Получение текущего конфига из памяти (синхронно, без чтения файла)
+export const getConfig = (): IDEConfig => {
+  if (!configCache) {
+    // Если конфиг еще не загружен, возвращаем дефолтный
+    return { ...defaultConfig };
+  }
+  return configCache;
 };
 
 export const getProjectState = async (projectPath: string): Promise<ProjectState | null> => {
@@ -241,7 +305,20 @@ export const addOpenProject = async (projectPath: string): Promise<void> => {
 export const removeOpenProject = async (projectPath: string): Promise<void> => {
   const config = await loadConfig();
   config.openProjects = config.openProjects.filter(path => path !== projectPath);
+  // Также удаляем состояние проекта, чтобы при следующем запуске он не восстанавливался
+  if (config.projects[projectPath]) {
+    delete config.projects[projectPath];
+  }
   await saveConfig(config);
+};
+
+// Удаление состояния проекта (используется при полном удалении проекта)
+export const removeProjectState = async (projectPath: string): Promise<void> => {
+  const config = await loadConfig();
+  if (config.projects[projectPath]) {
+    delete config.projects[projectPath];
+    await saveConfig(config);
+  }
 };
 
 // Получение статуса установки toolchain

@@ -41,6 +41,7 @@ ITEMS_TO_REMOVE=(
     "blob_storage"
     "Shared Dictionary"
     "logs"
+    "ide-config.json"
 )
 
 # Удаляем каждый элемент
@@ -50,6 +51,15 @@ for item in "${ITEMS_TO_REMOVE[@]}"; do
     if [ -e "$item_path" ]; then
         rm -rf "$item_path"
         echo "✓ Удалено: $item"
+        REMOVED_COUNT=$((REMOVED_COUNT + 1))
+    fi
+done
+
+# Удаляем все backup файлы ide-config.json.backup.*
+for backup_file in "$IDE_CONFIG_DIR"/ide-config.json.backup.*; do
+    if [ -e "$backup_file" ]; then
+        rm -f "$backup_file"
+        echo "✓ Удалено: $(basename "$backup_file")"
         REMOVED_COUNT=$((REMOVED_COUNT + 1))
     fi
 done
