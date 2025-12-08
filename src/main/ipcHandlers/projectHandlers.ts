@@ -134,6 +134,12 @@ export function registerProjectHandlers(): void {
       // Сохраняем проект в Map
       projectManager.addProject(projectPath, projectData);
 
+      // Отправляем событие обновления списка проектов
+      const mainWin = windowManager.getMainWindow();
+      if (mainWin && !mainWin.isDestroyed()) {
+        mainWin.webContents.send("project-list-changed");
+      }
+
       return projectData;
     } catch (error) {
       console.error("Ошибка в select-project-folder:", error);
@@ -299,6 +305,8 @@ export function registerProjectHandlers(): void {
   ipcMain.handle("load-open-projects", async () => {
     try {
       const openProjectsPaths = await getOpenProjects();
+      console.log("[load-open-projects] Пути проектов из конфига:", openProjectsPaths);
+      console.log("[load-open-projects] Проекты в projectManager:", projectManager.getAllProjectPaths());
       const loadedProjects = [];
 
       for (const projectPath of openProjectsPaths) {
@@ -309,9 +317,11 @@ export function registerProjectHandlers(): void {
           
           if (existingProject) {
             // Используем существующее дерево из projectManager
+            console.log("[load-open-projects] Используем проект из projectManager:", projectPath);
             loadedProjects.push(existingProject);
           } else {
             // Если дерева нет, пересобираем его
+            console.log("[load-open-projects] Пересобираем дерево проекта:", projectPath);
             const children = await buildProjectTree(projectPath, projectPath);
             const projectData = createProjectData(projectPath, children);
 
@@ -320,9 +330,12 @@ export function registerProjectHandlers(): void {
           }
         } else {
           // Удаляем несуществующий проект из списка
+          console.log("[load-open-projects] Удаляем несуществующий проект:", projectPath);
           await removeOpenProject(projectPath);
         }
       }
+
+      console.log("[load-open-projects] Загружено проектов:", loadedProjects.length);
 
       // Устанавливаем последний проект как текущий
       const lastProjectPath = await getLastProjectPath();

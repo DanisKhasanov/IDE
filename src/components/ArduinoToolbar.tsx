@@ -328,9 +328,6 @@ const ArduinoToolbar = ({
   };
 
   // Скрываем панель, если проект не Arduino
-  if (!isArduinoProject || !currentProjectPath) {
-    return null;
-  }
 
   return (
     <>

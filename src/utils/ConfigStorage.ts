@@ -24,6 +24,11 @@ const getConfigPath = (): string => {
   return path.join(app.getPath('userData'), CONFIG_FILE_NAME);
 };
 
+// Экспортируем функцию для получения пути к конфигу (для отладки)
+export const getConfigFilePath = (): string => {
+  return getConfigPath();
+};
+
 export const loadConfig = async (): Promise<IDEConfig> => {
   const configPath = getConfigPath();
   const defaultConfig: IDEConfig = {
@@ -39,20 +44,26 @@ export const loadConfig = async (): Promise<IDEConfig> => {
       const content = await fs.readFile(configPath, 'utf-8');
       const parsed = JSON.parse(content);
       return { ...defaultConfig, ...parsed };
+    } else {
+      console.log('[ConfigStorage] Конфигурационный файл не найден, используется конфигурация по умолчанию');
+      console.log('[ConfigStorage] Путь к конфигу:', configPath);
     }
   } catch (error) {
     console.error('Ошибка загрузки конфигурации:', error);
+    console.error('Путь к конфигу:', configPath);
   }
 
   return defaultConfig;
 };
 
 export const saveConfig = async (config: IDEConfig): Promise<void> => {
+  const configPath = getConfigPath();
   try {
-    const configPath = getConfigPath();
     await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    console.log('[ConfigStorage] Конфигурация сохранена в:', configPath);
   } catch (error) {
     console.error('Ошибка сохранения конфигурации:', error);
+    console.error('Путь к конфигу:', configPath);
     throw error;
   }
 };
@@ -100,9 +111,15 @@ export const getOpenProjects = async (): Promise<string[]> => {
 // Добавление проекта в список открытых
 export const addOpenProject = async (projectPath: string): Promise<void> => {
   const config = await loadConfig();
+  console.log("[addOpenProject] Текущие открытые проекты:", config.openProjects);
   if (!config.openProjects.includes(projectPath)) {
     config.openProjects.push(projectPath);
+    console.log("[addOpenProject] Добавлен проект:", projectPath);
+    console.log("[addOpenProject] Обновленный список:", config.openProjects);
     await saveConfig(config);
+    console.log("[addOpenProject] Конфиг сохранен");
+  } else {
+    console.log("[addOpenProject] Проект уже в списке:", projectPath);
   }
 };
 

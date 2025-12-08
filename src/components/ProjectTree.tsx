@@ -132,23 +132,9 @@ const ProjectTree = ({
       // Особенно важно после компиляции, когда создаются файлы в build/
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Если есть активный проект, обновляем только его, сохраняя состояние раскрытых папок
-      if (activeProjectPath) {
-        try {
-          if (!window.electronAPI || !window.electronAPI.refreshProjectTree) {
-            return;
-          }
-          const updatedProject = await window.electronAPI.refreshProjectTree(activeProjectPath);
-          if (updatedProject) {
-            updateProjectTree(updatedProject);
-          }
-        } catch (error) {
-          console.error("Ошибка обновления дерева проекта:", error);
-        }
-      } else {
-        // Если активного проекта нет, перезагружаем все проекты
-        loadOpenProjects();
-      }
+      // Всегда перезагружаем все проекты из конфига при изменении списка проектов
+      // Это гарантирует, что все открытые проекты будут отображены
+      await loadOpenProjects();
     };
     
     // Обработчик кастомного события с обновленным деревом проекта
@@ -272,7 +258,7 @@ const ProjectTree = ({
       const project = await window.electronAPI.selectProjectFolder();
       console.log("Получен проект:", project);
       if (project) {
-        // Проверяем, не открыт ли уже этот проект
+        // Проверяем, не открыт ли уже этот проект в локальном состоянии
         const existingIndex = openProjects.findIndex(
           (p) => p.path === project.path
         );
@@ -288,33 +274,81 @@ const ProjectTree = ({
             onProjectPathChange(project.path);
           }
         } else {
-          // Добавляем новый проект
-          const newProjects = [...openProjects, project];
-          setOpenProjects(newProjects);
-          setActiveProjectPath(project.path);
-          // Раскрываем новый проект по умолчанию
-          setExpandedProjects((prev) => {
-            const newSet = new Set(prev);
-            newSet.add(project.path);
-            return newSet;
-          });
-          if (onProjectPathChange) {
-            onProjectPathChange(project.path);
-          }
-          // Загружаем сохраненное состояние проекта
-          const savedState = await window.electronAPI.getProjectState(
-            project.path
-          );
-          const newExpandedFolders = new Map(expandedFolders);
-          if (savedState && savedState.expandedFolders.length > 0) {
-            newExpandedFolders.set(
-              project.path,
-              new Set(savedState.expandedFolders)
-            );
+          // После открытия нового проекта перезагружаем все проекты из конфига
+          // чтобы синхронизировать состояние и показать все открытые проекты
+          const activePath = project.path;
+          console.log("Открыт новый проект, путь:", activePath);
+          console.log("Текущее состояние openProjects перед обновлением:", openProjects.length);
+          
+          // Загружаем все проекты из конфига
+          const allProjects = await window.electronAPI.loadOpenProjects();
+          console.log("Загружено проектов из конфига:", allProjects?.length || 0);
+          console.log("Пути проектов:", allProjects?.map(p => p.path) || []);
+          
+          if (allProjects && allProjects.length > 0) {
+            // Принудительно обновляем состояние, создавая новый массив
+            setOpenProjects([...allProjects]);
+            console.log("Обновлено состояние openProjects, количество:", allProjects.length);
+            
+            // Устанавливаем только что открытый проект как активный
+            setActiveProjectPath(activePath);
+            if (onProjectPathChange) {
+              onProjectPathChange(activePath);
+            }
+            
+            // Загружаем сохраненные состояния для всех проектов
+            const newExpandedFolders = new Map<string, Set<string>>();
+            const newExpandedProjects = new Set<string>();
+            
+            for (const proj of allProjects) {
+              const savedState = await window.electronAPI.getProjectState(proj.path);
+              if (savedState && savedState.expandedFolders.length > 0) {
+                newExpandedFolders.set(
+                  proj.path,
+                  new Set(savedState.expandedFolders)
+                );
+              } else {
+                // Раскрываем корневую папку по умолчанию
+                if (proj.tree.type === "directory") {
+                  newExpandedFolders.set(proj.path, new Set([proj.tree.id]));
+                }
+              }
+              // Раскрываем активный проект
+              if (proj.path === activePath) {
+                newExpandedProjects.add(proj.path);
+              }
+            }
+            
+            setExpandedFolders(newExpandedFolders);
+            setExpandedProjects(newExpandedProjects);
+            console.log("Обновлено состояние expandedFolders и expandedProjects");
           } else {
-            newExpandedFolders.set(project.path, new Set([project.tree.id]));
+            console.warn("Не удалось загрузить проекты из конфига");
+            // Если не удалось загрузить из конфига, добавляем проект вручную
+            setOpenProjects((prev) => {
+              const exists = prev.find((p) => p.path === project.path);
+              if (exists) {
+                return prev;
+              }
+              return [...prev, project];
+            });
+            setActiveProjectPath(activePath);
+            if (onProjectPathChange) {
+              onProjectPathChange(activePath);
+            }
+            setExpandedProjects((prev) => {
+              const newSet = new Set(prev);
+              newSet.add(activePath);
+              return newSet;
+            });
+            if (project.tree.type === "directory") {
+              setExpandedFolders((prev) => {
+                const newMap = new Map(prev);
+                newMap.set(activePath, new Set([project.tree.id]));
+                return newMap;
+              });
+            }
           }
-          setExpandedFolders(newExpandedFolders);
         }
       } else {
         console.log("Проект не выбран (пользователь отменил)");
