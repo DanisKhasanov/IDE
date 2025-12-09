@@ -90,9 +90,14 @@ declare global {
       arduinoGetBoards: () => Promise<string[]>;
       arduinoGetBoardConfig: (boardName?: string) => Promise<import('./arduino').BoardConfig>;
       // Arduino заливка прошивки и работа с портами
-      arduinoListPorts: () => Promise<import('./arduino').SerialPortInfo[]>;
+      // Единственный метод для получения списка портов - использует SerialPortWatcher
       arduinoDetectPorts: () => Promise<import('./arduino').SerialPortInfo[]>;
       arduinoUploadFirmware: (hexFilePath: string, portPath: string, boardName?: string) => Promise<import('./arduino').UploadResult>;
+      arduinoCheckPortPermissions: () => Promise<import('./arduino').SerialPortPermissionStatus>;
+      arduinoSetupPortPermissions: () => Promise<import('./arduino').SerialPortPermissionSetupResult>;
+      // Подписки на события портов (event-driven)
+      arduinoOnPortsChanged: (callback: (ports: import('./arduino').SerialPortInfo[]) => void) => () => void;
+      arduinoOnPermissionsChanged: (callback: (permissions: import('./arduino').SerialPortPermissionStatus) => void) => () => void;
       // Toolchain API
       toolchainCheck: () => Promise<ToolchainStatus>;
       toolchainGetInstallCommands: () => Promise<InstallCommands>;

@@ -5,8 +5,11 @@ import {
   getAvailableBoards,
   parseBoardConfig,
 } from "@utils/ArduinoCompiler";
-import { listSerialPorts, detectArduinoPorts } from "@utils/SerialPortManager";
 import { uploadFirmware } from "@utils/FirmwareUploader";
+import { 
+  setupSerialPortPermissions 
+} from "@utils/SerialPortPermissions";
+import { serialPortWatcher } from "@main/managers/SerialPortWatcher";
 
 /**
  * Регистрация IPC обработчиков для работы с Arduino
@@ -15,7 +18,7 @@ export function registerArduinoHandlers(): void {
   // Arduino компиляция: компилировать проект
   ipcMain.handle(
     "arduino-compile",
-    async (_event, projectPath: string, boardName: string = "uno") => {
+    async (_event, projectPath: string, boardName = "uno") => {
       try {
         console.log("Запуск компиляции Arduino проекта:", projectPath);
         const result = await compileArduinoProject(projectPath, boardName);
@@ -57,7 +60,7 @@ export function registerArduinoHandlers(): void {
   // Arduino: получить конфигурацию платы
   ipcMain.handle(
     "arduino-get-board-config",
-    async (_event, boardName: string = "uno") => {
+    async (_event, boardName = "uno") => {
       try {
         return await parseBoardConfig(boardName);
       } catch (error) {
@@ -72,22 +75,20 @@ export function registerArduinoHandlers(): void {
     }
   );
 
-  // Arduino: получить список всех COM-портов
-  ipcMain.handle("arduino-list-ports", async () => {
-    try {
-      return await listSerialPorts();
-    } catch (error) {
-      console.error("Ошибка получения списка портов:", error);
-      return [];
-    }
-  });
-
   // Arduino: обнаружить Arduino порты
+  // Единственный метод для получения списка портов - использует SerialPortWatcher
+  // Это централизованный источник данных о портах для всего приложения
   ipcMain.handle("arduino-detect-ports", async () => {
     try {
-      return await detectArduinoPorts();
+      // Получаем текущий список портов из watcher (быстро, из кеша)
+      const cachedPorts = serialPortWatcher.getCurrentPorts();
+      if (cachedPorts.length > 0) {
+        return cachedPorts;
+      }
+
+      // Если кеш пуст, принудительно обновляем
+      return await serialPortWatcher.refreshPorts();
     } catch (error) {
-      console.error("Ошибка обнаружения Arduino портов:", error);
       return [];
     }
   });
@@ -99,7 +100,7 @@ export function registerArduinoHandlers(): void {
       _event,
       hexFilePath: string,
       portPath: string,
-      boardName: string = "uno"
+      boardName = "uno"
     ) => {
       try {
         console.log("Запуск заливки прошивки:", {
@@ -120,5 +121,45 @@ export function registerArduinoHandlers(): void {
       }
     }
   );
+
+  // Arduino: проверить права доступа к COM-портам
+  // Использует SerialPortWatcher для получения актуального статуса
+  ipcMain.handle("arduino-check-port-permissions", async () => {
+    try {
+      // Получаем текущий статус из watcher (быстро, из кеша)
+      const cachedPermissions = serialPortWatcher.getCurrentPermissions();
+      if (cachedPermissions) {
+        return cachedPermissions;
+      }
+
+      // Если кеш пуст, принудительно обновляем
+      return await serialPortWatcher.refreshPermissions();
+    } catch (error) {
+      return {
+        hasAccess: false,
+        needsSetup: true,
+        platform: process.platform === "win32" ? "windows" : process.platform === "darwin" ? "macos" : "linux",
+        message: "Ошибка проверки прав доступа",
+        canAutoFix: false,
+      };
+    }
+  });
+
+  // Arduino: настроить права доступа к COM-портам
+  ipcMain.handle("arduino-setup-port-permissions", async () => {
+    try {
+      const result = await setupSerialPortPermissions();
+      // После настройки прав обновляем статус в watcher
+      if (result.success) {
+        await serialPortWatcher.refreshPermissions();
+      }
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
 }
 

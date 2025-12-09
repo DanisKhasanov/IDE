@@ -52,3 +52,19 @@ export interface UploadResult {
   stderr?: string;
 }
 
+// Типы для проверки прав доступа к COM-портам
+export interface SerialPortPermissionStatus {
+  hasAccess: boolean;
+  needsSetup: boolean;
+  platform: "linux" | "windows" | "macos";
+  message: string;
+  instructions?: string[];
+  canAutoFix: boolean;
+}
+
+export interface SerialPortPermissionSetupResult {
+  success: boolean;
+  message: string;
+  needsRelogin?: boolean;
+}
+

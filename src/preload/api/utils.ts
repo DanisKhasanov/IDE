@@ -27,9 +27,12 @@ export const createIpcListener = (
   channel: string,
   callback: (...args: any[]) => void
 ): (() => void) => {
-  ipcRenderer.on(channel, callback);
+  const handler = (_event: Electron.IpcRendererEvent, ...args: any[]) => {
+    callback(...args);
+  };
+  ipcRenderer.on(channel, handler);
   return () => {
-    ipcRenderer.removeListener(channel, callback);
+    ipcRenderer.removeListener(channel, handler);
   };
 };
 

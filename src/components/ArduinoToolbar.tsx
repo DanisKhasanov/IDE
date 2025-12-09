@@ -10,16 +10,22 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Typography,
+  Button,
 } from "@mui/material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import RefreshIcon from "@mui/icons-material/Refresh";
 import type {
   CompileResult,
   SerialPortInfo,
   UploadResult,
+  SerialPortPermissionStatus,
 } from "@/types/arduino";
 import type { ProjectTreeNode } from "@/types/project";
 
@@ -47,34 +53,83 @@ const ArduinoToolbar = ({
   const [selectedPort, setSelectedPort] = useState<string>("");
   const [lastCompileResult, setLastCompileResult] =
     useState<CompileResult | null>(null);
+  const [portPermissions, setPortPermissions] = useState<SerialPortPermissionStatus | null>(null);
+  const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
 
   // Фиксированная плата - Arduino UNO
   const BOARD = "uno";
 
-  // Загрузка списка портов
-  const loadPorts = useCallback(async () => {
+  // Проверка прав доступа к COM-портам (только для начальной загрузки)
+  // После этого полагаемся только на события от SerialPortWatcher
+  const checkInitialPermissions = useCallback(async () => {
     try {
-      const detectedPorts = await window.electronAPI.arduinoDetectPorts();
-      setPorts(detectedPorts);
-
-      // Автоматически выбираем первый порт, если он есть и текущий порт не выбран
-      if (detectedPorts.length > 0) {
-        // Если текущий выбранный порт все еще доступен, оставляем его
-        const currentPortStillAvailable = detectedPorts.some(
-          (p) => p.path === selectedPort
-        );
-        if (!currentPortStillAvailable) {
-          setSelectedPort(detectedPorts[0].path);
-        }
-      } else {
-        setSelectedPort("");
+      const status = await window.electronAPI.arduinoCheckPortPermissions();
+      setPortPermissions(status);
+      
+      if (!status.hasAccess && status.needsSetup) {
+        setPermissionDialogOpen(true);
       }
     } catch (error) {
-      console.error("Ошибка загрузки портов:", error);
-      setPorts([]);
+      console.error("Ошибка проверки прав доступа:", error);
+    }
+  }, []);
+
+  // Обновление списка портов из события (event-driven)
+  const handlePortsChanged = useCallback((detectedPorts: SerialPortInfo[]) => {
+    setPorts(detectedPorts);
+
+    // Автоматически выбираем первый порт, если он есть и текущий порт не выбран
+    if (detectedPorts.length > 0) {
+      // Если текущий выбранный порт все еще доступен, оставляем его
+      const currentPortStillAvailable = detectedPorts.some(
+        (p) => p.path === selectedPort
+      );
+      if (!currentPortStillAvailable) {
+        setSelectedPort(detectedPorts[0].path);
+      }
+    } else {
       setSelectedPort("");
     }
   }, [selectedPort]);
+
+  // Обновление прав доступа из события (event-driven)
+  const handlePermissionsChanged = useCallback((permissions: SerialPortPermissionStatus) => {
+    setPortPermissions(permissions);
+    
+    if (!permissions.hasAccess && permissions.needsSetup) {
+      setPermissionDialogOpen(true);
+    }
+  }, []);
+
+  // Подписка на события изменения портов и прав доступа
+  // Event-driven подход: полагаемся только на события от SerialPortWatcher
+  useEffect(() => {
+    if (!isArduinoProject) {
+      return;
+    }
+
+    // Подписываемся на события портов
+    const unsubscribePorts = window.electronAPI.arduinoOnPortsChanged(handlePortsChanged);
+    
+    // Подписываемся на события прав доступа
+    const unsubscribePermissions = window.electronAPI.arduinoOnPermissionsChanged(handlePermissionsChanged);
+
+    // Получаем начальные данные из кеша SerialPortWatcher (синхронно, быстро)
+    // Это нужно только для первоначальной загрузки UI
+    window.electronAPI.arduinoDetectPorts()
+      .then(handlePortsChanged)
+      .catch(() => {
+        handlePortsChanged([]);
+      });
+    
+    // Получаем начальный статус прав из кеша
+    checkInitialPermissions();
+
+    return () => {
+      unsubscribePorts();
+      unsubscribePermissions();
+    };
+  }, [isArduinoProject, handlePortsChanged, handlePermissionsChanged, checkInitialPermissions]);
 
   // Проверка, является ли проект Arduino проектом
   useEffect(() => {
@@ -90,10 +145,8 @@ const ArduinoToolbar = ({
           await window.electronAPI.arduinoDetectProject(currentProjectPath);
         setIsArduinoProject(info.isArduino);
 
-        // Загружаем порты при обнаружении Arduino проекта
+        // При обнаружении Arduino проекта порты будут загружены через события
         if (info.isArduino) {
-          await loadPorts();
-
           // Проверяем существование hex файла в папке build
           // Используем getProjectTree для проверки существования файла
           try {
@@ -149,34 +202,8 @@ const ArduinoToolbar = ({
       }
     };
 
-    checkArduinoProject();
-  }, [currentProjectPath]);
-
-  // Автоматическое обновление списка портов для Arduino проектов
-  useEffect(() => {
-    if (!isArduinoProject || !currentProjectPath) {
-      return;
-    }
-
-    // Загружаем порты сразу
-    loadPorts();
-
-    // Обновляем список портов каждые 3 секунды
-    const intervalId = setInterval(() => {
-      loadPorts();
-    }, 3000);
-
-    // Обновляем при фокусе окна
-    const handleFocus = () => {
-      loadPorts();
-    };
-    window.addEventListener("focus", handleFocus);
-
-    return () => {
-      clearInterval(intervalId);
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, [isArduinoProject, currentProjectPath, loadPorts]);
+      checkArduinoProject();
+    }, [currentProjectPath]);
 
   // Обработка компиляции
   const handleCompile = async () => {
@@ -327,6 +354,39 @@ const ArduinoToolbar = ({
     }
   };
 
+  // Обработчик автоматической настройки прав доступа
+  // После настройки SerialPortWatcher автоматически обновит статус через события
+  const handleSetupPermissions = useCallback(async () => {
+    try {
+      const result = await window.electronAPI.arduinoSetupPortPermissions();
+      if (result.success) {
+        // Показываем сообщение об успехе
+        setResult({
+          success: true,
+          message: result.message,
+        });
+        setSnackbarOpen(true);
+        
+        // SerialPortWatcher автоматически обновит статус прав через события
+        // Не нужно вручную вызывать проверку - события придут автоматически
+        setPermissionDialogOpen(false);
+      } else {
+        setResult({
+          success: false,
+          error: result.message,
+        });
+        setSnackbarOpen(true);
+      }
+    } catch (error) {
+      console.error("Ошибка настройки прав:", error);
+      setResult({
+        success: false,
+        error: error instanceof Error ? error.message : "Ошибка настройки прав доступа",
+      });
+      setSnackbarOpen(true);
+    }
+  }, []);
+
   // Скрываем панель, если проект не Arduino
 
   return (
@@ -450,10 +510,61 @@ const ArduinoToolbar = ({
           sx={{ width: "100%" }}
         >
           {result?.success
-            ? "Компиляция завершена успешно"
-            : "Произошла ошибка компиляции"}
+            ? result.message || "Компиляция завершена успешно"
+            : result?.error || "Произошла ошибка компиляции"}
         </Alert>
       </Snackbar>
+
+      {/* Диалог проверки прав доступа к COM-портам */}
+      {permissionDialogOpen && portPermissions && (
+        <Dialog 
+          open={permissionDialogOpen} 
+          onClose={() => setPermissionDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Требуется настройка прав доступа к COM-портам</DialogTitle>
+          <DialogContent>
+            <Typography sx={{ mb: 2 }}>{portPermissions.message}</Typography>
+            {portPermissions.instructions && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                  Инструкции:
+                </Typography>
+                {portPermissions.instructions.map((instruction, index) => (
+                  <Typography 
+                    key={index} 
+                    variant="body2" 
+                    sx={{ 
+                      fontFamily: 'monospace', 
+                      mb: 1,
+                      p: 1,
+                      bgcolor: 'action.hover',
+                      borderRadius: 1,
+                    }}
+                  >
+                    {instruction}
+                  </Typography>
+                ))}
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            {portPermissions.canAutoFix && (
+              <Button 
+                onClick={handleSetupPermissions} 
+                variant="contained"
+                color="primary"
+              >
+                Настроить автоматически
+              </Button>
+            )}
+            <Button onClick={() => setPermissionDialogOpen(false)}>
+              Закрыть
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </>
   );
 };

@@ -2,6 +2,7 @@ import { app, BrowserWindow, globalShortcut } from "electron";
 import { registerIpcHandlers } from "./main/ipcHandlers";
 import { windowManager } from "./main/managers/WindowManager";
 import { terminalManager } from "./main/managers/TerminalManager";
+import { serialPortWatcher } from "./main/managers/SerialPortWatcher";
 import { createApplicationMenu } from "./main/menu/menu";
 
 /**
@@ -49,6 +50,12 @@ const createWindow = () => {
   
   // Устанавливаем окно в менеджер терминалов для отправки данных в рендерер
   terminalManager.setMainWindow(mainWindow);
+  
+  // Устанавливаем окно в менеджер портов для отправки событий об изменениях портов
+  serialPortWatcher.setMainWindow(mainWindow);
+  
+  // Начинаем отслеживание портов
+  serialPortWatcher.startWatching();
   
   // Создаем меню приложения с горячими клавишами
   createApplicationMenu();
@@ -111,6 +118,9 @@ app.on("activate", () => {
 app.on("will-quit", () => {
   // Отменяем регистрацию всех глобальных горячих клавиш
   globalShortcut.unregisterAll();
+  
+  // Останавливаем отслеживание портов
+  serialPortWatcher.stopWatching();
   
   // Очищаем все терминалы и освобождаем ресурсы
   terminalManager.clear();

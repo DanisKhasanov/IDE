@@ -7,6 +7,7 @@
   "scripts": {
     "start": "electron-forge start",
     "fix-sandbox": "./fix-sandbox.sh",
+    "clean-ide-cache": "./clean-ide-cache.sh",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
