@@ -344,8 +344,23 @@ export const getMuiThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
       MuiDialogContent: {
         styleOverrides: {
           root: {
-            padding: '20px 24px',
+            padding: '15px',
             fontSize: '0.9375rem',
+            '& .MuiTypography-root': {
+              fontSize: '0.8125rem', // Уменьшаем базовый размер текста в диалогах
+            },
+            '& .MuiTypography-subtitle1': {
+              fontSize: '0.875rem', // Уменьшаем subtitle1
+            },
+            '& .MuiTypography-body1': {
+              fontSize: '0.8125rem', // Уменьшаем body1
+            },
+            '& .MuiTypography-body2': {
+              fontSize: '0.75rem', // Уменьшаем body2
+            },
+            '& .MuiTypography-caption': {
+              fontSize: '0.6875rem', // Уменьшаем caption
+            },
           },
         },
       },

@@ -244,13 +244,7 @@ export const PinsTab: React.FC<PinsTabProps> = ({
 
               return (
                 <>
-                  <Typography
-                    variant="subtitle1"
-                    sx={{ fontWeight: "bold", mb: 2 }}
-                  >
-                    {pin.pin} - {func.functionType}
-                    {pinFunc.role && ` (${pinFunc.role})`}
-                  </Typography>
+                  <Typography>Выберите настройки</Typography>
                   <Box sx={{ overflow: "auto", flex: 1 }}>
                     <RenderSettings
                       func={pinFunc}
@@ -267,6 +261,7 @@ export const PinsTab: React.FC<PinsTabProps> = ({
                         );
                       }}
                       boardConfig={boardConfig}
+                      pinName={selectedPin}
                     />
                   </Box>
                 </>

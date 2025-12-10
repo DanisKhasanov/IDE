@@ -194,6 +194,7 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
                     );
                   }}
                   boardConfig={boardConfig}
+                  pinName={undefined}
                 />
               </Box>
             </>

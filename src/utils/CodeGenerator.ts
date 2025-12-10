@@ -58,9 +58,20 @@ export class CodeGenerator {
         isrFunctions.push(this.generateExternalInterruptISR(func));
       });
     }
-    if (functionsByType.PCINT && functionsByType.PCINT.length > 0) {
-      initFunctions.push(this.generatePCINTInit(functionsByType.PCINT));
-      isrFunctions.push(this.generatePCINTISR(functionsByType.PCINT));
+    // Обрабатываем PCINT из настроек GPIO и как отдельную функцию
+    const pcintFromGPIO = this.extractPCINTFromGPIO(selectedPins);
+    const allPCINT = [
+      ...pcintFromGPIO,
+      ...(functionsByType.PCINT || []),
+    ];
+    // Удаляем дубликаты по pinName
+    const uniquePCINT = allPCINT.filter(
+      (pcint, index, self) =>
+        index === self.findIndex((p) => p.pinName === pcint.pinName)
+    );
+    if (uniquePCINT.length > 0) {
+      initFunctions.push(this.generatePCINTInit(uniquePCINT));
+      isrFunctions.push(this.generatePCINTISR(uniquePCINT));
     }
     if (functionsByType.TIMER0_PWM && functionsByType.TIMER0_PWM.length > 0) {
       const timer0Func = functionsByType.TIMER0_PWM[0];
@@ -163,7 +174,10 @@ ${isrFunctions.join("\n\n")}
         }
       });
     }
-    if (functionsByType.PCINT && functionsByType.PCINT.length > 0) {
+    // Проверяем PCINT из GPIO и как отдельную функцию
+    const pcintFromGPIO = this.extractPCINTFromGPIO(selectedPins);
+    const hasPCINT = (functionsByType.PCINT && functionsByType.PCINT.length > 0) || pcintFromGPIO.length > 0;
+    if (hasPCINT) {
       functionDeclarations.push("void gpio_pcint_init(void);");
     }
     if (functionsByType.TIMER0_PWM && functionsByType.TIMER0_PWM.length > 0) {
@@ -245,9 +259,20 @@ ${functionDeclarations.join("\n")}
         isrFunctions.push(this.generateExternalInterruptISR(func));
       });
     }
-    if (functionsByType.PCINT && functionsByType.PCINT.length > 0) {
-      initFunctions.push(this.generatePCINTInit(functionsByType.PCINT));
-      isrFunctions.push(this.generatePCINTISR(functionsByType.PCINT));
+    // Обрабатываем PCINT из настроек GPIO и как отдельную функцию
+    const pcintFromGPIO2 = this.extractPCINTFromGPIO(selectedPins);
+    const allPCINT2 = [
+      ...pcintFromGPIO2,
+      ...(functionsByType.PCINT || []),
+    ];
+    // Удаляем дубликаты по pinName
+    const uniquePCINT2 = allPCINT2.filter(
+      (pcint, index, self) =>
+        index === self.findIndex((p) => p.pinName === pcint.pinName)
+    );
+    if (uniquePCINT2.length > 0) {
+      initFunctions.push(this.generatePCINTInit(uniquePCINT2));
+      isrFunctions.push(this.generatePCINTISR(uniquePCINT2));
     }
     if (functionsByType.TIMER0_PWM && functionsByType.TIMER0_PWM.length > 0) {
       const timer0Func = functionsByType.TIMER0_PWM[0];
@@ -353,6 +378,10 @@ ${functionCalls.join("\n")}
     // Проверяем, нужны ли прерывания
     const hasInterrupts = selectedPins.some(
       (p) => {
+        // Проверяем PCINT из настроек GPIO
+        if (p.functionType === "GPIO" && p.settings?.enablePCINT) {
+          return true;
+        }
         if (
           p.functionType === "EXTERNAL_INTERRUPT" ||
           p.functionType === "PCINT" ||
@@ -411,6 +440,37 @@ ${functionCalls.join("\n")}
       grouped[pin.functionType].push(pin);
     });
     return grouped;
+  }
+
+  /**
+   * Извлекает PCINT из настроек GPIO функций
+   * Создает виртуальные SelectedPinFunction для PCINT на основе GPIO с включенным enablePCINT
+   */
+  private extractPCINTFromGPIO(
+    selectedPins: SelectedPinFunction[]
+  ): SelectedPinFunction[] {
+    const pcintFunctions: SelectedPinFunction[] = [];
+    
+    selectedPins.forEach((pinFunc) => {
+      // Проверяем, является ли это GPIO с включенным PCINT
+      if (pinFunc.functionType === "GPIO" && pinFunc.settings?.enablePCINT) {
+        const pin = this.findPinByName(pinFunc.pinName);
+        if (!pin) return;
+        
+        // Проверяем, поддерживает ли пин PCINT
+        const pcintFunc = pin.functions.find((f) => f.type === "PCINT");
+        if (!pcintFunc) return;
+        
+        // Создаем виртуальную функцию PCINT на основе GPIO
+        pcintFunctions.push({
+          pinName: pinFunc.pinName,
+          functionType: "PCINT",
+          settings: {},
+        });
+      }
+    });
+    
+    return pcintFunctions;
   }
 
   private generateGPIOInit(pins: SelectedPinFunction[]): string {
@@ -961,12 +1021,12 @@ ${functionCalls.join("\n")}
     if (mode === "InputCapture") {
       // Input Capture Mode - пин ICP1 (PD0/Arduino pin 8)
       const code: string[] = ["void timer1_icp_init() {"];
-      code.push(`    TCCR1B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
       if (trigger === "RISING") {
         code.push(`    TCCR1B |= (1 << ICES1); // Capture на RISING edge`);
       } else {
         code.push(`    // Capture на FALLING edge (ICES1 не установлен)`);
       }
+      code.push(`    TCCR1B |= ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
       if (noiseCanceler) {
         code.push(`    TCCR1B |= (1 << ICNC1); // Noise Canceler`);
       }
@@ -995,7 +1055,8 @@ ${functionCalls.join("\n")}
     } else if (mode === "CTC") {
       // CTC Mode 4: WGM13=0, WGM12=1, WGM11=0, WGM10=0
       code.push(`    TCCR1A = 0; // CTC mode`);
-      code.push(`    TCCR1B = (1 << WGM12) | ${prescalerMap[prescaler]}; // CTC, Prescaler ${prescaler}`);
+      code.push(`    TCCR1B |= (1 << WGM12); // CTC`);
+      code.push(`    TCCR1B |= ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
       code.push(`    OCR1A = ${topValue}; // TOP value`);
       if (enableInterrupt) {
         code.push(`    TIMSK1 |= (1 << OCIE1A); // Enable compare match interrupt`);
@@ -1072,8 +1133,9 @@ ${functionCalls.join("\n")}
     } else if (mode === "FastPWM") {
       // Fast PWM Mode 3: WGM22=0, WGM21=1, WGM20=1
       code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
-      code.push(`    TCCR2A = (1 << WGM21) | (1 << WGM20) | (1 << COM2${channel.slice(-1)}1); // Fast PWM, Clear on compare match`);
-      code.push(`    TCCR2B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      code.push(`    TCCR2A |= (1 << WGM21) | (1 << WGM20); // Fast PWM`);
+      code.push(`    TCCR2A |= (1 << COM2${channel.slice(-1)}1); // Clear on compare match`);
+      code.push(`    TCCR2B |= ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
       code.push(`    OCR2${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
     } else if (mode === "PhaseCorrectPWM") {
       // Phase Correct PWM Mode 1: WGM22=0, WGM21=0, WGM20=1
@@ -1084,8 +1146,10 @@ ${functionCalls.join("\n")}
     } else if (mode === "PhaseFrequencyCorrectPWM") {
       // Phase and Frequency Correct PWM Mode 5: WGM22=1, WGM21=1, WGM20=1
       code.push(`    DDR${portLetter} |= (1 << DD${portLetter}${bit}); // ${channel} как OUTPUT`);
-      code.push(`    TCCR2B = (1 << WGM22) | ${prescalerMap[prescaler]}; // Phase and Frequency Correct PWM, Prescaler ${prescaler}`);
-      code.push(`    TCCR2A = (1 << WGM21) | (1 << WGM20) | (1 << COM2${channel.slice(-1)}1); // TOP = OCR2A`);
+      code.push(`    TCCR2B = (1 << WGM22); // Phase and Frequency Correct PWM`);
+      code.push(`    TCCR2A = (1 << WGM21) | (1 << WGM20); // TOP = OCR2A`);
+      code.push(`    TCCR2A |= (1 << COM2${channel.slice(-1)}1); // Clear OC2${channel.slice(-1)} on Compare Match when up-counting`);
+      code.push(`    TCCR2B |= ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
       code.push(`    OCR2A = ${topValue}; // TOP value (частота ШИМ)`);
       code.push(`    OCR2${channel.slice(-1)} = ${dutyCycle}; // Duty cycle`);
     }

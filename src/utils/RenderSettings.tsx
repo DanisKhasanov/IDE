@@ -9,6 +9,7 @@ import {
   Typography,
   Checkbox,
   FormControlLabel,
+  Box,
 } from "@mui/material";
 import type { PinFunction, BoardConfig } from "../types/boardConfig";
 
@@ -17,6 +18,7 @@ interface RenderSettingsProps {
   settings: Record<string, any>;
   onSettingChange: (key: string, value: any) => void;
   boardConfig: BoardConfig | null;
+  pinName?: string;
 }
 
 export const RenderSettings: React.FC<RenderSettingsProps> = ({
@@ -24,172 +26,225 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
   settings,
   onSettingChange,
   boardConfig,
+  pinName,
 }) => {
   const handleSettingChange = (key: string, value: any) => {
     onSettingChange(key, value);
   };
 
   switch (func.type) {
-    case "GPIO":
+    case "GPIO": {
+      // Проверяем, поддерживает ли пин PCINT
+      const currentPin = pinName 
+        ? boardConfig?.pins.find((p) => p.pin === pinName)
+        : null;
+      const supportsPCINT = currentPin?.functions.some((f) => f.type === "PCINT") || false;
+      const isInputMode = settings.mode === "INPUT" || settings.mode === "INPUT_PULLUP";
+      
       return (
-        <>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Режим</InputLabel>
-            <Select
-              value={settings.mode || "INPUT"}
-              label="Режим"
-              onChange={(e) => handleSettingChange("mode", e.target.value)}
-            >
-              {func.modes?.map((mode) => (
-                <MenuItem key={mode} value={mode}>
-                  {mode}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          {settings.mode === "OUTPUT" && (
-            <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-              <InputLabel>Начальное состояние</InputLabel>
-              <Select
-                value={settings.initialState || "LOW"}
-                label="Начальное состояние"
-                onChange={(e) => handleSettingChange("initialState", e.target.value)}
-              >
-                <MenuItem value="LOW">LOW (0В)</MenuItem>
-                <MenuItem value="HIGH">HIGH (5В)</MenuItem>
-              </Select>
-            </FormControl>
+        <Box>
+          <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
+            <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>Режим</InputLabel>
+                <Select
+                  value={settings.mode || "INPUT"}
+                  label="Режим"
+                  onChange={(e) => handleSettingChange("mode", e.target.value)}
+                >
+                  {func.modes?.map((mode) => (
+                    <MenuItem key={mode} value={mode}>
+                      {mode}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            {settings.mode === "OUTPUT" && (
+              <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+                <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                  <InputLabel>Начальное состояние</InputLabel>
+                  <Select
+                    value={settings.initialState || "LOW"}
+                    label="Начальное состояние"
+                    onChange={(e) => handleSettingChange("initialState", e.target.value)}
+                  >
+                    <MenuItem value="LOW">LOW (0В)</MenuItem>
+                    <MenuItem value="HIGH">HIGH (5В)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+            )}
+          </Box>
+          {supportsPCINT && isInputMode && (
+            <Box sx={{ mt: 1 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={settings.enablePCINT || false}
+                    onChange={(e) =>
+                      handleSettingChange("enablePCINT", e.target.checked)
+                    }
+                  />
+                }
+                label={
+                  <Typography variant="body2">
+                    Включить PCINT (Pin Change Interrupt) - прерывание при изменении состояния пина
+                  </Typography>
+                }
+              />
+            </Box>
           )}
-        </>
+        </Box>
       );
+    }
 
     case "UART":
       return (
         <>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Скорость (baud)</InputLabel>
-            <Select
-              value={settings.baud || boardConfig?.peripherals.UART?.baudRates?.[0] || 9600}
-              label="Скорость (baud)"
-              onChange={(e) => handleSettingChange("baud", e.target.value)}
-            >
-              {boardConfig?.peripherals.UART?.baudRates?.map((rate) => (
-                <MenuItem key={rate} value={rate}>
-                  {rate}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Биты данных</InputLabel>
-            <Select
-              value={settings.dataBits || 8}
-              label="Биты данных"
-              onChange={(e) => handleSettingChange("dataBits", e.target.value)}
-            >
-              {boardConfig?.peripherals.UART?.dataBits?.map((bits) => (
-                <MenuItem key={bits} value={bits}>
-                  {bits}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Стоп-биты</InputLabel>
-            <Select
-              value={settings.stopBits || 1}
-              label="Стоп-биты"
-              onChange={(e) => handleSettingChange("stopBits", e.target.value)}
-            >
-              {boardConfig?.peripherals.UART?.stopBits?.map((bits) => (
-                <MenuItem key={bits} value={bits}>
-                  {bits}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Паритет</InputLabel>
-            <Select
-              value={settings.parity || "None"}
-              label="Паритет"
-              onChange={(e) => handleSettingChange("parity", e.target.value)}
-            >
-              {boardConfig?.peripherals.UART?.parity?.map((parity) => (
-                <MenuItem key={parity} value={parity}>
-                  {parity === "None"
-                    ? "Без паритета"
-                    : parity === "Even"
-                      ? "Чётный"
-                      : "Нечётный"}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Режим</InputLabel>
-            <Select
-              value={settings.mode || "Asynchronous"}
-              label="Режим"
-              onChange={(e) => handleSettingChange("mode", e.target.value)}
-            >
-              {boardConfig?.peripherals.UART?.modes?.map((mode) => (
-                <MenuItem key={mode} value={mode}>
-                  {mode === "Asynchronous" ? "Асинхронный" : "Синхронный"}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Alert severity="info" sx={{ mt: 1, mb: 1 }}>
+            <Typography variant="body2">
+              Настройки UART применяются к обоим пинам (RX и TX), так как они используют один модуль UART0.
+            </Typography>
+          </Alert>
+          <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
+            <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>Скорость (baud)</InputLabel>
+                <Select
+                  value={settings.baud || boardConfig?.peripherals.UART?.baudRates?.[0] || 9600}
+                  label="Скорость (baud)"
+                  onChange={(e) => handleSettingChange("baud", e.target.value)}
+                >
+                  {boardConfig?.peripherals.UART?.baudRates?.map((rate) => (
+                    <MenuItem key={rate} value={rate}>
+                      {rate}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>Биты данных</InputLabel>
+                <Select
+                  value={settings.dataBits || 8}
+                  label="Биты данных"
+                  onChange={(e) => handleSettingChange("dataBits", e.target.value)}
+                >
+                  {boardConfig?.peripherals.UART?.dataBits?.map((bits) => (
+                    <MenuItem key={bits} value={bits}>
+                      {bits}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>Стоп-биты</InputLabel>
+                <Select
+                  value={settings.stopBits || 1}
+                  label="Стоп-биты"
+                  onChange={(e) => handleSettingChange("stopBits", e.target.value)}
+                >
+                  {boardConfig?.peripherals.UART?.stopBits?.map((bits) => (
+                    <MenuItem key={bits} value={bits}>
+                      {bits}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>Паритет</InputLabel>
+                <Select
+                  value={settings.parity || "None"}
+                  label="Паритет"
+                  onChange={(e) => handleSettingChange("parity", e.target.value)}
+                >
+                  {boardConfig?.peripherals.UART?.parity?.map((parity) => (
+                    <MenuItem key={parity} value={parity}>
+                      {parity === "None"
+                        ? "Без паритета"
+                        : parity === "Even"
+                          ? "Чётный"
+                          : "Нечётный"}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>Режим</InputLabel>
+                <Select
+                  value={settings.mode || "Asynchronous"}
+                  label="Режим"
+                  onChange={(e) => handleSettingChange("mode", e.target.value)}
+                >
+                  {boardConfig?.peripherals.UART?.modes?.map((mode) => (
+                    <MenuItem key={mode} value={mode}>
+                      {mode === "Asynchronous" ? "Асинхронный" : "Синхронный"}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
           {boardConfig?.peripherals.UART?.interrupts && (
             <>
               <Typography variant="body2" sx={{ mt: 2, mb: 1, fontWeight: "bold" }}>
                 Прерывания:
               </Typography>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={settings.enableRXInterrupt || false}
-                    onChange={(e) =>
-                      handleSettingChange("enableRXInterrupt", e.target.checked)
-                    }
-                  />
-                }
-                label={
-                  <Typography variant="body2">
-                    RX (USART_RX_vect) - Прерывание при приёме данных
-                  </Typography>
-                }
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={settings.enableTXInterrupt || false}
-                    onChange={(e) =>
-                      handleSettingChange("enableTXInterrupt", e.target.checked)
-                    }
-                  />
-                }
-                label={
-                  <Typography variant="body2">
-                    TX (USART_TX_vect) - Прерывание при завершении передачи
-                  </Typography>
-                }
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={settings.enableUDREInterrupt || false}
-                    onChange={(e) =>
-                      handleSettingChange("enableUDREInterrupt", e.target.checked)
-                    }
-                  />
-                }
-                label={
-                  <Typography variant="body2">
-                    UDRE (USART_UDRE_vect) - Прерывание при пустом регистре данных
-                  </Typography>
-                }
-              />
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={settings.enableRXInterrupt || false}
+                      onChange={(e) =>
+                        handleSettingChange("enableRXInterrupt", e.target.checked)
+                      }
+                    />
+                  }
+                  label={
+                    <Typography variant="body2">
+                      RX (USART_RX_vect) - Прерывание при приёме данных
+                    </Typography>
+                  }
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={settings.enableTXInterrupt || false}
+                      onChange={(e) =>
+                        handleSettingChange("enableTXInterrupt", e.target.checked)
+                      }
+                    />
+                  }
+                  label={
+                    <Typography variant="body2">
+                      TX (USART_TX_vect) - Прерывание при завершении передачи
+                    </Typography>
+                  }
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={settings.enableUDREInterrupt || false}
+                      onChange={(e) =>
+                        handleSettingChange("enableUDREInterrupt", e.target.checked)
+                      }
+                    />
+                  }
+                  label={
+                    <Typography variant="body2">
+                      UDRE (USART_UDRE_vect) - Прерывание при пустом регистре данных
+                    </Typography>
+                  }
+                />
+              </Box>
             </>
           )}
         </>
@@ -198,81 +253,93 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
     case "SPI":
       return (
         <>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Режим</InputLabel>
-            <Select
-              value={settings.mode || "Master"}
-              label="Режим"
-              onChange={(e) => handleSettingChange("mode", e.target.value)}
-            >
-              {boardConfig?.peripherals.SPI?.modes?.map((mode) => (
-                <MenuItem key={mode} value={mode}>
-                  {mode}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Скорость</InputLabel>
-            <Select
-              value={settings.speed || "fosc/16"}
-              label="Скорость"
-              onChange={(e) => handleSettingChange("speed", e.target.value)}
-            >
-              {boardConfig?.peripherals.SPI?.speeds?.map((speed) => (
-                <MenuItem key={speed} value={speed}>
-                  {speed}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>CPOL (Clock Polarity)</InputLabel>
-            <Select
-              value={settings.cpol !== undefined ? settings.cpol : 0}
-              label="CPOL (Clock Polarity)"
-              onChange={(e) =>
-                handleSettingChange("cpol", parseInt(e.target.value))
-              }
-            >
-              {boardConfig?.peripherals.SPI?.cpol?.map((cpol) => (
-                <MenuItem key={cpol} value={cpol}>
-                  {cpol === 0 ? "0 (Idle Low)" : "1 (Idle High)"}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>CPHA (Clock Phase)</InputLabel>
-            <Select
-              value={settings.cpha !== undefined ? settings.cpha : 0}
-              label="CPHA (Clock Phase)"
-              onChange={(e) =>
-                handleSettingChange("cpha", parseInt(e.target.value))
-              }
-            >
-              {boardConfig?.peripherals.SPI?.cpha?.map((cpha) => (
-                <MenuItem key={cpha} value={cpha}>
-                  {cpha === 0
-                    ? "0 (Sample on Leading)"
-                    : "1 (Sample on Trailing)"}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          {boardConfig?.peripherals.SPI?.enableInterrupt && (
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={settings.enableInterrupt || false}
+          <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
+            <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>Режим</InputLabel>
+                <Select
+                  value={settings.mode || "Master"}
+                  label="Режим"
+                  onChange={(e) => handleSettingChange("mode", e.target.value)}
+                >
+                  {boardConfig?.peripherals.SPI?.modes?.map((mode) => (
+                    <MenuItem key={mode} value={mode}>
+                      {mode}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>Скорость</InputLabel>
+                <Select
+                  value={settings.speed || "fosc/16"}
+                  label="Скорость"
+                  onChange={(e) => handleSettingChange("speed", e.target.value)}
+                >
+                  {boardConfig?.peripherals.SPI?.speeds?.map((speed) => (
+                    <MenuItem key={speed} value={speed}>
+                      {speed}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>CPOL (Clock Polarity)</InputLabel>
+                <Select
+                  value={settings.cpol !== undefined ? settings.cpol : 0}
+                  label="CPOL (Clock Polarity)"
                   onChange={(e) =>
-                    handleSettingChange("enableInterrupt", e.target.checked)
+                    handleSettingChange("cpol", parseInt(e.target.value))
                   }
-                />
-              }
-              label="Включить прерывания (SPI_STC_vect)"
-              sx={{ mt: 1 }}
-            />
+                >
+                  {boardConfig?.peripherals.SPI?.cpol?.map((cpol) => (
+                    <MenuItem key={cpol} value={cpol}>
+                      {cpol === 0 ? "0 (Idle Low)" : "1 (Idle High)"}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>CPHA (Clock Phase)</InputLabel>
+                <Select
+                  value={settings.cpha !== undefined ? settings.cpha : 0}
+                  label="CPHA (Clock Phase)"
+                  onChange={(e) =>
+                    handleSettingChange("cpha", parseInt(e.target.value))
+                  }
+                >
+                  {boardConfig?.peripherals.SPI?.cpha?.map((cpha) => (
+                    <MenuItem key={cpha} value={cpha}>
+                      {cpha === 0
+                        ? "0 (Sample on Leading)"
+                        : "1 (Sample on Trailing)"}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
+          {boardConfig?.peripherals.SPI?.enableInterrupt && (
+            <Box sx={{ mt: 1 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={settings.enableInterrupt || false}
+                    onChange={(e) =>
+                      handleSettingChange("enableInterrupt", e.target.checked)
+                    }
+                  />
+                }
+                label="Включить прерывания (SPI_STC_vect)"
+                sx={{ mt: 1 }}
+              />
+            </Box>
           )}
         </>
       );
@@ -280,99 +347,113 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
     case "I2C":
       return (
         <>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Режим</InputLabel>
-            <Select
-              value={settings.mode || "Master"}
-              label="Режим"
-              onChange={(e) => handleSettingChange("mode", e.target.value)}
-            >
-              {boardConfig?.peripherals.I2C?.modes?.map((mode) => (
-                <MenuItem key={mode} value={mode}>
-                  {mode}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          {(settings.mode || "Master") === "Master" && (
-            <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-              <InputLabel>Скорость (Hz)</InputLabel>
-              <Select
-                value={settings.speed || 100000}
-                label="Скорость (Hz)"
-                onChange={(e) => handleSettingChange("speed", e.target.value)}
-              >
-                {boardConfig?.peripherals.I2C?.speeds?.map((speed) => (
-                  <MenuItem key={speed} value={speed}>
-                    {typeof speed === "number"
-                      ? `${speed / 1000}kHz`
-                      : `${speed}kHz`}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-          {(settings.mode || "Master") === "Slave" &&
-            boardConfig?.peripherals.I2C?.slaveAddressRange && (
-              <TextField
-                fullWidth
-                size="small"
-                type="number"
-                label="Адрес устройства (Slave Address)"
-                value={settings.slaveAddress || 8}
-                onChange={(e) => {
-                  const addr = parseInt(e.target.value);
-                  const [min, max] =
-                    boardConfig?.peripherals.I2C?.slaveAddressRange || [8, 119];
-                  if (addr >= min && addr <= max) {
-                    handleSettingChange("slaveAddress", addr);
-                  }
-                }}
-                inputProps={{
-                  min: boardConfig?.peripherals.I2C?.slaveAddressRange?.[0] || 8,
-                  max: boardConfig?.peripherals.I2C?.slaveAddressRange?.[1] || 119,
-                }}
-                sx={{ mt: 1 }}
-                helperText={`Диапазон: ${boardConfig?.peripherals.I2C?.slaveAddressRange?.[0]}-${boardConfig?.peripherals.I2C?.slaveAddressRange?.[1]}`}
-              />
+          <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
+            <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>Режим</InputLabel>
+                <Select
+                  value={settings.mode || "Master"}
+                  label="Режим"
+                  onChange={(e) => handleSettingChange("mode", e.target.value)}
+                >
+                  {boardConfig?.peripherals.I2C?.modes?.map((mode) => (
+                    <MenuItem key={mode} value={mode}>
+                      {mode}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            {(settings.mode || "Master") === "Master" && (
+              <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+                <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                  <InputLabel>Скорость (Hz)</InputLabel>
+                  <Select
+                    value={settings.speed || 100000}
+                    label="Скорость (Hz)"
+                    onChange={(e) => handleSettingChange("speed", e.target.value)}
+                  >
+                    {boardConfig?.peripherals.I2C?.speeds?.map((speed) => (
+                      <MenuItem key={speed} value={speed}>
+                        {typeof speed === "number"
+                          ? `${speed / 1000}kHz`
+                          : `${speed}kHz`}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
             )}
+            {(settings.mode || "Master") === "Slave" &&
+              boardConfig?.peripherals.I2C?.slaveAddressRange && (
+                <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="number"
+                    label="Адрес устройства (Slave Address)"
+                    value={settings.slaveAddress || 8}
+                    onChange={(e) => {
+                      const addr = parseInt(e.target.value);
+                      const [min, max] =
+                        boardConfig?.peripherals.I2C?.slaveAddressRange || [8, 119];
+                      if (addr >= min && addr <= max) {
+                        handleSettingChange("slaveAddress", addr);
+                      }
+                    }}
+                    inputProps={{
+                      min: boardConfig?.peripherals.I2C?.slaveAddressRange?.[0] || 8,
+                      max: boardConfig?.peripherals.I2C?.slaveAddressRange?.[1] || 119,
+                    }}
+                    sx={{ mt: 1 }}
+                    helperText={`Диапазон: ${boardConfig?.peripherals.I2C?.slaveAddressRange?.[0]}-${boardConfig?.peripherals.I2C?.slaveAddressRange?.[1]}`}
+                  />
+                </Box>
+              )}
+          </Box>
           {boardConfig?.peripherals.I2C?.enableInterrupt && (
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={settings.enableInterrupt || false}
-                  onChange={(e) =>
-                    handleSettingChange("enableInterrupt", e.target.checked)
-                  }
-                />
-              }
-              label={
-                <Typography variant="body2">
-                  Включить прерывания (TWI_vect) - событие на шине I2C
-                </Typography>
-              }
-              sx={{ mt: 1 }}
-            />
+            <Box sx={{ mt: 1 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={settings.enableInterrupt || false}
+                    onChange={(e) =>
+                      handleSettingChange("enableInterrupt", e.target.checked)
+                    }
+                  />
+                }
+                label={
+                  <Typography variant="body2">
+                    Включить прерывания (TWI_vect) - событие на шине I2C
+                  </Typography>
+                }
+                sx={{ mt: 1 }}
+              />
+            </Box>
           )}
         </>
       );
 
     case "EXTERNAL_INTERRUPT":
       return (
-        <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-          <InputLabel>Триггер</InputLabel>
-          <Select
-            value={settings.trigger || "RISING"}
-            label="Триггер"
-            onChange={(e) => handleSettingChange("trigger", e.target.value)}
-          >
-            {func.triggers?.map((trigger) => (
-              <MenuItem key={trigger} value={trigger}>
-                {trigger}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
+          <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+            <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+              <InputLabel>Триггер</InputLabel>
+              <Select
+                value={settings.trigger || "RISING"}
+                label="Триггер"
+                onChange={(e) => handleSettingChange("trigger", e.target.value)}
+              >
+                {func.triggers?.map((trigger) => (
+                  <MenuItem key={trigger} value={trigger}>
+                    {trigger}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </Box>
       );
 
     case "TIMER0_PWM":
@@ -396,235 +477,265 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
       
       return (
         <>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Режим</InputLabel>
-            <Select
-              value={selectedMode}
-              label="Режим"
-              onChange={(e) =>
-                handleSettingChange("mode", e.target.value)
-              }
-            >
-              {modes.map((mode: string) => (
-                <MenuItem key={mode} value={mode}>
-                  {mode === "FastPWM" ? "Fast PWM" :
-                   mode === "PhaseCorrectPWM" ? "Phase Correct PWM" :
-                   mode === "PhaseFrequencyCorrectPWM" ? "Phase and Frequency Correct PWM" :
-                   mode === "InputCapture" ? "Input Capture" :
-                   mode}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Предделитель</InputLabel>
-            <Select
-              value={settings.prescaler || 64}
-              label="Предделитель"
-              onChange={(e) =>
-                handleSettingChange("prescaler", e.target.value)
-              }
-            >
-              {timerPeripheral?.prescalers?.map((prescaler: number) => (
-                <MenuItem key={prescaler} value={prescaler}>
-                  {prescaler}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          
-          {isPWM && (
-            <TextField
-              fullWidth
-              size="small"
-              type="number"
-              label="Duty Cycle / OCR"
-              value={settings.dutyCycle || defaultDutyCycle}
-              onChange={(e) =>
-                handleSettingChange("dutyCycle", parseInt(e.target.value))
-              }
-              inputProps={{ min: 0, max: maxOCRValue }}
-              sx={{ mt: 1 }}
-              helperText={`0-${maxOCRValue}`}
-            />
-          )}
-          
-          {isCTC && (
-            <>
-              <TextField
-                fullWidth
-                size="small"
-                type="number"
-                label="OCR / TOP Value"
-                value={settings.topValue || defaultDutyCycle}
-                onChange={(e) =>
-                  handleSettingChange("topValue", parseInt(e.target.value))
-                }
-                inputProps={{ min: 1, max: maxOCRValue }}
-                sx={{ mt: 1 }}
-                helperText={`1-${maxOCRValue}`}
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={settings.enableInterrupt || false}
-                    onChange={(e) =>
-                      handleSettingChange("enableInterrupt", e.target.checked)
-                    }
-                  />
-                }
-                label="Включить прерывание по совпадению (OCIE)"
-                sx={{ mt: 1 }}
-              />
-            </>
-          )}
-          
-          {isNormal && (
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={settings.enableInterrupt || false}
-                  onChange={(e) =>
-                    handleSettingChange("enableInterrupt", e.target.checked)
-                  }
-                />
-              }
-              label="Включить прерывание по переполнению (TOIE)"
-              sx={{ mt: 1 }}
-            />
-          )}
-          
-          {isInputCapture && isTimer1 && (
-            <>
+          <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
+            <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
               <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-                <InputLabel>Триггер</InputLabel>
+                <InputLabel>Режим</InputLabel>
                 <Select
-                  value={settings.trigger || "RISING"}
-                  label="Триггер"
+                  value={selectedMode}
+                  label="Режим"
                   onChange={(e) =>
-                    handleSettingChange("trigger", e.target.value)
+                    handleSettingChange("mode", e.target.value)
                   }
                 >
-                  <MenuItem value="RISING">Rising Edge</MenuItem>
-                  <MenuItem value="FALLING">Falling Edge</MenuItem>
+                  {modes.map((mode: string) => (
+                    <MenuItem key={mode} value={mode}>
+                      {mode === "FastPWM" ? "Fast PWM" :
+                       mode === "PhaseCorrectPWM" ? "Phase Correct PWM" :
+                       mode === "PhaseFrequencyCorrectPWM" ? "Phase and Frequency Correct PWM" :
+                       mode === "InputCapture" ? "Input Capture" :
+                       mode}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={settings.noiseCanceler || false}
+            </Box>
+            
+            <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>Предделитель</InputLabel>
+                <Select
+                  value={settings.prescaler || 64}
+                  label="Предделитель"
+                  onChange={(e) =>
+                    handleSettingChange("prescaler", e.target.value)
+                  }
+                >
+                  {timerPeripheral?.prescalers?.map((prescaler: number) => (
+                    <MenuItem key={prescaler} value={prescaler}>
+                      {prescaler}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            
+            {isPWM && (
+              <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  label="Duty Cycle / OCR"
+                  value={settings.dutyCycle || defaultDutyCycle}
+                  onChange={(e) =>
+                    handleSettingChange("dutyCycle", parseInt(e.target.value))
+                  }
+                  inputProps={{ min: 0, max: maxOCRValue }}
+                  sx={{ mt: 1 }}
+                  helperText={`0-${maxOCRValue}`}
+                />
+              </Box>
+            )}
+            
+            {isCTC && (
+              <>
+                <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="number"
+                    label="OCR / TOP Value"
+                    value={settings.topValue || defaultDutyCycle}
                     onChange={(e) =>
-                      handleSettingChange("noiseCanceler", e.target.checked)
+                      handleSettingChange("topValue", parseInt(e.target.value))
                     }
+                    inputProps={{ min: 1, max: maxOCRValue }}
+                    sx={{ mt: 1 }}
+                    helperText={`1-${maxOCRValue}`}
                   />
-                }
-                label="Подавление шума (ICNC1)"
-                sx={{ mt: 1 }}
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={settings.enableInterrupt || false}
-                    onChange={(e) =>
-                      handleSettingChange("enableInterrupt", e.target.checked)
+                </Box>
+                <Box sx={{ width: "100%" }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={settings.enableInterrupt || false}
+                        onChange={(e) =>
+                          handleSettingChange("enableInterrupt", e.target.checked)
+                        }
+                      />
                     }
+                    label="Включить прерывание по совпадению (OCIE)"
+                    sx={{ mt: 1 }}
                   />
-                }
-                label="Включить прерывание Input Capture (ICIE1)"
-                sx={{ mt: 1 }}
-              />
-            </>
-          )}
+                </Box>
+              </>
+            )}
+            
+            {isNormal && (
+              <Box sx={{ width: "100%" }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={settings.enableInterrupt || false}
+                      onChange={(e) =>
+                        handleSettingChange("enableInterrupt", e.target.checked)
+                      }
+                    />
+                  }
+                  label="Включить прерывание по переполнению (TOIE)"
+                  sx={{ mt: 1 }}
+                />
+              </Box>
+            )}
+            
+            {isInputCapture && isTimer1 && (
+              <>
+                <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+                  <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                    <InputLabel>Триггер</InputLabel>
+                    <Select
+                      value={settings.trigger || "RISING"}
+                      label="Триггер"
+                      onChange={(e) =>
+                        handleSettingChange("trigger", e.target.value)
+                      }
+                    >
+                      <MenuItem value="RISING">Rising Edge</MenuItem>
+                      <MenuItem value="FALLING">Falling Edge</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+                <Box sx={{ width: "100%" }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={settings.noiseCanceler || false}
+                        onChange={(e) =>
+                          handleSettingChange("noiseCanceler", e.target.checked)
+                        }
+                      />
+                    }
+                    label="Подавление шума (ICNC1)"
+                    sx={{ mt: 1 }}
+                  />
+                </Box>
+                <Box sx={{ width: "100%" }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={settings.enableInterrupt || false}
+                        onChange={(e) =>
+                          handleSettingChange("enableInterrupt", e.target.checked)
+                        }
+                      />
+                    }
+                    label="Включить прерывание Input Capture (ICIE1)"
+                    sx={{ mt: 1 }}
+                  />
+                </Box>
+              </>
+            )}
+          </Box>
         </>
       );
     }
 
     case "ADC":
       return (
-        <>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Опорное напряжение</InputLabel>
-            <Select
-              value={settings.reference || "AVcc"}
-              label="Опорное напряжение"
-              onChange={(e) =>
-                handleSettingChange("reference", e.target.value)
-              }
-            >
-              {boardConfig?.peripherals.ADC?.reference?.map((ref) => (
-                <MenuItem key={ref} value={ref}>
-                  {ref}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Предделитель</InputLabel>
-            <Select
-              value={settings.prescaler || 128}
-              label="Предделитель"
-              onChange={(e) =>
-                handleSettingChange("prescaler", parseInt(e.target.value))
-              }
-            >
-              {boardConfig?.peripherals.ADC?.prescalers?.map((prescaler) => (
-                <MenuItem key={prescaler} value={prescaler}>
-                  {prescaler}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Режим</InputLabel>
-            <Select
-              value={settings.mode || "Single"}
-              label="Режим"
-              onChange={(e) => handleSettingChange("mode", e.target.value)}
-            >
-              {boardConfig?.peripherals.ADC?.modes?.map((mode) => (
-                <MenuItem key={mode} value={mode}>
-                  {mode === "Single"
-                    ? "Одиночное преобразование"
-                    : "Непрерывное (Free Running)"}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </>
+        <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
+          <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+            <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+              <InputLabel>Опорное напряжение</InputLabel>
+              <Select
+                value={settings.reference || "AVcc"}
+                label="Опорное напряжение"
+                onChange={(e) =>
+                  handleSettingChange("reference", e.target.value)
+                }
+              >
+                {boardConfig?.peripherals.ADC?.reference?.map((ref) => (
+                  <MenuItem key={ref} value={ref}>
+                    {ref}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+          <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+            <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+              <InputLabel>Предделитель</InputLabel>
+              <Select
+                value={settings.prescaler || 128}
+                label="Предделитель"
+                onChange={(e) =>
+                  handleSettingChange("prescaler", parseInt(e.target.value))
+                }
+              >
+                {boardConfig?.peripherals.ADC?.prescalers?.map((prescaler) => (
+                  <MenuItem key={prescaler} value={prescaler}>
+                    {prescaler}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+          <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+            <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+              <InputLabel>Режим</InputLabel>
+              <Select
+                value={settings.mode || "Single"}
+                label="Режим"
+                onChange={(e) => handleSettingChange("mode", e.target.value)}
+              >
+                {boardConfig?.peripherals.ADC?.modes?.map((mode) => (
+                  <MenuItem key={mode} value={mode}>
+                    {mode === "Single"
+                      ? "Одиночное преобразование"
+                      : "Непрерывное (Free Running)"}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </Box>
       );
 
     case "WATCHDOG":
       return (
-        <>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Таймаут (ms)</InputLabel>
-            <Select
-              value={settings.timeout || 2000}
-              label="Таймаут (ms)"
-              onChange={(e) =>
-                handleSettingChange("timeout", parseInt(e.target.value))
-              }
-            >
-              {boardConfig?.peripherals.WATCHDOG?.timeouts?.map((timeout) => (
-                <MenuItem key={timeout} value={timeout}>
-                  {timeout}ms
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Режим</InputLabel>
-            <Select
-              value={settings.mode || "Reset"}
-              label="Режим"
-              onChange={(e) => handleSettingChange("mode", e.target.value)}
-            >
-              <MenuItem value="Reset">Reset</MenuItem>
-              <MenuItem value="Interrupt">Interrupt</MenuItem>
-            </Select>
-          </FormControl>
-        </>
+        <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
+          <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+            <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+              <InputLabel>Таймаут (ms)</InputLabel>
+              <Select
+                value={settings.timeout || 2000}
+                label="Таймаут (ms)"
+                onChange={(e) =>
+                  handleSettingChange("timeout", parseInt(e.target.value))
+                }
+              >
+                {boardConfig?.peripherals.WATCHDOG?.timeouts?.map((timeout) => (
+                  <MenuItem key={timeout} value={timeout}>
+                    {timeout}ms
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+          <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+            <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+              <InputLabel>Режим</InputLabel>
+              <Select
+                value={settings.mode || "Reset"}
+                label="Режим"
+                onChange={(e) => handleSettingChange("mode", e.target.value)}
+              >
+                <MenuItem value="Reset">Reset</MenuItem>
+                <MenuItem value="Interrupt">Interrupt</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </Box>
       );
 
     case "PCINT":
@@ -648,24 +759,28 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
               (PD7).
             </Typography>
           </Alert>
-          <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-            <InputLabel>Режим работы</InputLabel>
-            <Select
-              value={comparatorMode}
-              label="Режим работы"
-              onChange={(e) => handleSettingChange("mode", e.target.value)}
-            >
-              {boardConfig?.peripherals.ANALOG_COMPARATOR?.modes?.map((mode) => (
-                <MenuItem key={mode} value={mode}>
-                  {mode === "Interrupt"
-                    ? "Прерывание при изменении результата"
-                    : mode === "Timer1Capture"
-                      ? "Использовать с Timer1 Input Capture"
-                      : mode}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
+            <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                <InputLabel>Режим работы</InputLabel>
+                <Select
+                  value={comparatorMode}
+                  label="Режим работы"
+                  onChange={(e) => handleSettingChange("mode", e.target.value)}
+                >
+                  {boardConfig?.peripherals.ANALOG_COMPARATOR?.modes?.map((mode) => (
+                    <MenuItem key={mode} value={mode}>
+                      {mode === "Interrupt"
+                        ? "Прерывание при изменении результата"
+                        : mode === "Timer1Capture"
+                          ? "Использовать с Timer1 Input Capture"
+                          : mode}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
           {comparatorMode === "Timer1Capture" && (
             <Alert severity="warning" sx={{ mt: 1 }}>
               <Typography variant="body2">

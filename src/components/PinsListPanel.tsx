@@ -211,7 +211,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
   return (
     <Box
       sx={{
-        width: "35%",
+        width: "30%",
         display: "flex",
         flexDirection: "column",
         height: "100%",

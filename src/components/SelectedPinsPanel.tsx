@@ -58,7 +58,7 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
   return (
     <Box
       sx={{
-        width: "45%",
+        width: "55%",
         display: "flex",
         flexDirection: "column",
         height: "100%",

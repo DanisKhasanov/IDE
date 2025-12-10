@@ -65,7 +65,7 @@ export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
   return (
     <Box
       sx={{
-        width: "20%",
+        width: "15%",
         display: "flex",
         flexDirection: "column",
         gap: 2,

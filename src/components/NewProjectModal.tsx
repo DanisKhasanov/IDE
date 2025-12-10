@@ -361,6 +361,90 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
         setSelectedPin(spiPins[0]);
         setSelectedFunctionType("SPI");
       }
+    } else if (functionType === "UART") {
+      // Для UART автоматически добавляем оба пина (RX и TX) с одинаковыми настройками
+      const uartPins = getPeripheralPins("UART");
+      const updatedFunctions: Record<string, SelectedPinFunction[]> = { ...selectedPinFunctions };
+      
+      uartPins.forEach((uartPinName) => {
+        const uartPin = currentBoardConfig?.pins.find((p) => p.pin === uartPinName);
+        if (!uartPin) return;
+        
+        const uartPinFunctions = updatedFunctions[uartPinName] || [];
+        
+        // Проверяем, не выбрана ли уже UART на этом пине
+        const uartAlreadySelected = uartPinFunctions.some(
+          (f) => f.functionType === "UART"
+        );
+        
+        if (!uartAlreadySelected) {
+          // Проверяем совместимость с существующими функциями на этом пине
+          const isIncompatible = uartPinFunctions.some(
+            (existingFunc) =>
+              !areFunctionsCompatible("UART", existingFunc.functionType, uartPin)
+          );
+          
+          if (!isIncompatible) {
+            updatedFunctions[uartPinName] = [
+              ...uartPinFunctions,
+              {
+                pinName: uartPinName,
+                functionType: "UART",
+                settings, // Используем те же настройки для всех пинов UART
+              },
+            ];
+          }
+        }
+      });
+      
+      setSelectedPinFunctions(updatedFunctions);
+      // Для UART выбираем первый пин UART и функцию UART
+      if (uartPins.length > 0) {
+        setSelectedPin(uartPins[0]);
+        setSelectedFunctionType("UART");
+      }
+    } else if (functionType === "I2C") {
+      // Для I2C автоматически добавляем оба пина (SDA и SCL) с одинаковыми настройками
+      const i2cPins = getPeripheralPins("I2C");
+      const updatedFunctions: Record<string, SelectedPinFunction[]> = { ...selectedPinFunctions };
+      
+      i2cPins.forEach((i2cPinName) => {
+        const i2cPin = currentBoardConfig?.pins.find((p) => p.pin === i2cPinName);
+        if (!i2cPin) return;
+        
+        const i2cPinFunctions = updatedFunctions[i2cPinName] || [];
+        
+        // Проверяем, не выбрана ли уже I2C на этом пине
+        const i2cAlreadySelected = i2cPinFunctions.some(
+          (f) => f.functionType === "I2C"
+        );
+        
+        if (!i2cAlreadySelected) {
+          // Проверяем совместимость с существующими функциями на этом пине
+          const isIncompatible = i2cPinFunctions.some(
+            (existingFunc) =>
+              !areFunctionsCompatible("I2C", existingFunc.functionType, i2cPin)
+          );
+          
+          if (!isIncompatible) {
+            updatedFunctions[i2cPinName] = [
+              ...i2cPinFunctions,
+              {
+                pinName: i2cPinName,
+                functionType: "I2C",
+                settings, // Используем те же настройки для всех пинов I2C
+              },
+            ];
+          }
+        }
+      });
+      
+      setSelectedPinFunctions(updatedFunctions);
+      // Для I2C выбираем первый пин I2C и функцию I2C
+      if (i2cPins.length > 0) {
+        setSelectedPin(i2cPins[0]);
+        setSelectedFunctionType("I2C");
+      }
     } else {
       // Для других функций добавляем только на выбранный пин
       setSelectedPinFunctions((prev) => ({
@@ -402,6 +486,60 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
         
         // Если удаляется выбранная функция SPI, сбрасываем выбор
         if (selectedPin && spiPins.includes(selectedPin) && selectedFunctionType === "SPI") {
+          setSelectedPin(null);
+          setSelectedFunctionType(null);
+        }
+        
+        return newState;
+      }
+      
+      // Для UART удаляем оба пина (RX и TX) одновременно
+      if (functionType === "UART") {
+        const uartPins = getPeripheralPins("UART");
+        const newState = { ...prev };
+        
+        uartPins.forEach((uartPinName) => {
+          const existingFunctions = newState[uartPinName] || [];
+          const filtered = existingFunctions.filter(
+            (f) => f.functionType !== "UART"
+          );
+          
+          if (filtered.length === 0) {
+            delete newState[uartPinName];
+          } else {
+            newState[uartPinName] = filtered;
+          }
+        });
+        
+        // Если удаляется выбранная функция UART, сбрасываем выбор
+        if (selectedPin && uartPins.includes(selectedPin) && selectedFunctionType === "UART") {
+          setSelectedPin(null);
+          setSelectedFunctionType(null);
+        }
+        
+        return newState;
+      }
+      
+      // Для I2C удаляем оба пина (SDA и SCL) одновременно
+      if (functionType === "I2C") {
+        const i2cPins = getPeripheralPins("I2C");
+        const newState = { ...prev };
+        
+        i2cPins.forEach((i2cPinName) => {
+          const existingFunctions = newState[i2cPinName] || [];
+          const filtered = existingFunctions.filter(
+            (f) => f.functionType !== "I2C"
+          );
+          
+          if (filtered.length === 0) {
+            delete newState[i2cPinName];
+          } else {
+            newState[i2cPinName] = filtered;
+          }
+        });
+        
+        // Если удаляется выбранная функция I2C, сбрасываем выбор
+        if (selectedPin && i2cPins.includes(selectedPin) && selectedFunctionType === "I2C") {
           setSelectedPin(null);
           setSelectedFunctionType(null);
         }
@@ -485,6 +623,54 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
         return newState;
       }
       
+      // Для UART обновляем настройки на обоих пинах UART одновременно
+      if (functionType === "UART") {
+        const uartPins = getPeripheralPins("UART");
+        const newState = { ...prev };
+        
+        uartPins.forEach((uartPinName) => {
+          const existingFunctions = newState[uartPinName] || [];
+          const functionIndex = existingFunctions.findIndex(
+            (f) => f.functionType === "UART"
+          );
+          
+          if (functionIndex !== -1) {
+            const updatedFunctions = [...existingFunctions];
+            updatedFunctions[functionIndex] = {
+              ...updatedFunctions[functionIndex],
+              settings, // Обновляем настройки на обоих пинах UART
+            };
+            newState[uartPinName] = updatedFunctions;
+          }
+        });
+        
+        return newState;
+      }
+      
+      // Для I2C обновляем настройки на обоих пинах I2C одновременно
+      if (functionType === "I2C") {
+        const i2cPins = getPeripheralPins("I2C");
+        const newState = { ...prev };
+        
+        i2cPins.forEach((i2cPinName) => {
+          const existingFunctions = newState[i2cPinName] || [];
+          const functionIndex = existingFunctions.findIndex(
+            (f) => f.functionType === "I2C"
+          );
+          
+          if (functionIndex !== -1) {
+            const updatedFunctions = [...existingFunctions];
+            updatedFunctions[functionIndex] = {
+              ...updatedFunctions[functionIndex],
+              settings, // Обновляем настройки на обоих пинах I2C
+            };
+            newState[i2cPinName] = updatedFunctions;
+          }
+        });
+        
+        return newState;
+      }
+      
       // Для других функций обновляем только на указанном пине
       const existingFunctions = prev[pinName] || [];
       const functionIndex = existingFunctions.findIndex(
@@ -507,7 +693,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   };
 
   const getPinFunctions = (pin: PinConfig): PinFunction[] => {
-    return pin.functions || [];
+    // Исключаем PCINT из списка доступных функций, так как теперь он настраивается через GPIO
+    return (pin.functions || []).filter((func) => func.type !== "PCINT");
   };
 
   if (!currentBoardConfig) {
@@ -522,8 +709,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       fullWidth
       PaperProps={{
         sx: {
-          maxWidth: "1600px",
-          height: "90%",
+          maxWidth: "1800px",
+          height: "100%",
         },
       }}
     >
