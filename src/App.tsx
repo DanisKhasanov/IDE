@@ -5,11 +5,11 @@ import {
   ThemeProvider,
 } from "@mui/material";
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
-import CodeEditorPanel from "@components/CodeEditorPanel";
-import InfoPanel from "@components/InfoPanel";
-import ProjectTree from "@components/ProjectTree";
-import NewProjectModal from "@/components/NewProjectModal";
-import ToolchainSetupModal from "@/components/ToolchainSetupModal";
+import CodeEditorPanel from "@/components/code-editor/CodeEditorPanel";
+import AdditionalPanel from "@/components/additional-panel/AdditionalPanel";
+import ProjectTree from "@/components/project-tree/ProjectTree";
+import NewProjectModal from "@/components/new-project/NewProjectModal";
+import ToolchainSetupModal from "@/components/common/ToolchainSetupModal";
 import {
   useTheme,
   useTerminal,
@@ -19,7 +19,7 @@ import {
 } from "@hooks/index";
 import { SnackbarProvider } from "@/contexts/SnackbarContext";
 
-import type { CompilationProblem } from "@components/ProblemsTab";
+import type { CompilationProblem } from "@/components/terminal/ProblemsTab";
 import { parseCompilationErrors } from "@utils/CompilationErrorParser";
 import type { UploadResult } from "@/types/arduino";
 
@@ -288,7 +288,7 @@ const App = () => {
               {/* Информация о проекте */}
               <Panel defaultSize={33} minSize={15} maxSize={45}>
                 <Box display="flex" height="100%">
-                  <InfoPanel />
+                  <AdditionalPanel currentProjectPath={currentProjectPath} />
                 </Box>
               </Panel>
             </PanelGroup>

@@ -6,7 +6,7 @@ import {
   Tabs,
   Tab,
 } from "@mui/material";
-import type { BoardConfig, SelectedPinFunction } from "../types/boardConfig";
+import type { BoardConfig, SelectedPinFunction } from "../../types/boardConfig";
 import { PinsTab } from "./PinsTab";
 import { SystemPeripheralsTab } from "./SystemPeripheralsTab";
 

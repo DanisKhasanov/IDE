@@ -152,6 +152,7 @@ interface PinsListPanelProps {
     settings: Record<string, unknown>
   ) => void;
   getPinFunctions: (pin: PinConfig) => PinFunction[];
+  size?: "small" | "medium";
 }
 
 export const PinsListPanel: React.FC<PinsListPanelProps> = ({
@@ -161,6 +162,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
   onPinClick,
   onFunctionSelect,
   getPinFunctions,
+  size = "medium",
 }) => {
   const imageRef = useRef<HTMLImageElement>(null);
   const pinRefs = useRef<Record<string, HTMLDivElement>>({});
@@ -211,17 +213,14 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
   return (
     <Box
       sx={{
-        width: "30%",
+        width: size === "small" ? "100%" : "30%",
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        overflow: "auto",
+        overflow: "hidden",
         position: "relative",
       }}
     >
-      <Typography variant="subtitle1" sx={{ fontWeight: "bold" , mb: -3}}>
-        Карта пинов
-      </Typography>
       <Box
         sx={{
           position: "relative",
@@ -245,7 +244,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
             src={arduinoUnoImage}
             alt="Arduino Uno"
             style={{
-              width: "435px",
+              width: size === "small" ? "15vw" : "23vw",
               opacity: 0.8,
             }}
             onLoad={() => setImageLoaded(true)}

@@ -21,7 +21,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import type { ProjectTreeNode } from "@/types/project";
-import NewProjectModal from "./NewProjectModal";
+import NewProjectModal from "@/components/new-project/NewProjectModal";
 import { useSnackbar } from "@/contexts/SnackbarContext";
 
 type ProjectTreeProps = {

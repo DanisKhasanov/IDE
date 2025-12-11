@@ -5,7 +5,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import { Panel, PanelResizeHandle } from "react-resizable-panels";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import ProblemsTab, { CompilationProblem } from "@components/ProblemsTab";
+import ProblemsTab, { CompilationProblem } from "@/components/terminal/ProblemsTab";
 
 interface TerminalPanelProps {
   isVisible: boolean;

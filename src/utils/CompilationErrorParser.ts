@@ -1,4 +1,4 @@
-import type { CompilationProblem } from "@/components/ProblemsTab";
+import type { CompilationProblem } from "@/components/terminal/ProblemsTab";
 
 /**
  * Парсит ошибки компиляции из stderr

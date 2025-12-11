@@ -11,10 +11,10 @@ import MonacoEditor, { type Monaco } from "@monaco-editor/react";
 import type * as monaco from "monaco-editor";
 import CloseIcon from "@mui/icons-material/Close";
 import { PanelGroup, Panel } from "react-resizable-panels";
-import TerminalPanel from "@components/TerminalPanel";
-import Toolbar from "@/components/Toolbar";
+import TerminalPanel from "@/components/terminal/TerminalPanel";
+import Toolbar from "@/components/code-editor/Toolbar";
 import type { EditorFile } from "@/types/editor";
-import type { CompilationProblem } from "@components/ProblemsTab";
+import type { CompilationProblem } from "@/components/terminal/ProblemsTab";
 import type { CompileResult, UploadResult } from "@/types/arduino";
 import {
   useProjectFiles,
