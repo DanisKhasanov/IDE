@@ -1,23 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  AppBar,
   Box,
   CssBaseline,
-  IconButton,
   ThemeProvider,
-  Toolbar,
-  Typography,
 } from "@mui/material";
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import CodeEditorPanel from "@components/CodeEditorPanel";
 import InfoPanel from "@components/InfoPanel";
 import ProjectTree from "@components/ProjectTree";
-import ArduinoToolbar from "@components/ArduinoToolbar";
 import NewProjectModal from "@/components/NewProjectModal";
 import ToolchainSetupModal from "@/components/ToolchainSetupModal";
-import DarkModeIcon from "@mui/icons-material/DarkMode";
-import LightModeIcon from "@mui/icons-material/LightMode";
-import TerminalIcon from "@mui/icons-material/Terminal";
 import {
   useTheme,
   useTerminal,
@@ -145,6 +137,17 @@ const App = () => {
     onProjectCreate: setCurrentProjectPath,
   });
 
+  // Подписка на событие смены темы из меню
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.onToggleTheme(() => {
+      toggleMode();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [toggleMode]);
+
   // Проверка toolchain при первом запуске
   useEffect(() => {
     const checkToolchainOnFirstLaunch = async () => {
@@ -180,100 +183,6 @@ const App = () => {
           height="100vh"
           bgcolor={theme.palette.background.default}
         >
-          <AppBar position="static">
-            <Toolbar>
-              <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-                IDE Prototype
-              </Typography>
-              <IconButton
-                color="inherit"
-                onClick={toggleTerminal}
-                aria-label={
-                  isTerminalVisible ? "Скрыть терминал" : "Показать терминал"
-                }
-              >
-                <TerminalIcon />
-              </IconButton>
-              <IconButton
-                color="inherit"
-                onClick={toggleMode}
-                aria-label={
-                  mode === "light"
-                    ? "Включить тёмную тему"
-                    : "Включить светлую тему"
-                }
-              >
-                {mode === "light" ? <DarkModeIcon /> : <LightModeIcon />}
-              </IconButton>
-            </Toolbar>
-            {/* Панель инструментов Arduino */}
-            <ArduinoToolbar
-              currentProjectPath={currentProjectPath}
-              onCompilationResult={(result) => {
-                // Парсим ошибки компиляции
-                if (!result.success) {
-                  // Используем stderr, если есть, иначе error
-                  const errorText = result.stderr || result.error || "";
-                  const problems = parseCompilationErrors(errorText);
-                  setCompilationProblems(problems);
-                  // Если есть ошибки, открываем терминал и переключаемся на вкладку "Проблемы"
-                  if (problems.length > 0 && !isTerminalVisible) {
-                    toggleTerminal();
-                    setTerminalActiveTab("problems");
-                  } else if (problems.length > 0) {
-                    setTerminalActiveTab("problems");
-                  }
-                } else {
-                  // Очищаем проблемы при успешной компиляции
-                  setCompilationProblems([]);
-                }
-              }}
-              onUploadResult={(result: UploadResult) => {
-                // Обрабатываем ошибки заливки
-                if (!result.success) {
-                  // Создаем проблемы из ошибок заливки
-                  const problems: CompilationProblem[] = [];
-                  const errorText =
-                    result.stderr || result.error || result.stdout || "";
-
-                  if (errorText) {
-                    // Разбиваем текст ошибки на строки и создаем проблемы
-                    const lines = errorText
-                      .split("\n")
-                      .filter((line) => line.trim());
-                    lines.forEach((line) => {
-                      const trimmed = line.trim();
-                      if (trimmed) {
-                        problems.push({
-                          type: "error",
-                          message: trimmed,
-                          raw: trimmed,
-                        });
-                      }
-                    });
-                  } else {
-                    // Если нет текста ошибки, создаем общую проблему
-                    problems.push({
-                      type: "error",
-                      message: result.error || "Ошибка заливки прошивки",
-                    });
-                  }
-
-                  setCompilationProblems(problems);
-                  // Если есть ошибки, открываем терминал и переключаемся на вкладку "Проблемы"
-                  if (problems.length > 0 && !isTerminalVisible) {
-                    toggleTerminal();
-                    setTerminalActiveTab("problems");
-                  } else if (problems.length > 0) {
-                    setTerminalActiveTab("problems");
-                  }
-                } else {
-                  // Очищаем проблемы при успешной заливке
-                  setCompilationProblems([]);
-                }
-              }}
-            />
-          </AppBar>
           <Box
             component="main"
             display="flex"
@@ -307,6 +216,69 @@ const App = () => {
                     compilationProblems={compilationProblems}
                     terminalActiveTab={terminalActiveTab}
                     onTerminalTabChange={setTerminalActiveTab}
+                    onCompilationResult={(result) => {
+                      // Парсим ошибки компиляции
+                      if (!result.success) {
+                        // Используем stderr, если есть, иначе error
+                        const errorText = result.stderr || result.error || "";
+                        const problems = parseCompilationErrors(errorText);
+                        setCompilationProblems(problems);
+                        // Если есть ошибки, открываем терминал и переключаемся на вкладку "Проблемы"
+                        if (problems.length > 0 && !isTerminalVisible) {
+                          toggleTerminal();
+                          setTerminalActiveTab("problems");
+                        } else if (problems.length > 0) {
+                          setTerminalActiveTab("problems");
+                        }
+                      } else {
+                        // Очищаем проблемы при успешной компиляции
+                        setCompilationProblems([]);
+                      }
+                    }}
+                    onUploadResult={(result: UploadResult) => {
+                      // Обрабатываем ошибки заливки
+                      if (!result.success) {
+                        // Создаем проблемы из ошибок заливки
+                        const problems: CompilationProblem[] = [];
+                        const errorText =
+                          result.stderr || result.error || result.stdout || "";
+
+                        if (errorText) {
+                          // Разбиваем текст ошибки на строки и создаем проблемы
+                          const lines = errorText
+                            .split("\n")
+                            .filter((line) => line.trim());
+                          lines.forEach((line) => {
+                            const trimmed = line.trim();
+                            if (trimmed) {
+                              problems.push({
+                                type: "error",
+                                message: trimmed,
+                                raw: trimmed,
+                              });
+                            }
+                          });
+                        } else {
+                          // Если нет текста ошибки, создаем общую проблему
+                          problems.push({
+                            type: "error",
+                            message: result.error || "Ошибка заливки прошивки",
+                          });
+                        }
+
+                        setCompilationProblems(problems);
+                        // Если есть ошибки, открываем терминал и переключаемся на вкладку "Проблемы"
+                        if (problems.length > 0 && !isTerminalVisible) {
+                          toggleTerminal();
+                          setTerminalActiveTab("problems");
+                        } else if (problems.length > 0) {
+                          setTerminalActiveTab("problems");
+                        }
+                      } else {
+                        // Очищаем проблемы при успешной заливке
+                        setCompilationProblems([]);
+                      }
+                    }}
                   />
                 </Box>
               </Panel>

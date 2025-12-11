@@ -226,13 +226,12 @@ const TerminalPanel = ({
                           backgroundColor: theme.palette.error.main,
                           color: theme.palette.error.contrastText,
                           borderRadius: "50%",
-                          width: 17,
-                          height: 17,
+                          width: 18,
+                          height: 18,
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          fontSize: "0.75rem",
-                          fontWeight: "bold",
+                          fontSize: "0.65rem",
                         }}
                       >
                         {problems.filter((p) => p.type === "error").length}

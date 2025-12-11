@@ -82,6 +82,8 @@ declare global {
       onMenuSaveFileAs: (callback: () => void) => () => void;
       // Обработчик изменения списка проектов
       onProjectListChanged: (callback: () => void) => () => void;
+      // Обработчик переключения темы
+      onToggleTheme: (callback: () => void) => () => void;
       // Методы для сохранения файлов
       saveFile: (filePath: string, content: string) => Promise<{ success: boolean }>;
       saveFileAs: (currentFilePath: string, content: string) => Promise<{ success: boolean; filePath: string } | null>;

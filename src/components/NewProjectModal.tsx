@@ -6,7 +6,6 @@ import {
   DialogActions,
   Button,
   Box,
-  Typography,
   IconButton,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
@@ -726,7 +725,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
           pb: 1,
         }}
       >
-        <Typography variant="h6">Новый проект</Typography>
+        Новый проект
         <IconButton aria-label="close" onClick={handleClose}>
           <CloseIcon />
         </IconButton>

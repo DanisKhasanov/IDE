@@ -86,21 +86,6 @@ const ProblemsTab = ({ problems }: ProblemsTabProps) => {
                       </Typography>
                     </Box>
                   }
-                  secondary={
-                    problem.raw && (
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: theme.palette.text.secondary,
-                          fontFamily: "monospace",
-                          mt: 0.5,
-                          display: "block",
-                        }}
-                      >
-                        {problem.raw}
-                      </Typography>
-                    )
-                  }
                 />
               </ListItem>
             ))}
@@ -159,21 +144,6 @@ const ProblemsTab = ({ problems }: ProblemsTabProps) => {
                         {problem.message}
                       </Typography>
                     </Box>
-                  }
-                  secondary={
-                    problem.raw && (
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: theme.palette.text.secondary,
-                          fontFamily: "monospace",
-                          mt: 0.5,
-                          display: "block",
-                        }}
-                      >
-                        {problem.raw}
-                      </Typography>
-                    )
                   }
                 />
               </ListItem>

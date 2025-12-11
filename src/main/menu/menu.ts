@@ -83,6 +83,16 @@ export function createApplicationMenu(): void {
             }
           },
         },
+        {
+          label: "Переключить тему",
+          accelerator: "CommandOrControl+Shift+M",
+          click: () => {
+            const mainWindow = windowManager.getMainWindow();
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send("toggle-theme");
+            }
+          },
+        },
       ],
     },
   ];

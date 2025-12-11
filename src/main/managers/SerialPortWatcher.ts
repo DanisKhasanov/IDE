@@ -1,4 +1,3 @@
-import { EventEmitter } from "events";
 import { BrowserWindow } from "electron";
 import { detectArduinoPorts } from "@utils/SerialPortManager";
 import { checkSerialPortPermissions } from "@utils/SerialPortPermissions";
@@ -14,7 +13,7 @@ import type { SerialPortInfo, SerialPortPermissionStatus } from "@/types/arduino
  * - Event-driven обновление UI через IPC события
  * - Кеширование данных для быстрого доступа
  */
-export class SerialPortWatcher extends EventEmitter {
+export class SerialPortWatcher {
   private watchInterval: NodeJS.Timeout | null = null;
   private lastPorts: SerialPortInfo[] = [];
   private lastPermissions: SerialPortPermissionStatus | null = null;
@@ -79,9 +78,9 @@ export class SerialPortWatcher extends EventEmitter {
    * Проверить список портов и уведомить об изменениях
    * Защищено от одновременных вызовов для предотвращения гонок
    */
-  private async checkPorts(): Promise<void> {
-    // Защита от одновременных проверок
-    if (this.isCheckingPorts) {
+  private async checkPorts(force = false): Promise<void> {
+    // Защита от одновременных проверок (если не принудительное обновление)
+    if (!force && this.isCheckingPorts) {
       return;
     }
 
@@ -89,29 +88,22 @@ export class SerialPortWatcher extends EventEmitter {
     try {
       const ports = await detectArduinoPorts();
       
-      // Проверяем, изменился ли список портов
-      // Сравниваем не только количество, но и пути портов
+      // Упрощенное сравнение: сравниваем множества путей портов
+      const currentPaths = new Set(ports.map(p => p.path));
+      const lastPaths = new Set(this.lastPorts.map(p => p.path));
       const portsChanged = 
-        ports.length !== this.lastPorts.length ||
-        ports.some((port, index) => {
-          const lastPort = this.lastPorts[index];
-          return !lastPort || port.path !== lastPort.path;
-        }) ||
-        this.lastPorts.some((lastPort, index) => {
-          const port = ports[index];
-          return !port || lastPort.path !== port.path;
-        });
+        currentPaths.size !== lastPaths.size ||
+        [...currentPaths].some(path => !lastPaths.has(path)) ||
+        [...lastPaths].some(path => !currentPaths.has(path));
 
       if (portsChanged) {
         this.lastPorts = ports;
-        this.emit("ports-changed", ports);
         this.sendToRenderer("serial-ports-changed", ports);
       }
     } catch (error) {
       // При ошибке отправляем пустой массив только если ранее были порты
       if (this.lastPorts.length > 0) {
         this.lastPorts = [];
-        this.emit("ports-changed", []);
         this.sendToRenderer("serial-ports-changed", []);
       }
     } finally {
@@ -123,9 +115,9 @@ export class SerialPortWatcher extends EventEmitter {
    * Проверить права доступа и уведомить об изменениях
    * Защищено от одновременных вызовов для предотвращения гонок
    */
-  private async checkPermissions(): Promise<void> {
-    // Защита от одновременных проверок
-    if (this.isCheckingPermissions) {
+  private async checkPermissions(force = false): Promise<void> {
+    // Защита от одновременных проверок (если не принудительное обновление)
+    if (!force && this.isCheckingPermissions) {
       return;
     }
 
@@ -142,7 +134,6 @@ export class SerialPortWatcher extends EventEmitter {
 
       if (permissionsChanged) {
         this.lastPermissions = permissions;
-        this.emit("permissions-changed", permissions);
         this.sendToRenderer("serial-permissions-changed", permissions);
       }
     } catch (error) {
@@ -177,37 +168,21 @@ export class SerialPortWatcher extends EventEmitter {
 
   /**
    * Принудительно обновить порты (для ручного обновления из UI)
-   * Игнорирует защиту от одновременных вызовов для принудительного обновления
    */
   async refreshPorts(): Promise<SerialPortInfo[]> {
-    // Временно снимаем защиту для принудительного обновления
-    const wasChecking = this.isCheckingPorts;
-    this.isCheckingPorts = false;
-    try {
-      await this.checkPorts();
-      return this.getCurrentPorts();
-    } finally {
-      this.isCheckingPorts = wasChecking;
-    }
+    await this.checkPorts(true);
+    return this.getCurrentPorts();
   }
 
   /**
    * Принудительно обновить права доступа (для ручного обновления из UI)
-   * Игнорирует защиту от одновременных вызовов для принудительного обновления
    */
   async refreshPermissions(): Promise<SerialPortPermissionStatus> {
-    // Временно снимаем защиту для принудительного обновления
-    const wasChecking = this.isCheckingPermissions;
-    this.isCheckingPermissions = false;
-    try {
-      await this.checkPermissions();
-      if (!this.lastPermissions) {
-        throw new Error("Не удалось получить статус прав доступа");
-      }
-      return this.lastPermissions;
-    } finally {
-      this.isCheckingPermissions = wasChecking;
+    await this.checkPermissions(true);
+    if (!this.lastPermissions) {
+      throw new Error("Не удалось получить статус прав доступа");
     }
+    return this.lastPermissions;
   }
 }
 

@@ -8,11 +8,6 @@ const execAsync = promisify(exec);
 
 // Для serialport v13+ метод list() доступен через SerialPort.list()
 
-// Кеш для списка портов и защита от одновременных вызовов
-let portsListCache: SerialPortInfo[] | null = null;
-let portsListPromise: Promise<SerialPortInfo[]> | null = null;
-let lastCacheTime = 0;
-const CACHE_DURATION = 5000; // Кеш на 5 секунд (соответствует интервалу обновления в UI)
 const LIST_TIMEOUT = 3000; // Таймаут для SerialPort.list() - 3 секунды (уменьшено для более быстрого fallback)
 const FALLBACK_TIMEOUT = 2000; // Таймаут для fallback метода - 2 секунды
 
@@ -111,98 +106,50 @@ async function listSerialPortsLinuxFallback(): Promise<SerialPortInfo[]> {
 
 /**
  * Получить список всех доступных COM-портов
- * Использует кеш и защиту от одновременных вызовов
  * При зависании SerialPort.list() использует fallback метод для Linux
+ * Кеширование и защита от гонок выполняются на уровне SerialPortWatcher
  */
 export async function listSerialPorts(): Promise<SerialPortInfo[]> {
-  // Проверяем кеш
-  const now = Date.now();
-  if (portsListCache && (now - lastCacheTime) < CACHE_DURATION) {
-    return portsListCache;
-  }
-
-  // Если уже есть активный запрос, ждем его завершения
-  // Но добавляем защиту от зависших промисов - если промис слишком старый, сбрасываем его
-  if (portsListPromise) {
-    // Добавляем таймаут для ожидания существующего промиса
-    try {
-      const result = await Promise.race([
-        portsListPromise,
-        new Promise<SerialPortInfo[]>((_, reject) => {
-          setTimeout(() => {
-            portsListPromise = null;
-            reject(new Error("Предыдущий запрос завис, создаем новый"));
-          }, LIST_TIMEOUT + 2000); // Даем больше времени чем основной таймаут
-        }),
-      ]);
-      // Проверяем, не устарел ли кеш после ожидания
-      const cacheAge = Date.now() - lastCacheTime;
-      if (portsListCache && cacheAge < CACHE_DURATION) {
-        return portsListCache;
-      }
-      return result;
-    } catch (error) {
-      // Если ожидание зависло, продолжаем создавать новый запрос
-      portsListPromise = null;
-      // Продолжаем выполнение функции для создания нового запроса
-    }
-  }
-
-  // Создаем новый запрос
-  portsListPromise = (async () => {
-    try {
-      // Добавляем таймаут для предотвращения зависания
-      const listPromise = SerialPort.list();
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error(`Таймаут получения списка портов (${LIST_TIMEOUT}мс)`));
-        }, LIST_TIMEOUT);
-      });
-      
-      const ports = await Promise.race([listPromise, timeoutPromise]);
-      
-      const result = ports.map((port) => {
-        // В serialport v13 friendlyName может отсутствовать, используем безопасный доступ
-        const portWithFriendlyName = port as typeof port & {
-          friendlyName?: string;
-        };
-        const friendlyName = portWithFriendlyName.friendlyName || port.path;
-        return {
-          path: port.path,
-          manufacturer: port.manufacturer,
-          vendorId: port.vendorId,
-          productId: port.productId,
-          friendlyName: friendlyName,
-        };
-      });
-      
-      // Обновляем кеш
-      portsListCache = result;
-      lastCacheTime = now;
-      
-      return result;
-    } catch (error) {
-      if (error instanceof Error) {
-        // Если это таймаут, пробуем использовать fallback метод для Linux
-        if (error.message.includes("Таймаут")) {
-          const fallbackPorts = await listSerialPortsLinuxFallback();
-          if (fallbackPorts.length > 0) {
-            // Обновляем кеш результатами fallback метода
-            portsListCache = fallbackPorts;
-            lastCacheTime = now;
-            return fallbackPorts;
-          }
+  try {
+    // Добавляем таймаут для предотвращения зависания
+    const listPromise = SerialPort.list();
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Таймаут получения списка портов (${LIST_TIMEOUT}мс)`));
+      }, LIST_TIMEOUT);
+    });
+    
+    const ports = await Promise.race([listPromise, timeoutPromise]);
+    
+    const result = ports.map((port) => {
+      // В serialport v13 friendlyName может отсутствовать, используем безопасный доступ
+      const portWithFriendlyName = port as typeof port & {
+        friendlyName?: string;
+      };
+      const friendlyName = portWithFriendlyName.friendlyName || port.path;
+      return {
+        path: port.path,
+        manufacturer: port.manufacturer,
+        vendorId: port.vendorId,
+        productId: port.productId,
+        friendlyName: friendlyName,
+      };
+    });
+    
+    return result;
+  } catch (error) {
+    if (error instanceof Error) {
+      // Если это таймаут, пробуем использовать fallback метод для Linux
+      if (error.message.includes("Таймаут")) {
+        const fallbackPorts = await listSerialPortsLinuxFallback();
+        if (fallbackPorts.length > 0) {
+          return fallbackPorts;
         }
       }
-      // Возвращаем пустой массив при ошибке
-      return [];
-    } finally {
-      // Очищаем промис после завершения (включая случай таймаута)
-      portsListPromise = null;
     }
-  })();
-
-  return portsListPromise;
+    // Возвращаем пустой массив при ошибке
+    return [];
+  }
 }
 
 /**

@@ -28,5 +28,10 @@ export const menuAPI = {
   onProjectListChanged: (callback: () => void) => {
     return createIpcListener('project-list-changed', callback);
   },
+
+  // Подписка на событие переключения темы
+  onToggleTheme: (callback: () => void) => {
+    return createIpcListener('toggle-theme', callback);
+  },
 };
 

@@ -12,8 +12,10 @@ import type * as monaco from "monaco-editor";
 import CloseIcon from "@mui/icons-material/Close";
 import { PanelGroup, Panel } from "react-resizable-panels";
 import TerminalPanel from "@components/TerminalPanel";
+import Toolbar from "@/components/Toolbar";
 import type { EditorFile } from "@/types/editor";
 import type { CompilationProblem } from "@components/ProblemsTab";
+import type { CompileResult, UploadResult } from "@/types/arduino";
 import {
   useProjectFiles,
   useMonacoModel,
@@ -31,6 +33,8 @@ interface CodeEditorPanelProps {
   compilationProblems?: CompilationProblem[];
   terminalActiveTab?: "terminal" | "problems";
   onTerminalTabChange?: (tab: "terminal" | "problems") => void;
+  onCompilationResult?: (result: CompileResult) => void;
+  onUploadResult?: (result: UploadResult) => void;
 }
 
 const CodeEditorPanel = ({
@@ -42,6 +46,8 @@ const CodeEditorPanel = ({
   compilationProblems = [],
   terminalActiveTab,
   onTerminalTabChange,
+  onCompilationResult,
+  onUploadResult,
 }: CodeEditorPanelProps) => {
   const theme = useTheme();
   const editorTheme = theme.palette.mode === "dark" ? "vs-dark" : "vs";
@@ -421,49 +427,67 @@ const CodeEditorPanel = ({
         borderColor: "divider",
       }}
     >
-      <Tabs
-        value={activeFileId}
-        onChange={handleTabChange}
-        variant="scrollable"
-        scrollButtons={false}
-        sx={{ borderBottom: 1, borderColor: "divider" }}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          borderBottom: 1,
+          borderColor: "divider",
+        }}
       >
-        {files.map((file) => {
-          const isModified = modifiedFiles.has(file.id);
-          return (
-            <Tab
-              key={file.id}
-              label={
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <span style={{ textTransform: "none" }}>{file.name}</span>
-                  {isModified && (
+        <Tabs
+          value={activeFileId}
+          onChange={handleTabChange}
+          variant="scrollable"
+          scrollButtons={false}
+          sx={{ flex: 1, minWidth: 0 }}
+        >
+          {files.map((file) => {
+            const isModified = modifiedFiles.has(file.id);
+            return (
+              <Tab
+                key={file.id}
+                label={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <span style={{ textTransform: "none" }}>{file.name}</span>
+                    {isModified && (
+                      <Box
+                        component="span"
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          backgroundColor: theme.palette.text.secondary,
+                          display: "inline-block",
+                        }}
+                      />
+                    )}
                     <Box
                       component="span"
-                      sx={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        backgroundColor: theme.palette.text.secondary,
-                        display: "inline-block",
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        handleCloseTab(e, file.id);
                       }}
-                    />
-                  )}
-                  <Box
-                    component="span"
-                    onClick={(e: React.MouseEvent) => {
-                      e.stopPropagation();
-                      handleCloseTab(e, file.id);
-                    }}
-                  >
-                    <CloseIcon fontSize="small" />
+                    >
+                      <CloseIcon fontSize="small" />
+                    </Box>
                   </Box>
-                </Box>
-              }
-              value={file.id}
-            />
-          );
-        })}
-      </Tabs>
+                }
+                value={file.id}
+              />
+            );
+          })}
+        </Tabs>
+        <Box sx={{ flexShrink: 0 }}>
+            <Toolbar
+            currentProjectPath={currentProjectPath || null}
+            onCompilationResult={onCompilationResult}
+            onUploadResult={onUploadResult}
+          />
+        </Box>
+      </Box>
+
+      
       <PanelGroup direction="vertical">
         {/* Редактор кода */}
         <Panel defaultSize={isTerminalVisible ? 70 : 100} minSize={30}>

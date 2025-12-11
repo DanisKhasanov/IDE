@@ -50,6 +50,7 @@ export const electronAPI = {
   onMenuSaveFile: menuAPI.onMenuSaveFile,
   onMenuSaveFileAs: menuAPI.onMenuSaveFileAs,
   onProjectListChanged: menuAPI.onProjectListChanged,
+  onToggleTheme: menuAPI.onToggleTheme,
 
   // API для работы с Arduino
   arduinoCompile: arduinoAPI.compile,
