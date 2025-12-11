@@ -32,7 +32,29 @@ export class WindowManager {
 
     // and load the index.html of the app.
     if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-      this.mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+      // Пытаемся загрузить dev-сервер
+      this.mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL).catch((error) => {
+        console.error('Не удалось загрузить dev-сервер:', error);
+        console.log('Переключаемся на загрузку из файла...');
+        // Fallback на загрузку из файла, если dev-сервер недоступен
+        this.mainWindow?.loadFile(
+          path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
+        );
+      });
+      // В режиме разработки автоматически открываем DevTools
+      this.mainWindow.webContents.once('did-finish-load', () => {
+        this.mainWindow?.webContents.openDevTools();
+      });
+      // Также обрабатываем ошибку загрузки через событие
+      this.mainWindow.webContents.once('did-fail-load', (event, errorCode, errorDescription) => {
+        if (errorCode === -106 || errorCode === -105) { // ERR_CONNECTION_REFUSED или ERR_NAME_NOT_RESOLVED
+          console.error(`Ошибка загрузки dev-сервера (${errorCode}): ${errorDescription}`);
+          console.log('Переключаемся на загрузку из файла...');
+          this.mainWindow?.loadFile(
+            path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
+          );
+        }
+      });
     } else {
       this.mainWindow.loadFile(
         path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)

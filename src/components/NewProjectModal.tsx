@@ -19,6 +19,7 @@ import type {
 import { BoardSelectionPanel } from "./BoardSelectionPanel";
 import { SelectedPinsPanel } from "./SelectedPinsPanel";
 import { PinsListPanel } from "./PinsListPanel";
+import { useSnackbar } from "@/contexts/SnackbarContext";
 import atmega328pConfigData from "@config/boards/atmega328p.json";
 const atmega328pConfig = atmega328pConfigData as unknown as BoardConfig;
 
@@ -62,6 +63,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     Record<string, SelectedPinFunction>
   >({});
   const [conflicts, setConflicts] = useState<string[]>([]);
+  const { showError, showWarning } = useSnackbar();
 
   const currentBoardConfig = BOARD_CONFIGS[selectedBoard]?.config;
   
@@ -215,7 +217,9 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       }
     } catch (error) {
       console.error("Ошибка создания проекта:", error);
-      alert(error instanceof Error ? error.message : "Ошибка создания проекта");
+      showError(
+        error instanceof Error ? error.message : "Ошибка создания проекта"
+      );
     } finally {
       setIsCreating(false);
     }
@@ -313,7 +317,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
 
     if (incompatible) {
       const pinDisplay = pin ? pin.pin : pinName;
-      alert(
+      showWarning(
         `Функция ${functionType} несовместима с уже выбранными функциями на пине ${pinDisplay}`
       );
       return;

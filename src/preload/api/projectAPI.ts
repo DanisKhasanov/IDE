@@ -101,4 +101,9 @@ export const projectAPI = {
   refreshProjectTree: async (projectPath?: string) => {
     return safeInvoke("refresh-project-tree", projectPath);
   },
+
+  // Получение списка исходных файлов проекта (C/C++ и заголовочные)
+  getProjectSourceFiles: async (projectPath: string) => {
+    return safeInvoke("get-project-source-files", projectPath);
+  },
 };

@@ -5,7 +5,7 @@
   "description": "IDE for Arduino projects",
   "main": ".vite/build/main.js",
   "scripts": {
-    "start": "electron-forge start",
+    "start": "electron-forge start -- --no-sandbox",
     "fix-sandbox": "./fix-sandbox.sh",
     "clean-ide-cache": "./clean-ide-cache.sh",
     "package": "electron-forge package",

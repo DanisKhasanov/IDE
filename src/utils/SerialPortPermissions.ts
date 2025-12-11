@@ -114,10 +114,10 @@ export async function checkSerialPortPermissions(): Promise<SerialPortPermission
         platform: "linux",
         message: "Пользователь в группе dialout, но доступ к портам ограничен",
         instructions: [
-          "Попробуйте перелогиниться или выполните команду:",
-          "newgrp dialout",
+          "Изменения группы еще не применены к текущей сессии.",
+          "Перезапустите приложение для применения изменений группы.",
         ],
-        canAutoFix: false,
+        canAutoFix: true, // Разрешаем автоматическую настройку для показа сообщения о перезапуске
       };
     }
     
@@ -130,8 +130,7 @@ export async function checkSerialPortPermissions(): Promise<SerialPortPermission
       instructions: [
         "Выполните команду в терминале:",
         "sudo usermod -a -G dialout $USER",
-        "После этого перелогиньтесь или выполните:",
-        "newgrp dialout",
+        "После этого перезапустите приложение для применения изменений.",
       ],
       canAutoFix: true,
     };
@@ -207,12 +206,26 @@ export async function setupSerialPortPermissions(): Promise<SerialPortPermission
   const osPlatform = platform();
   
   if (osPlatform === "linux") {
+    // Сначала проверяем, находится ли пользователь уже в группе dialout
+    const inDialoutGroup = await checkDialoutGroup();
+    
+    if (inDialoutGroup) {
+      // Пользователь уже в группе, но изменения не применены к текущей сессии
+      // Нужно перезапустить приложение
+      return {
+        success: true,
+        message: "Вы уже в группе dialout. Перезапустите приложение для применения изменений группы.",
+        needsRelogin: true,
+      };
+    }
+    
+    // Пользователь не в группе, пытаемся добавить
     const result = await addUserToDialoutGroup();
     
     if (result.success) {
       return {
         success: true,
-        message: "Пользователь успешно добавлен в группу dialout. Перелогиньтесь или выполните команду 'newgrp dialout' для применения изменений.",
+        message: "Пользователь успешно добавлен в группу dialout. Перезапустите приложение для применения изменений.",
         needsRelogin: true,
       };
     }

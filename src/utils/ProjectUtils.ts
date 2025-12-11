@@ -110,6 +110,45 @@ export function findProjectForFile(
   return null;
 }
 
+/**
+ * Рекурсивно получает список всех исходных файлов проекта (C/C++ и заголовочные)
+ */
+export async function getProjectSourceFiles(
+  projectPath: string
+): Promise<string[]> {
+  const sourceExtensions = [".c", ".cpp", ".h", ".hpp"];
+  const files: string[] = [];
+
+  async function collectFiles(dirPath: string): Promise<void> {
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        // Пропускаем скрытые файлы и служебные директории
+        if (entry.name.startsWith(".")) {
+          continue;
+        }
+
+        const fullPath = path.join(dirPath, entry.name);
+
+        if (entry.isDirectory()) {
+          await collectFiles(fullPath);
+        } else if (entry.isFile()) {
+          const ext = path.extname(entry.name).toLowerCase();
+          if (sourceExtensions.includes(ext)) {
+            files.push(fullPath);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Ошибка при чтении директории ${dirPath}:`, error);
+    }
+  }
+
+  await collectFiles(projectPath);
+  return files;
+}
+
 
 
 

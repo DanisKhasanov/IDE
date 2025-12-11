@@ -22,6 +22,7 @@ import type {
   InstallCommands,
   InstallProgress,
 } from "@/types/toolchain";
+import { useSnackbar } from "@/contexts/SnackbarContext";
 
 type ToolchainSetupModalProps = {
   open: boolean;
@@ -39,6 +40,7 @@ const ToolchainSetupModal: React.FC<ToolchainSetupModalProps> = ({
   const [installing, setInstalling] = useState(false);
   const [installProgress, setInstallProgress] = useState<InstallProgress[]>([]);
   const [installError, setInstallError] = useState<string | null>(null);
+  const { showSuccess, showError } = useSnackbar();
 
   // Проверка toolchain при открытии модального окна
   useEffect(() => {
@@ -127,12 +129,17 @@ const ToolchainSetupModal: React.FC<ToolchainSetupModalProps> = ({
       if (result.success) {
         // Перепроверяем toolchain после установки
         await checkToolchain();
+        showSuccess("AVR Toolchain успешно установлен");
       } else {
-        setInstallError(result.error || "Неизвестная ошибка установки");
+        const errorMsg = result.error || "Неизвестная ошибка установки";
+        setInstallError(errorMsg);
+        showError(errorMsg);
       }
     } catch (error) {
       console.error("Ошибка установки:", error);
-      setInstallError(error instanceof Error ? error.message : String(error));
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setInstallError(errorMsg);
+      showError(errorMsg);
     } finally {
       setInstalling(false);
       unsubscribe?.();

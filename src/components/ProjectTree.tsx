@@ -22,6 +22,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import type { ProjectTreeNode } from "@/types/project";
 import NewProjectModal from "./NewProjectModal";
+import { useSnackbar } from "@/contexts/SnackbarContext";
 
 type ProjectTreeProps = {
   onFileOpen?: (filePath: string) => void;
@@ -57,6 +58,7 @@ const ProjectTree = ({
     nodeType: "file" | "folder";
   } | null>(null);
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const { showSuccess, showError } = useSnackbar();
 
   const loadOpenProjects = useCallback(async () => {
     try {
@@ -552,9 +554,13 @@ const ProjectTree = ({
             });
           }
         }
+        showSuccess("Файл успешно создан");
       }
     } catch (error) {
       console.error("Ошибка создания файла:", error);
+      showError(
+        `Ошибка создания файла: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
     handleCloseContextMenu();
   };
@@ -594,9 +600,13 @@ const ProjectTree = ({
             });
           }
         }
+        showSuccess("Папка успешно создана");
       }
     } catch (error) {
       console.error("Ошибка создания папки:", error);
+      showError(
+        `Ошибка создания папки: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
     handleCloseContextMenu();
   };
@@ -627,10 +637,11 @@ const ProjectTree = ({
           }
           return prev;
         });
+        showSuccess("Файл успешно удален");
       }
     } catch (error) {
       console.error("Ошибка удаления файла:", error);
-      alert(
+      showError(
         `Ошибка удаления файла: ${error instanceof Error ? error.message : String(error)}`
       );
     }

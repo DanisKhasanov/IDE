@@ -5,15 +5,22 @@ import {
   useCallback,
   useRef,
 } from "react";
-import { Card, CardContent, Tabs, Tab, Box, Snackbar, Alert } from "@mui/material";
+import { Card, CardContent, Tabs, Tab, Box } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import MonacoEditor from "@monaco-editor/react";
+import MonacoEditor, { type Monaco } from "@monaco-editor/react";
+import type * as monaco from "monaco-editor";
 import CloseIcon from "@mui/icons-material/Close";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { PanelGroup, Panel } from "react-resizable-panels";
 import TerminalPanel from "@components/TerminalPanel";
 import type { EditorFile } from "@/types/editor";
 import type { CompilationProblem } from "@components/ProblemsTab";
+import {
+  useProjectFiles,
+  useMonacoModel,
+  useGoToDefinition,
+  useCompletionProvider,
+} from "@hooks/index";
+import { useSnackbar } from "@/contexts/SnackbarContext";
 
 interface CodeEditorPanelProps {
   onFileOpenRequest?: (handler: (filePath: string) => Promise<void>) => void;
@@ -40,20 +47,61 @@ const CodeEditorPanel = ({
   const editorTheme = theme.palette.mode === "dark" ? "vs-dark" : "vs";
   const [files, setFiles] = useState<EditorFile[]>([]);
   const [activeFileId, setActiveFileId] = useState<string>("");
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const { showSuccess } = useSnackbar();
+  const [isEditorReady, setIsEditorReady] = useState<boolean>(false);
+  
   // Храним оригинальное содержимое файлов для сравнения
   const originalContentsRef = useRef<Map<string, string>>(new Map());
   // Отслеживаем измененные файлы
   const [modifiedFiles, setModifiedFiles] = useState<Set<string>>(new Set());
+  
+  const monacoRef = useRef<Monaco | null>(null);
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+
+  // Ref для обработчика открытия файлов
   const openFileHandlerRef = useRef<
     ((filePath: string) => Promise<void>) | null
   >(null);
+
+  // Используем хук для работы с файлами проекта
+  const { getProjectFiles } = useProjectFiles(currentProjectPath, files);
+
+  // Получение активного файла
+  const activeFile = files.find((file) => file.id === activeFileId);
+
+  // Используем хук для управления моделями Monaco
+  useMonacoModel({
+    editor: editorRef.current,
+    monaco: monacoRef.current,
+    activeFile,
+    isEditorReady,
+  });
+
+  // Используем хук для логики перехода к определению
+  useGoToDefinition({
+    editor: editorRef.current,
+    monaco: monacoRef.current,
+    isEditorReady,
+    getProjectFiles,
+    onOpenFile: async (filePath: string) => {
+      if (openFileHandlerRef.current) {
+        await openFileHandlerRef.current(filePath);
+      }
+    },
+  });
+
+  // Используем хук для автодополнения
+  useCompletionProvider({
+    editor: editorRef.current,
+    monaco: monacoRef.current,
+    isEditorReady,
+    getProjectFiles,
+  });
 
   // Загрузка сохраненных файлов при монтировании или изменении проекта
   useEffect(() => {
     const loadSavedFiles = async () => {
       if (!currentProjectPath) {
-        // Очищаем файлы, если проект не открыт
         setFiles([]);
         setActiveFileId("");
         return;
@@ -63,7 +111,6 @@ const CodeEditorPanel = ({
         const savedState =
           await window.electronAPI.getProjectState(currentProjectPath);
         if (savedState && savedState.openedFiles.length > 0) {
-          // Загружаем файлы по путям
           const loadedFiles = await Promise.all(
             savedState.openedFiles.map(async (savedFile) => {
               try {
@@ -91,20 +138,21 @@ const CodeEditorPanel = ({
             (f): f is EditorFile & { path: string } =>
               f !== null && f.path !== undefined
           );
+          
           if (validFiles.length > 0) {
             setFiles(validFiles);
             // Сохраняем оригинальное содержимое файлов
             validFiles.forEach((file) => {
               originalContentsRef.current.set(file.id, file.content);
             });
-            // Очищаем список измененных файлов при загрузке
             setModifiedFiles(new Set());
-            // Устанавливаем активный файл, если он существует
+            
             const activeFile = validFiles.find(
               (f) => f.id === savedState.activeFileId
             );
             const newActiveFileId = activeFile?.id || validFiles[0].id;
             setActiveFileId(newActiveFileId);
+            
             const newActiveFile = validFiles.find(
               (f) => f.id === newActiveFileId
             );
@@ -121,7 +169,6 @@ const CodeEditorPanel = ({
             }
           }
         } else {
-          // Если сохраненных файлов нет, очищаем
           setFiles([]);
           setActiveFileId("");
           originalContentsRef.current.clear();
@@ -175,14 +222,14 @@ const CodeEditorPanel = ({
   const handleOpenFile = useCallback(
     async (filePath: string) => {
       // Проверяем, не открыт ли уже этот файл
-      setFiles((prevFiles) => {
-        const existingFile = prevFiles.find((f) => f.path === filePath);
-        if (existingFile) {
-          setActiveFileId(existingFile.id);
-          return prevFiles;
+      const existingFile = files.find((f) => f.path === filePath);
+      if (existingFile) {
+        setActiveFileId(existingFile.id);
+        if (onActiveFileChange) {
+          onActiveFileChange(existingFile.path || null);
         }
-        return prevFiles;
-      });
+        return;
+      }
 
       try {
         const fileData = await window.electronAPI.readFile(filePath);
@@ -193,17 +240,18 @@ const CodeEditorPanel = ({
           language: fileData.language,
           content: fileData.content,
         };
+        
         setFiles((prevFiles) => {
           // Проверяем еще раз на случай параллельных запросов
           const existingFile = prevFiles.find((f) => f.path === filePath);
           if (existingFile) {
-            setActiveFileId(existingFile.id);
             return prevFiles;
           }
           // Сохраняем оригинальное содержимое нового файла
           originalContentsRef.current.set(newFile.id, newFile.content);
           return [...prevFiles, newFile];
         });
+        
         setActiveFileId(newFile.id);
         if (onActiveFileChange) {
           onActiveFileChange(newFile.path);
@@ -212,7 +260,7 @@ const CodeEditorPanel = ({
         console.error("Ошибка открытия файла:", error);
       }
     },
-    [onActiveFileChange]
+    [files, onActiveFileChange]
   );
 
   // Сохраняем ссылку на обработчик для передачи в родительский компонент
@@ -233,28 +281,32 @@ const CodeEditorPanel = ({
   };
 
   // Обработчик изменения содержимого редактора
-  const handleEditorChange = (value: string | undefined) => {
-    const newContent = value ?? "";
-    setFiles((prevFiles) =>
-      prevFiles.map((file) =>
-        file.id === activeFileId ? { ...file, content: newContent } : file
-      )
-    );
-    
-    // Проверяем, изменился ли файл относительно оригинала
-    const originalContent = originalContentsRef.current.get(activeFileId) ?? "";
-    const isModified = newContent !== originalContent;
-    
-    setModifiedFiles((prevModified) => {
-      const newModified = new Set(prevModified);
-      if (isModified) {
-        newModified.add(activeFileId);
-      } else {
-        newModified.delete(activeFileId);
-      }
-      return newModified;
-    });
-  };
+  const handleEditorChange = useCallback(
+    (value: string | undefined) => {
+      const newContent = value ?? "";
+      setFiles((prevFiles) =>
+        prevFiles.map((file) =>
+          file.id === activeFileId ? { ...file, content: newContent } : file
+        )
+      );
+
+      // Проверяем, изменился ли файл относительно оригинала
+      const originalContent =
+        originalContentsRef.current.get(activeFileId) ?? "";
+      const isModified = newContent !== originalContent;
+
+      setModifiedFiles((prevModified) => {
+        const newModified = new Set(prevModified);
+        if (isModified) {
+          newModified.add(activeFileId);
+        } else {
+          newModified.delete(activeFileId);
+        }
+        return newModified;
+      });
+    },
+    [activeFileId]
+  );
 
   // Обработка событий меню
   useEffect(() => {
@@ -274,7 +326,7 @@ const CodeEditorPanel = ({
           newModified.delete(activeFileId);
           return newModified;
         });
-        setSnackbarOpen(true);
+        showSuccess("Файл сохранен");
       } catch (error) {
         console.error("Ошибка сохранения файла:", error);
       }
@@ -310,7 +362,7 @@ const CodeEditorPanel = ({
             onActiveFileChange(result.filePath);
           }
           console.log("Файл сохранен как:", result.filePath);
-          setSnackbarOpen(true);
+          showSuccess("Файл сохранен");
         }
       } catch (error) {
         console.error("Ошибка сохранения файла как:", error);
@@ -326,7 +378,7 @@ const CodeEditorPanel = ({
       unsubscribeSaveFile();
       unsubscribeSaveFileAs();
     };
-  }, [files, activeFileId, currentProjectPath, onActiveFileChange]);
+  }, [files, activeFileId, onActiveFileChange]);
 
   // Обработчик закрытия вкладки
   const handleCloseTab = (event: React.MouseEvent, fileId: string) => {
@@ -355,9 +407,6 @@ const CodeEditorPanel = ({
     }
   };
 
-  // Получение активного файла
-  const activeFile = files.find((file) => file.id === activeFileId);
-
   return (
     <Card
       sx={{
@@ -384,7 +433,6 @@ const CodeEditorPanel = ({
           return (
             <Tab
               key={file.id}
-              sx={{}}
               label={
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <span style={{ textTransform: "none" }}>{file.name}</span>
@@ -430,15 +478,69 @@ const CodeEditorPanel = ({
           >
             {activeFile && (
               <MonacoEditor
+                key={currentProjectPath || 'no-project'}
                 language={activeFile.language}
                 theme={editorTheme}
                 height="100%"
                 value={activeFile.content}
                 onChange={handleEditorChange}
+                onMount={(editor, monaco) => {
+                  // Устанавливаем флаг готовности только после проверки DOM
+                  const checkAndSetReady = () => {
+                    try {
+                      const container = editor.getContainerDomNode();
+                      const layoutInfo = editor.getLayoutInfo();
+                      
+                      if (container && container.parentElement && layoutInfo) {
+                        editorRef.current = editor;
+                        monacoRef.current = monaco;
+                        setIsEditorReady(true);
+                      } else {
+                        // Если DOM еще не готов, повторяем проверку
+                        requestAnimationFrame(checkAndSetReady);
+                      }
+                    } catch (error) {
+                      // Если произошла ошибка, повторяем проверку
+                      requestAnimationFrame(checkAndSetReady);
+                    }
+                  };
+
+                  // Начинаем проверку готовности
+                  requestAnimationFrame(checkAndSetReady);
+
+                  return () => {
+                    setIsEditorReady(false);
+                    editorRef.current = null;
+                    monacoRef.current = null;
+                  };
+                }}
+                beforeMount={() => {
+                  setIsEditorReady(false);
+                  editorRef.current = null;
+                  monacoRef.current = null;
+                }}
                 options={{
                   minimap: { enabled: false },
                   automaticLayout: true,
                   fontSize: 14,
+                  links: true,
+                  hover: {
+                    enabled: false,
+                  },
+                  parameterHints: {
+                    enabled: false,
+                  },
+                  quickSuggestions: true,
+                  suggestOnTriggerCharacters: true,
+                  gotoLocation: {
+                    multiple: "goto",
+                    multipleDefinitions: "goto",
+                    multipleReferences: "goto",
+                    multipleImplementations: "goto",
+                  },
+                  wordBasedSuggestions: "matchingDocuments",
+                  occurrencesHighlight: "multiFile",
+                  selectionHighlight: true,
                 }}
               />
             )}
@@ -455,23 +557,6 @@ const CodeEditorPanel = ({
           onTabChange={onTerminalTabChange}
         />
       </PanelGroup>
-
-      {/* Уведомление о сохранении файла */}
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={3000}
-        onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          severity="success"
-          icon={<CheckCircleIcon />}
-          onClose={() => setSnackbarOpen(false)}
-          sx={{ width: "100%" }}
-        >
-          Файл сохранен
-        </Alert>
-      </Snackbar>
     </Card>
   );
 };

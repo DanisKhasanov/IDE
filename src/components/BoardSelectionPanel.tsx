@@ -38,7 +38,6 @@ interface BoardSelectionPanelProps {
 export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
   selectedBoard,
   boardConfigs,
-  currentBoardConfig,
   projectName,
   parentPath,
   selectedFrequency,

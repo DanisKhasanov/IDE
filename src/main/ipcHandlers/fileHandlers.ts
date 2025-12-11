@@ -7,6 +7,7 @@ import {
   createProjectData,
   findProjectForFile,
   buildProjectTree,
+  getProjectSourceFiles,
 } from "@utils/ProjectUtils";
 import { projectManager } from "@main/managers/ProjectManager";
 import { windowManager } from "@main/managers/WindowManager";
@@ -325,6 +326,30 @@ export function registerFileHandlers(): void {
         return projectData;
       } catch (error) {
         console.error("Ошибка удаления папки:", error);
+        throw error;
+      }
+    }
+  );
+
+  // Получение списка исходных файлов проекта (C/C++ и заголовочные)
+  ipcMain.handle(
+    "get-project-source-files",
+    async (_event, projectPath: string) => {
+      try {
+        if (!projectPath) {
+          throw new Error("Путь проекта не указан");
+        }
+
+        // Проверяем, что проект открыт
+        const projectData = projectManager.getProject(projectPath);
+        if (!projectData) {
+          throw new Error("Проект не открыт");
+        }
+
+        const files = await getProjectSourceFiles(projectPath);
+        return files;
+      } catch (error) {
+        console.error("Ошибка получения списка исходных файлов:", error);
         throw error;
       }
     }

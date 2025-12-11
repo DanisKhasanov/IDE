@@ -25,6 +25,7 @@ import {
   useFileHandler,
   useNewProjectModal,
 } from "@hooks/index";
+import { SnackbarProvider } from "@/contexts/SnackbarContext";
 
 import type { CompilationProblem } from "@components/ProblemsTab";
 import { parseCompilationErrors } from "@utils/CompilationErrorParser";
@@ -73,13 +74,21 @@ const App = () => {
 
   // Обработчик события открытия main.cpp после создания проекта
   useEffect(() => {
-    const handleOpenMainCpp = async (event: CustomEvent<{ projectPath: string }>) => {
+    const handleOpenMainCpp = async (
+      event: CustomEvent<{ projectPath: string }>
+    ) => {
       newlyCreatedProjectRef.current = event.detail.projectPath;
     };
 
-    window.addEventListener("open-main-cpp", handleOpenMainCpp as EventListener);
+    window.addEventListener(
+      "open-main-cpp",
+      handleOpenMainCpp as EventListener
+    );
     return () => {
-      window.removeEventListener("open-main-cpp", handleOpenMainCpp as EventListener);
+      window.removeEventListener(
+        "open-main-cpp",
+        handleOpenMainCpp as EventListener
+      );
     };
   }, []);
 
@@ -93,16 +102,16 @@ const App = () => {
         const projectPath = newlyCreatedProjectRef.current;
         // Формируем путь к main.cpp (используем / для кроссплатформенности)
         const mainCppPath = `${projectPath}/src/main.cpp`;
-        
+
         try {
           // Ждем обновления дерева проекта и готовности обработчика
           // Увеличиваем задержку для надежности
           await new Promise((resolve) => setTimeout(resolve, 800));
-          
+
           // Пытаемся открыть файл несколько раз с интервалами
           let attempts = 0;
           const maxAttempts = 5;
-          
+
           while (attempts < maxAttempts) {
             try {
               await handleFileOpen(mainCppPath);
@@ -143,10 +152,10 @@ const App = () => {
         if (!window.electronAPI?.toolchainCheck) {
           return;
         }
-        
+
         // Всегда выполняем реальную проверку toolchain при запуске
         const status = await window.electronAPI.toolchainCheck();
-        
+
         // Если toolchain не установлен, показываем модальное окно
         if (!status.installed) {
           setToolchainModalOpen(true);
@@ -163,165 +172,170 @@ const App = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box
-        display="flex"
-        flexDirection="column"
-        height="100vh"
-        bgcolor={theme.palette.background.default}
-      >
-        <AppBar position="static">
-          <Toolbar>
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              IDE Prototype
-            </Typography>
-            <IconButton
-              color="inherit"
-              onClick={toggleTerminal}
-              aria-label={
-                isTerminalVisible ? "Скрыть терминал" : "Показать терминал"
-              }
-            >
-              <TerminalIcon />
-            </IconButton>
-            <IconButton
-              color="inherit"
-              onClick={toggleMode}
-              aria-label={
-                mode === "light"
-                  ? "Включить тёмную тему"
-                  : "Включить светлую тему"
-              }
-            >
-              {mode === "light" ? <DarkModeIcon /> : <LightModeIcon />}
-            </IconButton>
-          </Toolbar>
-          {/* Панель инструментов Arduino */}
-          <ArduinoToolbar
-            currentProjectPath={currentProjectPath}
-            onCompilationResult={(result) => {
-              // Парсим ошибки компиляции
-              if (!result.success) {
-                // Используем stderr, если есть, иначе error
-                const errorText = result.stderr || result.error || "";
-                const problems = parseCompilationErrors(errorText);
-                setCompilationProblems(problems);
-                // Если есть ошибки, открываем терминал и переключаемся на вкладку "Проблемы"
-                if (problems.length > 0 && !isTerminalVisible) {
-                  toggleTerminal();
-                  setTerminalActiveTab("problems");
-                } else if (problems.length > 0) {
-                  setTerminalActiveTab("problems");
-                }
-              } else {
-                // Очищаем проблемы при успешной компиляции
-                setCompilationProblems([]);
-              }
-            }}
-            onUploadResult={(result: UploadResult) => {
-              // Обрабатываем ошибки заливки
-              if (!result.success) {
-                // Создаем проблемы из ошибок заливки
-                const problems: CompilationProblem[] = [];
-                const errorText = result.stderr || result.error || result.stdout || "";
-                
-                if (errorText) {
-                  // Разбиваем текст ошибки на строки и создаем проблемы
-                  const lines = errorText.split("\n").filter(line => line.trim());
-                  lines.forEach((line) => {
-                    const trimmed = line.trim();
-                    if (trimmed) {
-                      problems.push({
-                        type: "error",
-                        message: trimmed,
-                        raw: trimmed,
-                      });
-                    }
-                  });
-                } else {
-                  // Если нет текста ошибки, создаем общую проблему
-                  problems.push({
-                    type: "error",
-                    message: result.error || "Ошибка заливки прошивки",
-                  });
-                }
-                
-                setCompilationProblems(problems);
-                // Если есть ошибки, открываем терминал и переключаемся на вкладку "Проблемы"
-                if (problems.length > 0 && !isTerminalVisible) {
-                  toggleTerminal();
-                  setTerminalActiveTab("problems");
-                } else if (problems.length > 0) {
-                  setTerminalActiveTab("problems");
-                }
-              } else {
-                // Очищаем проблемы при успешной заливке
-                setCompilationProblems([]);
-              }
-            }}
-          />
-        </AppBar>
+      <SnackbarProvider>
+        <CssBaseline />
         <Box
-          component="main"
           display="flex"
-          flexGrow={1}
-          overflow="hidden"
-          bgcolor={theme.palette.background.paper}
+          flexDirection="column"
+          height="100vh"
+          bgcolor={theme.palette.background.default}
         >
-          <PanelGroup direction="horizontal">
-            {/* Дерево проектов */}
-            <Panel defaultSize={14} minSize={15} maxSize={40}>
-              <Box display="flex" height="100%">
-                <ProjectTree
-                  onFileOpen={handleFileOpen}
-                  onProjectPathChange={setCurrentProjectPath}
-                  activeFilePath={activeFilePath}
-                />
-              </Box>
-            </Panel>
+          <AppBar position="static">
+            <Toolbar>
+              <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+                IDE Prototype
+              </Typography>
+              <IconButton
+                color="inherit"
+                onClick={toggleTerminal}
+                aria-label={
+                  isTerminalVisible ? "Скрыть терминал" : "Показать терминал"
+                }
+              >
+                <TerminalIcon />
+              </IconButton>
+              <IconButton
+                color="inherit"
+                onClick={toggleMode}
+                aria-label={
+                  mode === "light"
+                    ? "Включить тёмную тему"
+                    : "Включить светлую тему"
+                }
+              >
+                {mode === "light" ? <DarkModeIcon /> : <LightModeIcon />}
+              </IconButton>
+            </Toolbar>
+            {/* Панель инструментов Arduino */}
+            <ArduinoToolbar
+              currentProjectPath={currentProjectPath}
+              onCompilationResult={(result) => {
+                // Парсим ошибки компиляции
+                if (!result.success) {
+                  // Используем stderr, если есть, иначе error
+                  const errorText = result.stderr || result.error || "";
+                  const problems = parseCompilationErrors(errorText);
+                  setCompilationProblems(problems);
+                  // Если есть ошибки, открываем терминал и переключаемся на вкладку "Проблемы"
+                  if (problems.length > 0 && !isTerminalVisible) {
+                    toggleTerminal();
+                    setTerminalActiveTab("problems");
+                  } else if (problems.length > 0) {
+                    setTerminalActiveTab("problems");
+                  }
+                } else {
+                  // Очищаем проблемы при успешной компиляции
+                  setCompilationProblems([]);
+                }
+              }}
+              onUploadResult={(result: UploadResult) => {
+                // Обрабатываем ошибки заливки
+                if (!result.success) {
+                  // Создаем проблемы из ошибок заливки
+                  const problems: CompilationProblem[] = [];
+                  const errorText =
+                    result.stderr || result.error || result.stdout || "";
 
-            <PanelResizeHandle />
+                  if (errorText) {
+                    // Разбиваем текст ошибки на строки и создаем проблемы
+                    const lines = errorText
+                      .split("\n")
+                      .filter((line) => line.trim());
+                    lines.forEach((line) => {
+                      const trimmed = line.trim();
+                      if (trimmed) {
+                        problems.push({
+                          type: "error",
+                          message: trimmed,
+                          raw: trimmed,
+                        });
+                      }
+                    });
+                  } else {
+                    // Если нет текста ошибки, создаем общую проблему
+                    problems.push({
+                      type: "error",
+                      message: result.error || "Ошибка заливки прошивки",
+                    });
+                  }
 
-            {/* Редактор кода */}
-            <Panel defaultSize={52} minSize={35}>
-              <Box display="flex" height="100%">
-                <CodeEditorPanel
-                  onFileOpenRequest={setFileHandler}
-                  currentProjectPath={currentProjectPath}
-                  onActiveFileChange={setActiveFilePath}
-                  isTerminalVisible={isTerminalVisible}
-                  onTerminalClose={toggleTerminal}
-                  compilationProblems={compilationProblems}
-                  terminalActiveTab={terminalActiveTab}
-                  onTerminalTabChange={setTerminalActiveTab}
-                />
-              </Box>
-            </Panel>
+                  setCompilationProblems(problems);
+                  // Если есть ошибки, открываем терминал и переключаемся на вкладку "Проблемы"
+                  if (problems.length > 0 && !isTerminalVisible) {
+                    toggleTerminal();
+                    setTerminalActiveTab("problems");
+                  } else if (problems.length > 0) {
+                    setTerminalActiveTab("problems");
+                  }
+                } else {
+                  // Очищаем проблемы при успешной заливке
+                  setCompilationProblems([]);
+                }
+              }}
+            />
+          </AppBar>
+          <Box
+            component="main"
+            display="flex"
+            flexGrow={1}
+            overflow="hidden"
+            bgcolor={theme.palette.background.paper}
+          >
+            <PanelGroup direction="horizontal">
+              {/* Дерево проектов */}
+              <Panel defaultSize={15} minSize={14} maxSize={40}>
+                <Box display="flex" height="100%">
+                  <ProjectTree
+                    onFileOpen={handleFileOpen}
+                    onProjectPathChange={setCurrentProjectPath}
+                    activeFilePath={activeFilePath}
+                  />
+                </Box>
+              </Panel>
 
-            <PanelResizeHandle />
+              <PanelResizeHandle />
 
-            {/* Информация о проекте */}
-            <Panel defaultSize={24} minSize={15} maxSize={45}>
-              <Box display="flex" height="100%">
-                <InfoPanel />
-              </Box>
-            </Panel>
-          </PanelGroup>
+              {/* Редактор кода */}
+              <Panel defaultSize={52} minSize={35}>
+                <Box display="flex" height="100%">
+                  <CodeEditorPanel
+                    onFileOpenRequest={setFileHandler}
+                    currentProjectPath={currentProjectPath}
+                    onActiveFileChange={setActiveFilePath}
+                    isTerminalVisible={isTerminalVisible}
+                    onTerminalClose={toggleTerminal}
+                    compilationProblems={compilationProblems}
+                    terminalActiveTab={terminalActiveTab}
+                    onTerminalTabChange={setTerminalActiveTab}
+                  />
+                </Box>
+              </Panel>
+
+              <PanelResizeHandle />
+
+              {/* Информация о проекте */}
+              <Panel defaultSize={33} minSize={15} maxSize={45}>
+                <Box display="flex" height="100%">
+                  <InfoPanel />
+                </Box>
+              </Panel>
+            </PanelGroup>
+          </Box>
         </Box>
-      </Box>
-      
-      {/* Модальное окно создания нового проекта */}
-      <NewProjectModal
-        open={isOpen}
-        onClose={handleClose}
-        onProjectCreate={handleProjectCreate}
-      />
-      
-      {/* Модальное окно установки toolchain */}
-      <ToolchainSetupModal
-        open={toolchainModalOpen}
-        onClose={() => setToolchainModalOpen(false)}
-      />
+
+        {/* Модальное окно создания нового проекта */}
+        <NewProjectModal
+          open={isOpen}
+          onClose={handleClose}
+          onProjectCreate={handleProjectCreate}
+        />
+
+        {/* Модальное окно установки toolchain */}
+        <ToolchainSetupModal
+          open={toolchainModalOpen}
+          onClose={() => setToolchainModalOpen(false)}
+        />
+      </SnackbarProvider>
     </ThemeProvider>
   );
 };

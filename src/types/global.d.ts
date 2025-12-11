@@ -65,6 +65,7 @@ declare global {
       closeProject: (projectPath: string) => Promise<{ success: boolean }>;
       loadOpenProjects: () => Promise<OpenedProjectPayload[]>;
       refreshProjectTree: (projectPath?: string) => Promise<OpenedProjectPayload>;
+      getProjectSourceFiles: (projectPath: string) => Promise<string[]>;
       // Методы для работы с терминалом
       saveTerminalState: (projectPath: string, isVisible: boolean) => Promise<{ success: boolean }>;
       getTerminalState: (projectPath: string) => Promise<boolean>;

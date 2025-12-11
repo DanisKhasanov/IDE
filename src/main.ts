@@ -12,7 +12,7 @@ import { createApplicationMenu } from "./main/menu/menu";
  * Вся бизнес-логика вынесена в отдельные модули для лучшей организации кода.
  */
 if (process.env.NODE_ENV === 'development') {
-  app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('--no-sandbox');
 }
 // Отключаем sandbox для Linux (решает проблему с SUID sandbox helper)
 // Должно быть вызвано ДО app.ready() и ДО любых других операций с app

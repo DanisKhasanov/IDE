@@ -28,6 +28,7 @@ export const electronAPI = {
   closeProject: projectAPI.closeProject,
   loadOpenProjects: projectAPI.loadOpenProjects,
   refreshProjectTree: projectAPI.refreshProjectTree,
+  getProjectSourceFiles: projectAPI.getProjectSourceFiles,
 
   // API для работы с файлами
   saveFile: fileAPI.saveFile,

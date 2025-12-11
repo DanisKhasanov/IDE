@@ -1,11 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Box,
   IconButton,
   Tooltip,
   CircularProgress,
-  Alert,
-  Snackbar,
   Select,
   MenuItem,
   FormControl,
@@ -18,8 +16,6 @@ import {
   Button,
 } from "@mui/material";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import ErrorIcon from "@mui/icons-material/Error";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import type {
   CompileResult,
@@ -28,6 +24,7 @@ import type {
   SerialPortPermissionStatus,
 } from "@/types/arduino";
 import type { ProjectTreeNode } from "@/types/project";
+import { useSnackbar } from "@/contexts/SnackbarContext";
 
 interface ArduinoToolbarProps {
   currentProjectPath: string | null;
@@ -43,34 +40,31 @@ const ArduinoToolbar = ({
   const [isArduinoProject, setIsArduinoProject] = useState(false);
   const [isCompiling, setIsCompiling] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [result, setResult] = useState<{
-    success: boolean;
-    message?: string;
-    error?: string;
-  } | null>(null);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const { showSuccess, showError } = useSnackbar();
   const [ports, setPorts] = useState<SerialPortInfo[]>([]);
   const [selectedPort, setSelectedPort] = useState<string>("");
   const [lastCompileResult, setLastCompileResult] =
     useState<CompileResult | null>(null);
   const [portPermissions, setPortPermissions] = useState<SerialPortPermissionStatus | null>(null);
   const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
+  const [previousPermissionsHasAccess, setPreviousPermissionsHasAccess] = useState<boolean | null>(null);
+  const [permissionDialogDismissed, setPermissionDialogDismissed] = useState(false);
+  // Используем ref для синхронного отслеживания состояния диалога
+  const permissionDialogDismissedRef = useRef(false);
+  const permissionDialogOpenRef = useRef(false);
 
   // Фиксированная плата - Arduino UNO
   const BOARD = "uno";
 
-  // Проверка прав доступа к COM-портам (только для начальной загрузки)
-  // После этого полагаемся только на события от SerialPortWatcher
-  const checkInitialPermissions = useCallback(async () => {
+  // Проверка прав доступа к COM-портам (вызывается только при попытке заливки)
+  const checkPermissions = useCallback(async () => {
     try {
       const status = await window.electronAPI.arduinoCheckPortPermissions();
       setPortPermissions(status);
-      
-      if (!status.hasAccess && status.needsSetup) {
-        setPermissionDialogOpen(true);
-      }
+      return status;
     } catch (error) {
       console.error("Ошибка проверки прав доступа:", error);
+      return null;
     }
   }, []);
 
@@ -93,13 +87,25 @@ const ArduinoToolbar = ({
   }, [selectedPort]);
 
   // Обновление прав доступа из события (event-driven)
+  // Только обновляем состояние, диалог открывается только при попытке заливки
   const handlePermissionsChanged = useCallback((permissions: SerialPortPermissionStatus) => {
+    const previousHasAccess = previousPermissionsHasAccess;
+    
     setPortPermissions(permissions);
     
-    if (!permissions.hasAccess && permissions.needsSetup) {
-      setPermissionDialogOpen(true);
+    // Если права улучшились (стали доступны), сбрасываем флаг закрытия диалога
+    if (permissions.hasAccess && previousHasAccess === false) {
+      setPermissionDialogDismissed(false);
+      permissionDialogDismissedRef.current = false;
     }
-  }, []);
+    
+    setPreviousPermissionsHasAccess(permissions.hasAccess);
+  }, [previousPermissionsHasAccess]);
+
+  // Синхронизация ref с состоянием диалога
+  useEffect(() => {
+    permissionDialogOpenRef.current = permissionDialogOpen;
+  }, [permissionDialogOpen]);
 
   // Подписка на события изменения портов и прав доступа
   // Event-driven подход: полагаемся только на события от SerialPortWatcher
@@ -122,14 +128,18 @@ const ArduinoToolbar = ({
         handlePortsChanged([]);
       });
     
-    // Получаем начальный статус прав из кеша
-    checkInitialPermissions();
+    // Получаем начальный статус прав из кеша (без открытия диалога)
+    checkPermissions().then((status) => {
+      if (status) {
+        setPreviousPermissionsHasAccess(status.hasAccess);
+      }
+    });
 
     return () => {
       unsubscribePorts();
       unsubscribePermissions();
     };
-  }, [isArduinoProject, handlePortsChanged, handlePermissionsChanged, checkInitialPermissions]);
+  }, [isArduinoProject, handlePortsChanged, handlePermissionsChanged, checkPermissions]);
 
   // Проверка, является ли проект Arduino проектом
   useEffect(() => {
@@ -137,6 +147,11 @@ const ArduinoToolbar = ({
       if (!currentProjectPath) {
         setIsArduinoProject(false);
         setLastCompileResult(null);
+        // Сбрасываем флаги при закрытии проекта
+        setPermissionDialogDismissed(false);
+        setPreviousPermissionsHasAccess(null);
+        permissionDialogDismissedRef.current = false;
+        permissionDialogOpenRef.current = false;
         return;
       }
 
@@ -144,6 +159,14 @@ const ArduinoToolbar = ({
         const info =
           await window.electronAPI.arduinoDetectProject(currentProjectPath);
         setIsArduinoProject(info.isArduino);
+        
+        // Сбрасываем флаги при смене проекта
+        if (info.isArduino) {
+          setPermissionDialogDismissed(false);
+          setPreviousPermissionsHasAccess(null);
+          permissionDialogDismissedRef.current = false;
+          permissionDialogOpenRef.current = false;
+        }
 
         // При обнаружении Arduino проекта порты будут загружены через события
         if (info.isArduino) {
@@ -212,7 +235,6 @@ const ArduinoToolbar = ({
     }
 
     setIsCompiling(true);
-    setResult(null);
 
     try {
       const compileResult = await window.electronAPI.arduinoCompile(
@@ -230,17 +252,10 @@ const ArduinoToolbar = ({
 
       // Показываем уведомление при успехе или ошибке
       if (compileResult.success) {
-        setResult({
-          success: true,
-          message: "Компиляция завершена успешно",
-        });
-        setSnackbarOpen(true);
+        showSuccess("Компиляция завершена успешно");
       } else {
         // Показываем уведомление об ошибке (без полного текста ошибки)
-        setResult({
-          success: false,
-        });
-        setSnackbarOpen(true);
+        showError("Произошла ошибка компиляции", { autoHideDuration: 5000 });
       }
 
       // Если успешно, обновляем дерево проекта для отображения build/firmware.hex
@@ -275,10 +290,7 @@ const ArduinoToolbar = ({
         onCompilationResult(errorResult);
       }
       // Показываем уведомление об ошибке (без полного текста ошибки)
-      setResult({
-        success: false,
-      });
-      setSnackbarOpen(true);
+      showError("Произошла ошибка компиляции", { autoHideDuration: 5000 });
     } finally {
       setIsCompiling(false);
     }
@@ -292,16 +304,23 @@ const ArduinoToolbar = ({
 
     // Проверяем, что есть успешный результат компиляции
     if (!lastCompileResult?.success || !lastCompileResult.hexFile) {
-      setResult({
-        success: false,
-        error: "Сначала необходимо скомпилировать проект",
-      });
-      setSnackbarOpen(true);
+      showError("Сначала необходимо скомпилировать проект");
       return;
     }
 
+    // Проверяем права доступа к COM-портам перед заливкой
+    const permissions = await checkPermissions();
+    if (permissions && !permissions.hasAccess && permissions.needsSetup) {
+      // Показываем диалог с инструкциями по настройке прав
+      setPermissionDialogOpen(true);
+      setPermissionDialogDismissed(false);
+      permissionDialogDismissedRef.current = false;
+      permissionDialogOpenRef.current = true;
+      setPortPermissions(permissions);
+      return; // Прерываем заливку
+    }
+
     setIsUploading(true);
-    setResult(null);
 
     try {
       const uploadResult: UploadResult =
@@ -318,24 +337,46 @@ const ArduinoToolbar = ({
 
       // Показываем уведомление при успехе или ошибке
       if (uploadResult.success) {
-        setResult({
-          success: true,
-          message: uploadResult.message || "Прошивка успешно залита",
-        });
-        setSnackbarOpen(true);
+        showSuccess(uploadResult.message || "Прошивка успешно залита");
       } else {
-        setResult({
-          success: false,
-          error: uploadResult.error || "Ошибка заливки прошивки",
-        });
-        setSnackbarOpen(true);
+        // Проверяем, не связана ли ошибка с правами доступа
+        const errorOutput = uploadResult.stderr || uploadResult.error || "";
+        if (errorOutput.includes('permission denied') || errorOutput.includes('Permission denied')) {
+          // Показываем диалог с инструкциями
+          const currentPermissions = await checkPermissions();
+          if (currentPermissions && currentPermissions.needsSetup) {
+            setPermissionDialogOpen(true);
+            setPermissionDialogDismissed(false);
+            permissionDialogDismissedRef.current = false;
+            permissionDialogOpenRef.current = true;
+            setPortPermissions(currentPermissions);
+          }
+        }
+        
+        showError(uploadResult.error || "Ошибка заливки прошивки", { autoHideDuration: 5000 });
       }
     } catch (error) {
+      const err = error as Error & { stderr?: string };
+      const errorOutput = err.stderr || err.message || String(error);
+      
+      // Проверяем, не связана ли ошибка с правами доступа
+      if (errorOutput.includes('permission denied') || errorOutput.includes('Permission denied')) {
+        // Показываем диалог с инструкциями
+        const currentPermissions = await checkPermissions();
+        if (currentPermissions && currentPermissions.needsSetup) {
+          setPermissionDialogOpen(true);
+          setPermissionDialogDismissed(false);
+          permissionDialogDismissedRef.current = false;
+          permissionDialogOpenRef.current = true;
+          setPortPermissions(currentPermissions);
+        }
+      }
+
       const errorResult: UploadResult = {
         success: false,
         error:
           error instanceof Error ? error.message : "Ошибка заливки прошивки",
-        stderr: error instanceof Error ? error.message : String(error),
+        stderr: errorOutput,
       };
 
       // Передаем результат ошибки в родительский компонент
@@ -343,16 +384,23 @@ const ArduinoToolbar = ({
         onUploadResult(errorResult);
       }
 
-      setResult({
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Ошибка заливки прошивки",
-      });
-      setSnackbarOpen(true);
+      showError(
+        error instanceof Error ? error.message : "Ошибка заливки прошивки",
+        { autoHideDuration: 5000 }
+      );
     } finally {
       setIsUploading(false);
     }
   };
+
+  // Обработчик закрытия диалога прав доступа
+  // Устанавливает флаг, чтобы диалог не показывался повторно, пока статус не улучшится
+  const handleClosePermissionDialog = useCallback(() => {
+    setPermissionDialogOpen(false);
+    setPermissionDialogDismissed(true);
+    permissionDialogDismissedRef.current = true;
+    permissionDialogOpenRef.current = false;
+  }, []);
 
   // Обработчик автоматической настройки прав доступа
   // После настройки SerialPortWatcher автоматически обновит статус через события
@@ -361,31 +409,21 @@ const ArduinoToolbar = ({
       const result = await window.electronAPI.arduinoSetupPortPermissions();
       if (result.success) {
         // Показываем сообщение об успехе
-        setResult({
-          success: true,
-          message: result.message,
-        });
-        setSnackbarOpen(true);
+        showSuccess(result.message);
         
         // SerialPortWatcher автоматически обновит статус прав через события
         // Не нужно вручную вызывать проверку - события придут автоматически
-        setPermissionDialogOpen(false);
+        handleClosePermissionDialog();
       } else {
-        setResult({
-          success: false,
-          error: result.message,
-        });
-        setSnackbarOpen(true);
+        showError(result.message);
       }
     } catch (error) {
       console.error("Ошибка настройки прав:", error);
-      setResult({
-        success: false,
-        error: error instanceof Error ? error.message : "Ошибка настройки прав доступа",
-      });
-      setSnackbarOpen(true);
+      showError(
+        error instanceof Error ? error.message : "Ошибка настройки прав доступа"
+      );
     }
-  }, []);
+  }, [handleClosePermissionDialog]);
 
   // Скрываем панель, если проект не Arduino
 
@@ -496,30 +534,11 @@ const ArduinoToolbar = ({
         </Tooltip>
       </Box>
 
-      {/* Уведомление о результате компиляции */}
-      <Snackbar
-        open={snackbarOpen && result !== null}
-        autoHideDuration={result?.success ? 3000 : 5000}
-        onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
-        <Alert
-          severity={result?.success ? "success" : "error"}
-          icon={result?.success ? <CheckCircleIcon /> : <ErrorIcon />}
-          onClose={() => setSnackbarOpen(false)}
-          sx={{ width: "100%" }}
-        >
-          {result?.success
-            ? result.message || "Компиляция завершена успешно"
-            : result?.error || "Произошла ошибка компиляции"}
-        </Alert>
-      </Snackbar>
-
       {/* Диалог проверки прав доступа к COM-портам */}
       {permissionDialogOpen && portPermissions && (
         <Dialog 
           open={permissionDialogOpen} 
-          onClose={() => setPermissionDialogOpen(false)}
+          onClose={handleClosePermissionDialog}
           maxWidth="sm"
           fullWidth
         >
@@ -559,7 +578,7 @@ const ArduinoToolbar = ({
                 Настроить автоматически
               </Button>
             )}
-            <Button onClick={() => setPermissionDialogOpen(false)}>
+            <Button onClick={handleClosePermissionDialog}>
               Закрыть
             </Button>
           </DialogActions>
