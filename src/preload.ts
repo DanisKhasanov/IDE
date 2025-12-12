@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge } from 'electron';
-import { electronAPI } from './preload/api';
+import { electronAPI } from './preload/index';
 
 // Экспортируем все API через contextBridge
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

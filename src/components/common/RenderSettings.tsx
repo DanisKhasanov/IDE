@@ -11,7 +11,7 @@ import {
   FormControlLabel,
   Box,
 } from "@mui/material";
-import type { PinFunction, BoardConfig } from "../types/boardConfig";
+import type { PinFunction, BoardConfig } from "../../types/boardConfig";
 
 interface RenderSettingsProps {
   func: PinFunction;

@@ -4,11 +4,11 @@ import {
   isArduinoProject,
   getAvailableBoards,
   parseBoardConfig,
-} from "@utils/ArduinoCompiler";
-import { uploadFirmware } from "@utils/FirmwareUploader";
+} from "@utils/arduino/ArduinoCompiler";
+import { uploadFirmware } from "@utils/arduino/FirmwareUploader";
 import { 
   setupSerialPortPermissions 
-} from "@utils/SerialPortPermissions";
+} from "@utils/serial/SerialPortPermissions";
 import { serialPortWatcher } from "@main/managers/SerialPortWatcher";
 
 /**

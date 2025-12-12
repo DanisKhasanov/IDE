@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
-import { checkToolchain } from "@utils/ToolchainChecker";
-import { getInstallCommands, getInstallInstructions, ToolchainInstaller } from "@utils/ToolchainInstaller";
-import { getToolchainInstalled, setToolchainInstalled, getToolchainChecked, setToolchainChecked } from "@utils/ConfigStorage";
+import { checkToolchain } from "@utils/toolchain/ToolchainChecker";
+import { getInstallCommands, getInstallInstructions, ToolchainInstaller } from "@utils/toolchain/ToolchainInstaller";
+import { getToolchainInstalled, setToolchainInstalled, getToolchainChecked, setToolchainChecked } from "@utils/config/ConfigStorage";
 import type { InstallProgress } from "@/types/toolchain";
 
 /**

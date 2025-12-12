@@ -1,6 +1,6 @@
 import { BrowserWindow } from "electron";
-import { detectArduinoPorts } from "@utils/SerialPortManager";
-import { checkSerialPortPermissions } from "@utils/SerialPortPermissions";
+import { detectArduinoPorts } from "@utils/serial/SerialPortManager";
+import { checkSerialPortPermissions } from "@utils/serial/SerialPortPermissions";
 import type { SerialPortInfo, SerialPortPermissionStatus } from "@/types/arduino";
 
 /**

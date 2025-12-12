@@ -1,10 +1,12 @@
 import React, { useState, useCallback } from "react";
 import { Card, CardContent, List, Box } from "@mui/material";
 import NewProjectModal from "@/components/new-project/NewProjectModal";
-import { useProjectTree } from "@/hooks/useProjectTree";
-import { useExpandedFolders } from "@/hooks/useExpandedFolders";
-import { useContextMenu } from "@/hooks/useContextMenu";
-import { useProjectOperations } from "@/hooks/useProjectOperations";
+import {
+  useProjectTree,
+  useExpandedFolders,
+  useContextMenu,
+  useProjectOperations,
+} from "@/hooks";
 import { ProjectHeader } from "./ProjectHeader";
 import { TreeNode } from "./TreeNode";
 import { EmptyState } from "./EmptyState";

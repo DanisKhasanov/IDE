@@ -8,7 +8,7 @@ import {
   findProjectForFile,
   buildProjectTree,
   getProjectSourceFiles,
-} from "@utils/ProjectUtils";
+} from "@utils/project/ProjectUtils";
 import { projectManager } from "@main/managers/ProjectManager";
 import { windowManager } from "@main/managers/WindowManager";
 

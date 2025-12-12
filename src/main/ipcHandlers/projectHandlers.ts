@@ -11,8 +11,8 @@ import {
   addOpenProject,
   removeOpenProject,
   type ProjectState,
-} from "@utils/ConfigStorage";
-import { buildProjectTree, createProjectData } from "@utils/ProjectUtils";
+} from "@utils/config/ConfigStorage";
+import { buildProjectTree, createProjectData } from "@utils/project/ProjectUtils";
 import { projectManager } from "@main/managers/ProjectManager";
 import { windowManager } from "@main/managers/WindowManager";
 import type { ProjectPinConfig } from "../../types/boardConfig";
@@ -499,7 +499,7 @@ export function registerProjectHandlers(): void {
           );
 
           // Используем динамический импорт для CodeGenerator
-          const { CodeGenerator } = await import("../../utils/CodeGenerator");
+          const { CodeGenerator } = await import("../../utils/editor/CodeGenerator");
           const generator = new CodeGenerator(
             boardConfig,
             pinConfig.fCpu || "16000000L"

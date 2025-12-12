@@ -1,5 +1,5 @@
-import type { BoardConfig, PinConfig, SelectedPinFunction } from "../types/boardConfig";
-import { getPortFromPin, getBitFromPin } from "./PinUtils";
+import type { BoardConfig, PinConfig, SelectedPinFunction } from "@/types/boardConfig";
+import { getPortFromPin, getBitFromPin } from "../arduino/PinUtils";
 
 /**
  * Генератор кода инициализации для Arduino проектов

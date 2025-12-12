@@ -13,7 +13,7 @@ import {
 import SettingsIcon from "@mui/icons-material/Settings";
 import { PanelGroup, Panel } from "react-resizable-panels";
 import type { BoardConfig, SelectedPinFunction } from "../types/boardConfig";
-import { RenderSettings } from "@/utils/RenderSettings";
+import { RenderSettings } from "@/components/common/RenderSettings";
 
 interface SystemPeripheralsTabProps {
   systemPeripherals: Record<string, SelectedPinFunction>;

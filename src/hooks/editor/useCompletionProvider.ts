@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type * as monaco from "monaco-editor";
-import { findFunctionDefinitions } from "@utils/DefinitionProvider";
+import { findFunctionDefinitions } from "@utils/editor/DefinitionProvider";
 
 type Monaco = typeof import("monaco-editor");
 

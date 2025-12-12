@@ -3,7 +3,7 @@ import type * as monaco from "monaco-editor";
 import {
   findDefinition,
   extractFunctionNameAtPosition,
-} from "@utils/DefinitionProvider";
+} from "@utils/editor/DefinitionProvider";
 
 type Monaco = typeof import("monaco-editor");
 

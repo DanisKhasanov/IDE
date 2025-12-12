@@ -1,4 +1,3 @@
-import { ipcRenderer } from 'electron';
 import { safeInvoke, createIpcListener } from './utils';
 import type { SerialPortInfo, SerialPortPermissionStatus } from '@/types/arduino';
 
@@ -7,7 +6,7 @@ import type { SerialPortInfo, SerialPortPermissionStatus } from '@/types/arduino
  */
 export const arduinoAPI = {
   // Компиляция проекта
-  compile: async (projectPath: string, boardName: string = 'uno') => {
+  compile: async (projectPath: string, boardName = 'uno') => {
     return safeInvoke('arduino-compile', projectPath, boardName);
   },
 
@@ -22,7 +21,7 @@ export const arduinoAPI = {
   },
 
   // Получение конфигурации платы
-  getBoardConfig: async (boardName: string = 'uno') => {
+  getBoardConfig: async (boardName = 'uno') => {
     return safeInvoke('arduino-get-board-config', boardName);
   },
 
@@ -33,7 +32,7 @@ export const arduinoAPI = {
   },
 
   // Заливка прошивки
-  uploadFirmware: async (hexFilePath: string, portPath: string, boardName: string = 'uno') => {
+  uploadFirmware: async (hexFilePath: string, portPath: string, boardName = 'uno') => {
     return safeInvoke('arduino-upload-firmware', hexFilePath, portPath, boardName);
   },
 

@@ -20,7 +20,7 @@ import {
 import { SnackbarProvider } from "@/contexts/SnackbarContext";
 
 import type { CompilationProblem } from "@/components/terminal/ProblemsTab";
-import { parseCompilationErrors } from "@utils/CompilationErrorParser";
+import { parseCompilationErrors } from "@utils/arduino/CompilationErrorParser";
 import type { UploadResult } from "@/types/arduino";
 
 const App = () => {

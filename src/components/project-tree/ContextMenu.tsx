@@ -1,6 +1,6 @@
 import React from "react";
 import { Menu, MenuItem } from "@mui/material";
-import type { ContextMenuState } from "@/hooks/useContextMenu";
+import type { ContextMenuState } from "@/hooks";
 
 interface ContextMenuProps {
   contextMenu: ContextMenuState;

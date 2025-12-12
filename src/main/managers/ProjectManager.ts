@@ -1,4 +1,4 @@
-import { type OpenProjectData } from "@utils/ProjectUtils";
+import { type OpenProjectData } from "@utils/project/ProjectUtils";
 
 /**
  * Менеджер для управления открытыми проектами

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createTheme, Theme } from "@mui/material/styles";
-import { readInitialMode, themeStorageKey } from "@utils/ReadInitialMode";
-import { getMuiThemeOptions } from "@utils/MuiTheme";
+import { readInitialMode, themeStorageKey } from "@utils/ui/ReadInitialMode";
+import { getMuiThemeOptions } from "@utils/ui/MuiTheme";
 
 export const useTheme = () => {
   const [mode, setMode] = useState<"light" | "dark">(readInitialMode());

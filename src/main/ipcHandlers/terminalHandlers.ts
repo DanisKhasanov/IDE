@@ -1,5 +1,5 @@
 import { ipcMain } from "electron";
-import { saveProjectState, getProjectState } from "@utils/ConfigStorage";
+import { saveProjectState, getProjectState } from "@utils/config/ConfigStorage";
 import { terminalManager } from "@main/managers/TerminalManager";
 
 /**

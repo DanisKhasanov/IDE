@@ -12,7 +12,7 @@ import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import CloseIcon from "@mui/icons-material/Close";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import type { OpenProject } from "@/hooks/useProjectTree";
+import type { OpenProject } from "@/hooks";
 
 interface ProjectHeaderProps {
   project: OpenProject;

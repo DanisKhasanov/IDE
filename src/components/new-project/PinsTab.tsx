@@ -13,7 +13,7 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import { PanelGroup, Panel } from "react-resizable-panels";
 import type { BoardConfig, SelectedPinFunction } from "../types/boardConfig";
-import { RenderSettings } from "@/utils/RenderSettings";
+import { RenderSettings } from "@/components/common/RenderSettings";
 
 interface PinsTabProps {
   selectedPinFunctions: Record<string, SelectedPinFunction[]>;
