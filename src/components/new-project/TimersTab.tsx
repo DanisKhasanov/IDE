@@ -12,98 +12,89 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import type { BoardConfig, SelectedPinFunction } from "@/types/boardConfig";
 import { RenderSettings } from "@/components/common/RenderSettings";
 
-interface SystemPeripheralsTabProps {
-  systemPeripherals: Record<string, SelectedPinFunction>;
+interface TimersTabProps {
+  timers: Record<string, SelectedPinFunction>;
   boardConfig: BoardConfig | null;
-  onSystemPeripheralAdd: (
-    functionType: string,
+  onTimerAdd: (timerName: string, settings: Record<string, unknown>) => void;
+  onTimerRemove: (timerName: string) => void;
+  onTimerSettingsUpdate: (
+    timerName: string,
     settings: Record<string, unknown>
   ) => void;
-  onSystemPeripheralRemove: (functionType: string) => void;
-  onSystemPeripheralSettingsUpdate: (
-    functionType: string,
-    settings: Record<string, unknown>
-  ) => void;
-  getSystemPeripherals: () => string[];
+  getAvailableTimers: () => string[];
 }
 
-export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
-  systemPeripherals,
+export const TimersTab: React.FC<TimersTabProps> = ({
+  timers,
   boardConfig,
-  onSystemPeripheralAdd,
-  onSystemPeripheralRemove,
-  onSystemPeripheralSettingsUpdate,
-  getSystemPeripherals,
+  onTimerAdd,
+  onTimerRemove,
+  onTimerSettingsUpdate,
+  getAvailableTimers,
 }) => {
-  const [selectedSystemPeripheral, setSelectedSystemPeripheral] = useState<
-    string | null
-  >(null);
+  const [selectedTimer, setSelectedTimer] = useState<string | null>(null);
   const [localSettings, setLocalSettings] = useState<Record<string, unknown>>(
     {}
   );
 
-  // Функция для получения дефолтных настроек системной периферии
-  const getDefaultSystemPeripheralSettings = (
-    functionType: string
-  ): Record<string, unknown> => {
-    // Возвращаем пустые настройки - значения должны быть выбраны пользователем
-    return {};
+  // Функция для получения дефолтных настроек таймера (без mode и prescaler)
+  const getDefaultTimerSettings = (): Record<string, unknown> => {
+    // Возвращаем пустые настройки - mode и prescaler должны быть выбраны пользователем
+    return {
+      enableInterrupt: false,
+    };
   };
 
-  const availablePeripherals = getSystemPeripherals();
-  const selectedPeripheral = selectedSystemPeripheral
-    ? systemPeripherals[selectedSystemPeripheral]
-    : null;
+  const availableTimers = getAvailableTimers();
+  const selectedTimerData = selectedTimer ? timers[selectedTimer] : null;
 
-  // Синхронизируем локальные настройки только при изменении выбранной периферии
-  const currentPeripheralSettings = selectedPeripheral?.settings;
+  // Синхронизируем локальные настройки только при изменении выбранного таймера
+  // Используем selectedTimerData для получения актуальных настроек
+  const currentTimerSettings = selectedTimerData?.settings;
 
   // Автоматически выбираем первый элемент при открытии таба
   useEffect(() => {
-    // Если уже есть выбранная периферия, ничего не делаем
-    if (selectedSystemPeripheral) return;
+    // Если уже есть выбранный таймер, ничего не делаем
+    if (selectedTimer) return;
 
-    // Если нет доступных периферий, ничего не делаем
-    if (availablePeripherals.length === 0) return;
+    // Если нет доступных таймеров, ничего не делаем
+    if (availableTimers.length === 0) return;
 
-    // Сначала ищем периферию с примененными настройками
-    const peripheralWithSettings = availablePeripherals.find(
-      (peripheralType) =>
-        systemPeripherals[peripheralType]?.settings &&
-        Object.keys(systemPeripherals[peripheralType].settings).length > 0
+    // Сначала ищем таймер с примененными настройками
+    const timerWithSettings = availableTimers.find(
+      (timerName) =>
+        timers[timerName]?.settings &&
+        Object.keys(timers[timerName].settings).length > 0
     );
 
-    // Выбираем периферию с настройками или первую доступную
-    const peripheralToSelect =
-      peripheralWithSettings || availablePeripherals[0];
-    setSelectedSystemPeripheral(peripheralToSelect);
-  }, [availablePeripherals, systemPeripherals, selectedSystemPeripheral]);
+    // Выбираем таймер с настройками или первый доступный
+    const timerToSelect = timerWithSettings || availableTimers[0];
+    setSelectedTimer(timerToSelect);
+  }, [availableTimers, timers, selectedTimer]);
 
   useEffect(() => {
-    if (selectedSystemPeripheral) {
-      if (currentPeripheralSettings) {
+    if (selectedTimer) {
+      if (currentTimerSettings) {
         // Загружаем существующие настройки в локальное состояние
-        setLocalSettings({ ...currentPeripheralSettings });
+        setLocalSettings({ ...currentTimerSettings });
       } else {
-        // Если периферия еще не добавлена, используем дефолтные настройки
-        setLocalSettings(
-          getDefaultSystemPeripheralSettings(selectedSystemPeripheral)
-        );
+        // Если таймер еще не добавлен, используем дефолтные настройки
+        setLocalSettings(getDefaultTimerSettings());
       }
     } else {
       setLocalSettings({});
     }
-  }, [selectedSystemPeripheral, currentPeripheralSettings]);
+  }, [selectedTimer, currentTimerSettings]);
 
-  const handlePeripheralClick = (peripheralType: string) => {
-    if (selectedSystemPeripheral === peripheralType) {
+  const handleTimerClick = (timerName: string) => {
+    if (selectedTimer === timerName) {
       return;
     }
-    setSelectedSystemPeripheral(peripheralType);
+    setSelectedTimer(timerName);
   };
 
   const handleApplySettings = () => {
-    if (!selectedSystemPeripheral) return;
+    if (!selectedTimer) return;
 
     // Очищаем настройки от пустых значений
     const cleanedSettings = { ...localSettings };
@@ -117,27 +108,22 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
       }
     });
 
-    // Если периферия еще не добавлена, добавляем её с настройками
-    if (!selectedPeripheral) {
-      onSystemPeripheralAdd(selectedSystemPeripheral, cleanedSettings);
+    // Если таймер еще не добавлен, добавляем его с настройками
+    if (!selectedTimerData) {
+      onTimerAdd(selectedTimer, cleanedSettings);
     } else {
-      // Если периферия уже существует, обновляем её настройки
-      onSystemPeripheralSettingsUpdate(
-        selectedSystemPeripheral,
-        cleanedSettings
-      );
+      // Если таймер уже существует, обновляем его настройки
+      onTimerSettingsUpdate(selectedTimer, cleanedSettings);
     }
   };
 
   const handleClearSettings = () => {
-    if (!selectedSystemPeripheral) return;
+    if (!selectedTimer) return;
 
-    // Удаляем периферию
-    onSystemPeripheralRemove(selectedSystemPeripheral);
+    // Удаляем таймер
+    onTimerRemove(selectedTimer);
     // Сбрасываем локальные настройки
-    setLocalSettings(
-      getDefaultSystemPeripheralSettings(selectedSystemPeripheral)
-    );
+    setLocalSettings(getDefaultTimerSettings());
   };
 
   // Проверяем, есть ли валидные настройки
@@ -157,7 +143,7 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
 
   return (
     <Box sx={{ display: "flex", height: "100%", flex: 1 }}>
-      {/* Панель со списком периферий */}
+      {/* Панель со списком таймеров */}
       <Paper
         sx={{
           width: "20%",
@@ -176,18 +162,17 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
           }}
         >
           <Box>
-            {availablePeripherals.map((peripheralType) => {
-              const isActive = selectedSystemPeripheral === peripheralType;
+            {availableTimers.map((timerName) => {
+              const isActive = selectedTimer === timerName;
               const hasSettings =
-                !!systemPeripherals[peripheralType]?.settings &&
-                Object.keys(systemPeripherals[peripheralType].settings).length >
-                  0;
+                !!timers[timerName]?.settings &&
+                Object.keys(timers[timerName].settings).length > 0;
 
               return (
-                <React.Fragment key={peripheralType}>
+                <React.Fragment key={timerName}>
                   <ListItem disablePadding>
                     <ListItemButton
-                      onClick={() => handlePeripheralClick(peripheralType)}
+                      onClick={() => handleTimerClick(timerName)}
                       selected={isActive}
                       sx={{
                         "&.Mui-selected": {
@@ -198,7 +183,7 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
                         },
                       }}
                     >
-                      <ListItemText primary={peripheralType} />
+                      <ListItemText primary={timerName} />
                       {hasSettings && (
                         <CheckCircleIcon
                           sx={{
@@ -217,7 +202,7 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
         </Box>
       </Paper>
 
-      {/* Панель с настройками периферии */}
+      {/* Панель с настройками таймера */}
       <Paper
         sx={{
           flex: 1,
@@ -231,14 +216,14 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
         <>
           <Box sx={{ mb: 1, p: 1, borderBottom: 1, borderColor: "divider" }}>
             <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-              {selectedSystemPeripheral}
+              {selectedTimer}
             </Typography>
           </Box>
           <Box sx={{ overflow: "auto", flex: 1, p: 1 }}>
             <RenderSettings
               func={{
-                type:
-                  selectedPeripheral?.functionType || selectedSystemPeripheral,
+                type: `${selectedTimer}_PWM`, // Используем формат TIMER0_PWM для совместимости с RenderSettings
+                modes: boardConfig?.peripherals[selectedTimer]?.modes || [],
               }}
               settings={localSettings}
               onSettingChange={(key: string, value: unknown) => {
@@ -270,9 +255,9 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
               gap: 1,
             }}
           >
-            {selectedPeripheral &&
-              selectedPeripheral.settings &&
-              Object.keys(selectedPeripheral.settings).length > 0 && (
+            {selectedTimerData &&
+              selectedTimerData.settings &&
+              Object.keys(selectedTimerData.settings).length > 0 && (
                 <Button variant="outlined" onClick={handleClearSettings}>
                   Очистить
                 </Button>

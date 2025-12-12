@@ -97,6 +97,31 @@ export class CodeGenerator {
         isrFunctions.push(timer2ISR);
       }
     }
+    // Обрабатываем независимые таймеры (не привязанные к пинам)
+    if (functionsByType.TIMER0 && functionsByType.TIMER0.length > 0) {
+      const timer0Func = functionsByType.TIMER0[0];
+      initFunctions.push(this.generateTimer0Init(timer0Func));
+      const timer0ISR = this.generateTimer0ISR(timer0Func);
+      if (timer0ISR) {
+        isrFunctions.push(timer0ISR);
+      }
+    }
+    if (functionsByType.TIMER1 && functionsByType.TIMER1.length > 0) {
+      const timer1Func = functionsByType.TIMER1[0];
+      initFunctions.push(this.generateTimer1Init(timer1Func));
+      const timer1ISR = this.generateTimer1ISR(timer1Func);
+      if (timer1ISR) {
+        isrFunctions.push(timer1ISR);
+      }
+    }
+    if (functionsByType.TIMER2 && functionsByType.TIMER2.length > 0) {
+      const timer2Func = functionsByType.TIMER2[0];
+      initFunctions.push(this.generateTimer2Init(timer2Func));
+      const timer2ISR = this.generateTimer2ISR(timer2Func);
+      if (timer2ISR) {
+        isrFunctions.push(timer2ISR);
+      }
+    }
     if (functionsByType.ADC && functionsByType.ADC.length > 0) {
       initFunctions.push(this.generateADCInit(functionsByType.ADC[0]));
       if (functionsByType.ADC[0].settings.mode === "FreeRunning") {
@@ -193,6 +218,20 @@ ${isrFunctions.join("\n\n")}
     }
     if (functionsByType.TIMER2_PWM && functionsByType.TIMER2_PWM.length > 0) {
       functionDeclarations.push("void timer2_pwm_init(void);");
+    }
+    if (functionsByType.TIMER0 && functionsByType.TIMER0.length > 0) {
+      functionDeclarations.push("void timer0_init(void);");
+    }
+    if (functionsByType.TIMER1 && functionsByType.TIMER1.length > 0) {
+      const timer1Func = functionsByType.TIMER1[0];
+      if (timer1Func.settings?.mode === "InputCapture") {
+        functionDeclarations.push("void timer1_icp_init(void);");
+      } else {
+        functionDeclarations.push("void timer1_init(void);");
+      }
+    }
+    if (functionsByType.TIMER2 && functionsByType.TIMER2.length > 0) {
+      functionDeclarations.push("void timer2_init(void);");
     }
     if (functionsByType.ADC && functionsByType.ADC.length > 0) {
       functionDeclarations.push("void adc_init(void);");
@@ -293,6 +332,31 @@ ${functionDeclarations.join("\n")}
     if (functionsByType.TIMER2_PWM && functionsByType.TIMER2_PWM.length > 0) {
       const timer2Func = functionsByType.TIMER2_PWM[0];
       initFunctions.push(this.generateTimer2PWMInit(timer2Func));
+      const timer2ISR = this.generateTimer2ISR(timer2Func);
+      if (timer2ISR) {
+        isrFunctions.push(timer2ISR);
+      }
+    }
+    // Обрабатываем независимые таймеры (не привязанные к пинам)
+    if (functionsByType.TIMER0 && functionsByType.TIMER0.length > 0) {
+      const timer0Func = functionsByType.TIMER0[0];
+      initFunctions.push(this.generateTimer0Init(timer0Func));
+      const timer0ISR = this.generateTimer0ISR(timer0Func);
+      if (timer0ISR) {
+        isrFunctions.push(timer0ISR);
+      }
+    }
+    if (functionsByType.TIMER1 && functionsByType.TIMER1.length > 0) {
+      const timer1Func = functionsByType.TIMER1[0];
+      initFunctions.push(this.generateTimer1Init(timer1Func));
+      const timer1ISR = this.generateTimer1ISR(timer1Func);
+      if (timer1ISR) {
+        isrFunctions.push(timer1ISR);
+      }
+    }
+    if (functionsByType.TIMER2 && functionsByType.TIMER2.length > 0) {
+      const timer2Func = functionsByType.TIMER2[0];
+      initFunctions.push(this.generateTimer2Init(timer2Func));
       const timer2ISR = this.generateTimer2ISR(timer2Func);
       if (timer2ISR) {
         isrFunctions.push(timer2ISR);
@@ -969,8 +1033,16 @@ ${functionCalls.join("\n")}
       code.push(`    TCCR0A = (1 << WGM01); // CTC mode`);
       code.push(`    TCCR0B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
       code.push(`    OCR0A = ${topValue}; // TOP value`);
-      if (enableInterrupt) {
-        code.push(`    TIMSK0 |= (1 << OCIE0A); // Enable compare match interrupt`);
+      const enableCOMPAInterrupt = func.settings.enableCOMPAInterrupt || enableInterrupt;
+      const enableCOMPBInterrupt = func.settings.enableCOMPBInterrupt || false;
+      if (enableCOMPAInterrupt) {
+        code.push(`    TIMSK0 |= (1 << OCIE0A); // Enable compare match A interrupt`);
+      }
+      if (enableCOMPBInterrupt) {
+        code.push(`    TIMSK0 |= (1 << OCIE0B); // Enable compare match B interrupt`);
+        code.push(`    OCR0B = ${func.settings.ocr0b || 64}; // OCR0B value`);
+      }
+      if (enableCOMPAInterrupt || enableCOMPBInterrupt) {
         code.push(`    sei(); // Enable global interrupts`);
       }
     } else if (mode === "FastPWM") {
@@ -1058,8 +1130,16 @@ ${functionCalls.join("\n")}
       code.push(`    TCCR1B |= (1 << WGM12); // CTC`);
       code.push(`    TCCR1B |= ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
       code.push(`    OCR1A = ${topValue}; // TOP value`);
-      if (enableInterrupt) {
-        code.push(`    TIMSK1 |= (1 << OCIE1A); // Enable compare match interrupt`);
+      const enableCOMPAInterrupt = func.settings.enableCOMPAInterrupt || enableInterrupt;
+      const enableCOMPBInterrupt = func.settings.enableCOMPBInterrupt || false;
+      if (enableCOMPAInterrupt) {
+        code.push(`    TIMSK1 |= (1 << OCIE1A); // Enable compare match A interrupt`);
+      }
+      if (enableCOMPBInterrupt) {
+        code.push(`    TIMSK1 |= (1 << OCIE1B); // Enable compare match B interrupt`);
+        code.push(`    OCR1B = ${func.settings.ocr1b || 32768}; // OCR1B value`);
+      }
+      if (enableCOMPAInterrupt || enableCOMPBInterrupt) {
         code.push(`    sei(); // Enable global interrupts`);
       }
     } else if (mode === "FastPWM") {
@@ -1126,8 +1206,16 @@ ${functionCalls.join("\n")}
       code.push(`    TCCR2A = (1 << WGM21); // CTC mode`);
       code.push(`    TCCR2B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
       code.push(`    OCR2A = ${topValue}; // TOP value`);
-      if (enableInterrupt) {
-        code.push(`    TIMSK2 |= (1 << OCIE2A); // Enable compare match interrupt`);
+      const enableCOMPAInterrupt = func.settings.enableCOMPAInterrupt || enableInterrupt;
+      const enableCOMPBInterrupt = func.settings.enableCOMPBInterrupt || false;
+      if (enableCOMPAInterrupt) {
+        code.push(`    TIMSK2 |= (1 << OCIE2A); // Enable compare match A interrupt`);
+      }
+      if (enableCOMPBInterrupt) {
+        code.push(`    TIMSK2 |= (1 << OCIE2B); // Enable compare match B interrupt`);
+        code.push(`    OCR2B = ${func.settings.ocr2b || 64}; // OCR2B value`);
+      }
+      if (enableCOMPAInterrupt || enableCOMPBInterrupt) {
         code.push(`    sei(); // Enable global interrupts`);
       }
     } else if (mode === "FastPWM") {
@@ -1161,71 +1249,116 @@ ${functionCalls.join("\n")}
   private generateTimer0ISR(func: SelectedPinFunction): string | null {
     const mode = func.settings.mode || "FastPWM";
     const enableInterrupt = func.settings.enableInterrupt || false;
+    const enableCOMPAInterrupt = func.settings.enableCOMPAInterrupt || false;
+    const enableCOMPBInterrupt = func.settings.enableCOMPBInterrupt || false;
     
-    if (!enableInterrupt) return null;
+    // Для PWM режимов прерывания не используются (только для Normal и CTC)
+    if (mode.includes("PWM")) return null;
     
-    if (mode === "Normal") {
-      return `ISR(TIMER0_OVF_vect) {
+    if (!enableInterrupt && !enableCOMPAInterrupt && !enableCOMPBInterrupt) return null;
+    
+    const isrs: string[] = [];
+    
+    if (mode === "Normal" && enableInterrupt) {
+      isrs.push(`ISR(TIMER0_OVF_vect) {
     // Прерывание по переполнению Timer0
     // TODO: Обработать событие переполнения
-}`;
+}`);
     } else if (mode === "CTC") {
-      return `ISR(TIMER0_COMPA_vect) {
-    // Прерывание по совпадению Timer0 (CTC режим)
+      if (enableCOMPAInterrupt || enableInterrupt) {
+        isrs.push(`ISR(TIMER0_COMPA_vect) {
+    // Прерывание по совпадению Timer0 (CTC режим) - OCR0A
     // TODO: Обработать событие совпадения с OCR0A
-}`;
+}`);
+      }
+      if (enableCOMPBInterrupt) {
+        isrs.push(`ISR(TIMER0_COMPB_vect) {
+    // Прерывание по совпадению Timer0 (CTC режим) - OCR0B
+    // TODO: Обработать событие совпадения с OCR0B
+}`);
+      }
     }
     
-    return null;
+    return isrs.length > 0 ? isrs.join("\n\n") : null;
   }
 
   private generateTimer1ISR(func: SelectedPinFunction): string | null {
     const mode = func.settings.mode || "FastPWM";
     const enableInterrupt = func.settings.enableInterrupt || false;
+    const enableCOMPAInterrupt = func.settings.enableCOMPAInterrupt || false;
+    const enableCOMPBInterrupt = func.settings.enableCOMPBInterrupt || false;
     
-    if (!enableInterrupt && mode !== "InputCapture") return null;
+    // Для PWM режимов прерывания не используются (только для Normal, CTC и InputCapture)
+    if (mode.includes("PWM")) return null;
     
-    if (mode === "Normal") {
-      return `ISR(TIMER1_OVF_vect) {
+    if (!enableInterrupt && !enableCOMPAInterrupt && !enableCOMPBInterrupt && mode !== "InputCapture") return null;
+    
+    const isrs: string[] = [];
+    
+    if (mode === "Normal" && enableInterrupt) {
+      isrs.push(`ISR(TIMER1_OVF_vect) {
     // Прерывание по переполнению Timer1
     // TODO: Обработать событие переполнения
-}`;
+}`);
     } else if (mode === "CTC") {
-      return `ISR(TIMER1_COMPA_vect) {
-    // Прерывание по совпадению Timer1 (CTC режим)
+      if (enableCOMPAInterrupt || enableInterrupt) {
+        isrs.push(`ISR(TIMER1_COMPA_vect) {
+    // Прерывание по совпадению Timer1 (CTC режим) - OCR1A
     // TODO: Обработать событие совпадения с OCR1A
-}`;
-    } else if (mode === "InputCapture") {
-      return `ISR(TIMER1_CAPT_vect) {
+}`);
+      }
+      if (enableCOMPBInterrupt) {
+        isrs.push(`ISR(TIMER1_COMPB_vect) {
+    // Прерывание по совпадению Timer1 (CTC режим) - OCR1B
+    // TODO: Обработать событие совпадения с OCR1B
+}`);
+      }
+    } else if (mode === "InputCapture" && enableInterrupt) {
+      isrs.push(`ISR(TIMER1_CAPT_vect) {
     // Прерывание Input Capture Timer1
     uint16_t capture = ICR1; // Считать значение захваченного таймера
     // TODO: Обработать захваченное значение
     // Например, измерить длительность импульса
-}`;
+}`);
     }
     
-    return null;
+    return isrs.length > 0 ? isrs.join("\n\n") : null;
   }
 
   private generateTimer2ISR(func: SelectedPinFunction): string | null {
     const mode = func.settings.mode || "FastPWM";
     const enableInterrupt = func.settings.enableInterrupt || false;
+    const enableCOMPAInterrupt = func.settings.enableCOMPAInterrupt || false;
+    const enableCOMPBInterrupt = func.settings.enableCOMPBInterrupt || false;
     
-    if (!enableInterrupt) return null;
+    // Для PWM режимов прерывания не используются (только для Normal и CTC)
+    if (mode.includes("PWM")) return null;
     
-    if (mode === "Normal") {
-      return `ISR(TIMER2_OVF_vect) {
+    if (!enableInterrupt && !enableCOMPAInterrupt && !enableCOMPBInterrupt) return null;
+    
+    const isrs: string[] = [];
+    
+    if (mode === "Normal" && enableInterrupt) {
+      isrs.push(`ISR(TIMER2_OVF_vect) {
     // Прерывание по переполнению Timer2
     // TODO: Обработать событие переполнения
-}`;
+}`);
     } else if (mode === "CTC") {
-      return `ISR(TIMER2_COMPA_vect) {
-    // Прерывание по совпадению Timer2 (CTC режим)
+      if (enableCOMPAInterrupt || enableInterrupt) {
+        isrs.push(`ISR(TIMER2_COMPA_vect) {
+    // Прерывание по совпадению Timer2 (CTC режим) - OCR2A
     // TODO: Обработать событие совпадения с OCR2A
-}`;
+}`);
+      }
+      if (enableCOMPBInterrupt) {
+        isrs.push(`ISR(TIMER2_COMPB_vect) {
+    // Прерывание по совпадению Timer2 (CTC режим) - OCR2B
+    // TODO: Обработать событие совпадения с OCR2B
+}`);
+      }
     }
     
-    return null;
+    return isrs.length > 0 ? isrs.join("\n\n") : null;
   }
 
   private generateADCInit(func: SelectedPinFunction): string {
@@ -1411,6 +1544,166 @@ ${functionCalls.join("\n")}
       return port.substring(1);
     }
     return port;
+  }
+
+  // Методы для независимых таймеров (не привязанных к пинам)
+  private generateTimer0Init(func: SelectedPinFunction): string {
+    const mode = func.settings.mode || "Normal";
+    const prescaler = func.settings.prescaler || 64;
+    const topValue = func.settings.topValue || 128;
+    const enableInterrupt = func.settings.enableInterrupt || false;
+    const enableCOMPAInterrupt = func.settings.enableCOMPAInterrupt || false;
+    const enableCOMPBInterrupt = func.settings.enableCOMPBInterrupt || false;
+
+    const prescalerMap: Record<number, string> = {
+      1: "(1 << CS00)",
+      8: "(1 << CS01)",
+      64: "(1 << CS01) | (1 << CS00)",
+      256: "(1 << CS02)",
+      1024: "(1 << CS02) | (1 << CS00)",
+    };
+
+    const code: string[] = ["void timer0_init() {"];
+
+    if (mode === "Normal") {
+      code.push(`    TCCR0A = 0; // Normal mode`);
+      code.push(`    TCCR0B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      if (enableInterrupt) {
+        code.push(`    TIMSK0 |= (1 << TOIE0); // Enable overflow interrupt`);
+      }
+    } else if (mode === "CTC") {
+      code.push(`    TCCR0A = (1 << WGM01); // CTC mode`);
+      code.push(`    TCCR0B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      code.push(`    OCR0A = ${topValue}; // TOP value`);
+      if (enableCOMPAInterrupt) {
+        code.push(`    TIMSK0 |= (1 << OCIE0A); // Enable compare match A interrupt`);
+      }
+      if (enableCOMPBInterrupt) {
+        code.push(`    TIMSK0 |= (1 << OCIE0B); // Enable compare match B interrupt`);
+        code.push(`    OCR0B = ${func.settings.ocr0b || 64}; // OCR0B value`);
+      }
+    }
+    
+    if (enableInterrupt || enableCOMPAInterrupt || enableCOMPBInterrupt) {
+      code.push(`    sei(); // Enable global interrupts`);
+    }
+    
+    code.push("}");
+    return code.join("\n");
+  }
+
+  private generateTimer1Init(func: SelectedPinFunction): string {
+    const mode = func.settings.mode || "Normal";
+    const prescaler = func.settings.prescaler || 8;
+    const topValue = func.settings.topValue || 65535;
+    const enableInterrupt = func.settings.enableInterrupt || false;
+    const enableCOMPAInterrupt = func.settings.enableCOMPAInterrupt || false;
+    const enableCOMPBInterrupt = func.settings.enableCOMPBInterrupt || false;
+    const trigger = func.settings.trigger || "RISING";
+    const noiseCanceler = func.settings.noiseCanceler || false;
+
+    const prescalerMap: Record<number, string> = {
+      1: "(1 << CS10)",
+      8: "(1 << CS11)",
+      64: "(1 << CS11) | (1 << CS10)",
+      256: "(1 << CS12)",
+      1024: "(1 << CS12) | (1 << CS10)",
+    };
+
+    if (mode === "InputCapture") {
+      const code: string[] = ["void timer1_icp_init() {"];
+      if (trigger === "RISING") {
+        code.push(`    TCCR1B |= (1 << ICES1); // Capture на RISING edge`);
+      } else {
+        code.push(`    // Capture на FALLING edge (ICES1 не установлен)`);
+      }
+      code.push(`    TCCR1B |= ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      if (noiseCanceler) {
+        code.push(`    TCCR1B |= (1 << ICNC1); // Noise Canceler`);
+      }
+      if (enableInterrupt) {
+        code.push(`    TIMSK1 |= (1 << ICIE1); // Enable Input Capture Interrupt`);
+        code.push(`    sei(); // Enable global interrupts`);
+      }
+      code.push("}");
+      return code.join("\n");
+    }
+
+    const code: string[] = ["void timer1_init() {"];
+
+    if (mode === "Normal") {
+      code.push(`    TCCR1A = 0; // Normal mode`);
+      code.push(`    TCCR1B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      if (enableInterrupt) {
+        code.push(`    TIMSK1 |= (1 << TOIE1); // Enable overflow interrupt`);
+      }
+    } else if (mode === "CTC") {
+      code.push(`    TCCR1A = 0; // CTC mode`);
+      code.push(`    TCCR1B |= (1 << WGM12); // CTC`);
+      code.push(`    TCCR1B |= ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      code.push(`    OCR1A = ${topValue}; // TOP value`);
+      if (enableCOMPAInterrupt) {
+        code.push(`    TIMSK1 |= (1 << OCIE1A); // Enable compare match A interrupt`);
+      }
+      if (enableCOMPBInterrupt) {
+        code.push(`    TIMSK1 |= (1 << OCIE1B); // Enable compare match B interrupt`);
+        code.push(`    OCR1B = ${func.settings.ocr1b || 32768}; // OCR1B value`);
+      }
+    }
+    
+    if (enableInterrupt || enableCOMPAInterrupt || enableCOMPBInterrupt) {
+      code.push(`    sei(); // Enable global interrupts`);
+    }
+    
+    code.push("}");
+    return code.join("\n");
+  }
+
+  private generateTimer2Init(func: SelectedPinFunction): string {
+    const mode = func.settings.mode || "Normal";
+    const prescaler = func.settings.prescaler || 64;
+    const topValue = func.settings.topValue || 128;
+    const enableInterrupt = func.settings.enableInterrupt || false;
+    const enableCOMPAInterrupt = func.settings.enableCOMPAInterrupt || false;
+    const enableCOMPBInterrupt = func.settings.enableCOMPBInterrupt || false;
+
+    const prescalerMap: Record<number, string> = {
+      1: "(1 << CS20)",
+      8: "(1 << CS21)",
+      32: "(1 << CS21) | (1 << CS20)",
+      64: "(1 << CS22)",
+      128: "(1 << CS22) | (1 << CS20)",
+      256: "(1 << CS22) | (1 << CS21)",
+      1024: "(1 << CS22) | (1 << CS21) | (1 << CS20)",
+    };
+
+    const code: string[] = ["void timer2_init() {"];
+
+    if (mode === "Normal") {
+      code.push(`    TCCR2A = 0; // Normal mode`);
+      code.push(`    TCCR2B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      if (enableInterrupt) {
+        code.push(`    TIMSK2 |= (1 << TOIE2); // Enable overflow interrupt`);
+      }
+    } else if (mode === "CTC") {
+      code.push(`    TCCR2A = (1 << WGM21); // CTC mode`);
+      code.push(`    TCCR2B = ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+      code.push(`    OCR2A = ${topValue}; // TOP value`);
+      if (enableCOMPAInterrupt) {
+        code.push(`    TIMSK2 |= (1 << OCIE2A); // Enable compare match A interrupt`);
+      }
+      if (enableCOMPBInterrupt) {
+        code.push(`    TIMSK2 |= (1 << OCIE2B); // Enable compare match B interrupt`);
+        code.push(`    OCR2B = ${func.settings.ocr2b || 64}; // OCR2B value`);
+      }
+    }
+    
+    if (enableInterrupt || enableCOMPAInterrupt || enableCOMPBInterrupt) {
+      code.push(`    sei(); // Enable global interrupts`);
+    }
+    
+    code.push("}");
+    return code.join("\n");
   }
 }
 

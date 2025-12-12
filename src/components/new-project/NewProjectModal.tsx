@@ -61,6 +61,10 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   const [systemPeripherals, setSystemPeripherals] = useState<
     Record<string, SelectedPinFunction>
   >({});
+  // Храним независимые таймеры (не привязанные к пинам) - ключ: timerName (TIMER0, TIMER1, TIMER2), значение: SelectedPinFunction
+  const [timers, setTimers] = useState<
+    Record<string, SelectedPinFunction>
+  >({});
   const [conflicts, setConflicts] = useState<string[]>([]);
   const { showError, showWarning } = useSnackbar();
 
@@ -86,8 +90,22 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       });
     });
     
-    // Системные периферии - те, что в конфигурации, но не на пинах
-    return peripheralsInConfig.filter((peripheral) => !peripheralsOnPins.has(peripheral));
+    // Системные периферии - те, что в конфигурации, но не на пинах и не таймеры
+    return peripheralsInConfig.filter((peripheral) => 
+      !peripheralsOnPins.has(peripheral) && 
+      !peripheral.startsWith("TIMER")
+    );
+  };
+
+  // Функция для получения доступных таймеров (TIMER0, TIMER1, TIMER2)
+  const getAvailableTimers = (): string[] => {
+    if (!currentBoardConfig) return [];
+    
+    const timerNames = ["TIMER0", "TIMER1", "TIMER2"];
+    return timerNames.filter((timerName) => {
+      // Проверяем, есть ли таймер в конфигурации
+      return currentBoardConfig.peripherals[timerName] !== undefined;
+    });
   };
 
   // Вспомогательная функция для получения пинов периферии из массива pins
@@ -192,10 +210,16 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
         ...peripheral,
         pinName: "SYSTEM", // Виртуальный pinName для системных периферий
       }));
+      // Добавляем независимые таймеры (используем виртуальный pinName "TIMER")
+      const timersArray = Object.entries(timers).map(([timerName, timer]) => ({
+        ...timer,
+        pinName: "TIMER", // Виртуальный pinName для независимых таймеров
+        functionType: timerName, // Используем имя таймера как functionType
+      }));
       const pinConfig = {
         boardId: selectedBoard,
         fCpu: selectedFrequency,
-        selectedPins: [...allSelectedPins, ...systemPeripheralsArray],
+        selectedPins: [...allSelectedPins, ...systemPeripheralsArray, ...timersArray],
       };
 
       const project = await window.electronAPI.createNewProject(
@@ -755,6 +779,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
           <SelectedPinsPanel
             selectedPinFunctions={selectedPinFunctions}
             systemPeripherals={systemPeripherals}
+            timers={timers}
             conflicts={conflicts}
             boardConfig={currentBoardConfig}
             onRemoveFunction={handleFunctionRemove}
@@ -785,7 +810,34 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
                 },
               }));
             }}
+            onTimerAdd={(timerName: string, settings: Record<string, unknown>) => {
+              setTimers((prev) => ({
+                ...prev,
+                [timerName]: {
+                  pinName: "", // Пустой pinName для независимых таймеров
+                  functionType: timerName,
+                  settings,
+                },
+              }));
+            }}
+            onTimerRemove={(timerName: string) => {
+              setTimers((prev) => {
+                const newState = { ...prev };
+                delete newState[timerName];
+                return newState;
+              });
+            }}
+            onTimerSettingsUpdate={(timerName: string, settings: Record<string, unknown>) => {
+              setTimers((prev) => ({
+                ...prev,
+                [timerName]: {
+                  ...prev[timerName],
+                  settings,
+                },
+              }));
+            }}
             getSystemPeripherals={getSystemPeripherals}
+            getAvailableTimers={getAvailableTimers}
             selectedPin={selectedPin}
             selectedFunctionType={selectedFunctionType}
           />

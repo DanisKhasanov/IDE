@@ -476,7 +476,7 @@ const Toolbar = ({
         }}
       >
         {/* Выбор COM-порта */}
-        <FormControl size="small" sx={{ minWidth: 150 }}>
+        <FormControl size="small" sx={{ minWidth: 170 }}>
           <InputLabel id="port-select-label">COM-порт</InputLabel>
           <Select
             labelId="port-select-label"

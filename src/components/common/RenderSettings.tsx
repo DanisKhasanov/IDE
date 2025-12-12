@@ -35,12 +35,14 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
   switch (func.type) {
     case "GPIO": {
       // Проверяем, поддерживает ли пин PCINT
-      const currentPin = pinName 
+      const currentPin = pinName
         ? boardConfig?.pins.find((p) => p.pin === pinName)
         : null;
-      const supportsPCINT = currentPin?.functions.some((f) => f.type === "PCINT") || false;
-      const isInputMode = settings.mode === "INPUT" || settings.mode === "INPUT_PULLUP";
-      
+      const supportsPCINT =
+        currentPin?.functions.some((f) => f.type === "PCINT") || false;
+      const isInputMode =
+        settings.mode === "INPUT" || settings.mode === "INPUT_PULLUP";
+
       return (
         <Box>
           <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
@@ -67,7 +69,9 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                   <Select
                     value={settings.initialState || "LOW"}
                     label="Начальное состояние"
-                    onChange={(e) => handleSettingChange("initialState", e.target.value)}
+                    onChange={(e) =>
+                      handleSettingChange("initialState", e.target.value)
+                    }
                   >
                     <MenuItem value="LOW">LOW (0В)</MenuItem>
                     <MenuItem value="HIGH">HIGH (5В)</MenuItem>
@@ -89,7 +93,8 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                 }
                 label={
                   <Typography variant="body2">
-                    Включить PCINT (Pin Change Interrupt) - прерывание при изменении состояния пина
+                    Включить PCINT (Pin Change Interrupt) - прерывание при
+                    изменении состояния пина
                   </Typography>
                 }
               />
@@ -104,7 +109,8 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
         <>
           <Alert severity="info" sx={{ mt: 1, mb: 1 }}>
             <Typography variant="body2">
-              Настройки UART применяются к обоим пинам (RX и TX), так как они используют один модуль UART0.
+              Настройки UART применяются к обоим пинам (RX и TX), так как они
+              используют один модуль UART0.
             </Typography>
           </Alert>
           <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
@@ -112,7 +118,11 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
               <FormControl fullWidth size="small" sx={{ mt: 1 }}>
                 <InputLabel>Скорость (baud)</InputLabel>
                 <Select
-                  value={settings.baud || boardConfig?.peripherals.UART?.baudRates?.[0] || 9600}
+                  value={
+                    settings.baud ||
+                    boardConfig?.peripherals.UART?.baudRates?.[0] ||
+                    9600
+                  }
                   label="Скорость (baud)"
                   onChange={(e) => handleSettingChange("baud", e.target.value)}
                 >
@@ -130,7 +140,9 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                 <Select
                   value={settings.dataBits || 8}
                   label="Биты данных"
-                  onChange={(e) => handleSettingChange("dataBits", e.target.value)}
+                  onChange={(e) =>
+                    handleSettingChange("dataBits", e.target.value)
+                  }
                 >
                   {boardConfig?.peripherals.UART?.dataBits?.map((bits) => (
                     <MenuItem key={bits} value={bits}>
@@ -146,7 +158,9 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                 <Select
                   value={settings.stopBits || 1}
                   label="Стоп-биты"
-                  onChange={(e) => handleSettingChange("stopBits", e.target.value)}
+                  onChange={(e) =>
+                    handleSettingChange("stopBits", e.target.value)
+                  }
                 >
                   {boardConfig?.peripherals.UART?.stopBits?.map((bits) => (
                     <MenuItem key={bits} value={bits}>
@@ -162,7 +176,9 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                 <Select
                   value={settings.parity || "None"}
                   label="Паритет"
-                  onChange={(e) => handleSettingChange("parity", e.target.value)}
+                  onChange={(e) =>
+                    handleSettingChange("parity", e.target.value)
+                  }
                 >
                   {boardConfig?.peripherals.UART?.parity?.map((parity) => (
                     <MenuItem key={parity} value={parity}>
@@ -195,7 +211,10 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
           </Box>
           {boardConfig?.peripherals.UART?.interrupts && (
             <>
-              <Typography variant="body2" sx={{ mt: 2, mb: 1, fontWeight: "bold" }}>
+              <Typography
+                variant="body2"
+                sx={{ mt: 2, mb: 1, fontWeight: "bold" }}
+              >
                 Прерывания:
               </Typography>
               <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -204,7 +223,10 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                     <Checkbox
                       checked={settings.enableRXInterrupt || false}
                       onChange={(e) =>
-                        handleSettingChange("enableRXInterrupt", e.target.checked)
+                        handleSettingChange(
+                          "enableRXInterrupt",
+                          e.target.checked
+                        )
                       }
                     />
                   }
@@ -219,7 +241,10 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                     <Checkbox
                       checked={settings.enableTXInterrupt || false}
                       onChange={(e) =>
-                        handleSettingChange("enableTXInterrupt", e.target.checked)
+                        handleSettingChange(
+                          "enableTXInterrupt",
+                          e.target.checked
+                        )
                       }
                     />
                   }
@@ -234,13 +259,17 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                     <Checkbox
                       checked={settings.enableUDREInterrupt || false}
                       onChange={(e) =>
-                        handleSettingChange("enableUDREInterrupt", e.target.checked)
+                        handleSettingChange(
+                          "enableUDREInterrupt",
+                          e.target.checked
+                        )
                       }
                     />
                   }
                   label={
                     <Typography variant="body2">
-                      UDRE (USART_UDRE_vect) - Прерывание при пустом регистре данных
+                      UDRE (USART_UDRE_vect) - Прерывание при пустом регистре
+                      данных
                     </Typography>
                   }
                 />
@@ -371,7 +400,9 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                   <Select
                     value={settings.speed || 100000}
                     label="Скорость (Hz)"
-                    onChange={(e) => handleSettingChange("speed", e.target.value)}
+                    onChange={(e) =>
+                      handleSettingChange("speed", e.target.value)
+                    }
                   >
                     {boardConfig?.peripherals.I2C?.speeds?.map((speed) => (
                       <MenuItem key={speed} value={speed}>
@@ -395,15 +426,19 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                     value={settings.slaveAddress || 8}
                     onChange={(e) => {
                       const addr = parseInt(e.target.value);
-                      const [min, max] =
-                        boardConfig?.peripherals.I2C?.slaveAddressRange || [8, 119];
+                      const [min, max] = boardConfig?.peripherals.I2C
+                        ?.slaveAddressRange || [8, 119];
                       if (addr >= min && addr <= max) {
                         handleSettingChange("slaveAddress", addr);
                       }
                     }}
                     inputProps={{
-                      min: boardConfig?.peripherals.I2C?.slaveAddressRange?.[0] || 8,
-                      max: boardConfig?.peripherals.I2C?.slaveAddressRange?.[1] || 119,
+                      min:
+                        boardConfig?.peripherals.I2C?.slaveAddressRange?.[0] ||
+                        8,
+                      max:
+                        boardConfig?.peripherals.I2C?.slaveAddressRange?.[1] ||
+                        119,
                     }}
                     sx={{ mt: 1 }}
                     helperText={`Диапазон: ${boardConfig?.peripherals.I2C?.slaveAddressRange?.[0]}-${boardConfig?.peripherals.I2C?.slaveAddressRange?.[1]}`}
@@ -460,55 +495,61 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
     case "TIMER1_PWM":
     case "TIMER2_PWM": {
       const timerName = func.type.replace("_PWM", "");
-      const timerPeripheral = boardConfig?.peripherals[
-        timerName as keyof typeof boardConfig.peripherals
-      ];
+      const timerPeripheral =
+        boardConfig?.peripherals[
+          timerName as keyof typeof boardConfig.peripherals
+        ];
       const modes = timerPeripheral?.modes || [];
-      const selectedMode = settings.mode || "FastPWM";
-      const isPWM = selectedMode.includes("PWM");
+      const selectedMode = settings.mode || "";
+      const isPWM = selectedMode && selectedMode.includes("PWM");
       const isCTC = selectedMode === "CTC";
       const isNormal = selectedMode === "Normal";
       const isInputCapture = selectedMode === "InputCapture";
       const isTimer1 = timerName === "TIMER1";
-      
+
       // Определяем максимальное значение для OCR в зависимости от таймера
       const maxOCRValue = timerName === "TIMER1" ? 65535 : 255;
       const defaultDutyCycle = timerName === "TIMER1" ? 32768 : 128;
-      
+
       return (
         <>
-          <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
+          <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
             <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
-              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+              <FormControl fullWidth size="small">
                 <InputLabel>Режим</InputLabel>
                 <Select
                   value={selectedMode}
                   label="Режим"
-                  onChange={(e) =>
-                    handleSettingChange("mode", e.target.value)
-                  }
+                  onChange={(e) => handleSettingChange("mode", e.target.value)}
                 >
                   {modes.map((mode: string) => (
                     <MenuItem key={mode} value={mode}>
-                      {mode === "FastPWM" ? "Fast PWM" :
-                       mode === "PhaseCorrectPWM" ? "Phase Correct PWM" :
-                       mode === "PhaseFrequencyCorrectPWM" ? "Phase and Frequency Correct PWM" :
-                       mode === "InputCapture" ? "Input Capture" :
-                       mode}
+                      {mode === "FastPWM"
+                        ? "Fast PWM"
+                        : mode === "PhaseCorrectPWM"
+                          ? "Phase Correct PWM"
+                          : mode === "PhaseFrequencyCorrectPWM"
+                            ? "Phase and Frequency Correct PWM"
+                            : mode === "InputCapture"
+                              ? "Input Capture"
+                              : mode}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Box>
-            
+
             <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
-              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+              <FormControl fullWidth size="small">
                 <InputLabel>Предделитель</InputLabel>
                 <Select
-                  value={settings.prescaler || 64}
+                  value={settings.prescaler || ""}
                   label="Предделитель"
                   onChange={(e) =>
-                    handleSettingChange("prescaler", e.target.value)
+                    handleSettingChange(
+                      "prescaler",
+                      e.target.value === "" ? undefined : e.target.value
+                    )
                   }
                 >
                   {timerPeripheral?.prescalers?.map((prescaler: number) => (
@@ -519,7 +560,7 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                 </Select>
               </FormControl>
             </Box>
-            
+
             {isPWM && (
               <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
                 <TextField
@@ -537,7 +578,7 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                 />
               </Box>
             )}
-            
+
             {isCTC && (
               <>
                 <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
@@ -559,19 +600,61 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                   <FormControlLabel
                     control={
                       <Checkbox
-                        checked={settings.enableInterrupt || false}
+                        checked={settings.enableCOMPAInterrupt || false}
                         onChange={(e) =>
-                          handleSettingChange("enableInterrupt", e.target.checked)
+                          handleSettingChange(
+                            "enableCOMPAInterrupt",
+                            e.target.checked
+                          )
                         }
                       />
                     }
-                    label="Включить прерывание по совпадению (OCIE)"
-                    sx={{ mt: 1 }}
+                    label="Включить прерывание по совпадению A (OCIE0A/OCIE1A/OCIE2A)"
                   />
                 </Box>
+                <Box sx={{ width: "100%" }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={settings.enableCOMPBInterrupt || false}
+                        onChange={(e) =>
+                          handleSettingChange(
+                            "enableCOMPBInterrupt",
+                            e.target.checked
+                          )
+                        }
+                      />
+                    }
+                    label="Включить прерывание по совпадению B (OCIE0B/OCIE1B/OCIE2B)"
+                  />
+                </Box>
+                {settings.enableCOMPBInterrupt && (
+                  <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label={`OCR${timerName === "TIMER1" ? "1" : timerName === "TIMER2" ? "2" : "0"}B Value`}
+                      value={
+                        settings[
+                          `ocr${timerName === "TIMER1" ? "1" : timerName === "TIMER2" ? "2" : "0"}b`
+                        ] || (timerName === "TIMER1" ? 32768 : 64)
+                      }
+                      onChange={(e) =>
+                        handleSettingChange(
+                          `ocr${timerName === "TIMER1" ? "1" : timerName === "TIMER2" ? "2" : "0"}b`,
+                          parseInt(e.target.value)
+                        )
+                      }
+                      inputProps={{ min: 0, max: maxOCRValue }}
+                      sx={{ mt: 1 }}
+                      helperText={`0-${maxOCRValue}`}
+                    />
+                  </Box>
+                )}
               </>
             )}
-            
+
             {isNormal && (
               <Box sx={{ width: "100%" }}>
                 <FormControlLabel
@@ -584,11 +667,10 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                     />
                   }
                   label="Включить прерывание по переполнению (TOIE)"
-                  sx={{ mt: 1 }}
                 />
               </Box>
             )}
-            
+
             {isInputCapture && isTimer1 && (
               <>
                 <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
@@ -617,7 +699,6 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                       />
                     }
                     label="Подавление шума (ICNC1)"
-                    sx={{ mt: 1 }}
                   />
                 </Box>
                 <Box sx={{ width: "100%" }}>
@@ -626,12 +707,14 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                       <Checkbox
                         checked={settings.enableInterrupt || false}
                         onChange={(e) =>
-                          handleSettingChange("enableInterrupt", e.target.checked)
+                          handleSettingChange(
+                            "enableInterrupt",
+                            e.target.checked
+                          )
                         }
                       />
                     }
                     label="Включить прерывание Input Capture (ICIE1)"
-                    sx={{ mt: 1 }}
                   />
                 </Box>
               </>
@@ -703,15 +786,18 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
 
     case "WATCHDOG":
       return (
-        <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
           <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
-            <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+            <FormControl fullWidth size="small">
               <InputLabel>Таймаут (ms)</InputLabel>
               <Select
-                value={settings.timeout || 2000}
+                value={settings.timeout || ""}
                 label="Таймаут (ms)"
                 onChange={(e) =>
-                  handleSettingChange("timeout", parseInt(e.target.value))
+                  handleSettingChange(
+                    "timeout",
+                    e.target.value === "" ? undefined : parseInt(e.target.value)
+                  )
                 }
               >
                 {boardConfig?.peripherals.WATCHDOG?.timeouts?.map((timeout) => (
@@ -723,12 +809,17 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
             </FormControl>
           </Box>
           <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
-            <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+            <FormControl fullWidth size="small">
               <InputLabel>Режим</InputLabel>
               <Select
-                value={settings.mode || "Reset"}
+                value={settings.mode || ""}
                 label="Режим"
-                onChange={(e) => handleSettingChange("mode", e.target.value)}
+                onChange={(e) =>
+                  handleSettingChange(
+                    "mode",
+                    e.target.value === "" ? undefined : e.target.value
+                  )
+                }
               >
                 <MenuItem value="Reset">Reset</MenuItem>
                 <MenuItem value="Interrupt">Interrupt</MenuItem>
@@ -768,15 +859,17 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                   label="Режим работы"
                   onChange={(e) => handleSettingChange("mode", e.target.value)}
                 >
-                  {boardConfig?.peripherals.ANALOG_COMPARATOR?.modes?.map((mode) => (
-                    <MenuItem key={mode} value={mode}>
-                      {mode === "Interrupt"
-                        ? "Прерывание при изменении результата"
-                        : mode === "Timer1Capture"
-                          ? "Использовать с Timer1 Input Capture"
-                          : mode}
-                    </MenuItem>
-                  ))}
+                  {boardConfig?.peripherals.ANALOG_COMPARATOR?.modes?.map(
+                    (mode) => (
+                      <MenuItem key={mode} value={mode}>
+                        {mode === "Interrupt"
+                          ? "Прерывание при изменении результата"
+                          : mode === "Timer1Capture"
+                            ? "Использовать с Timer1 Input Capture"
+                            : mode}
+                      </MenuItem>
+                    )
+                  )}
                 </Select>
               </FormControl>
             </Box>
@@ -784,8 +877,9 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
           {comparatorMode === "Timer1Capture" && (
             <Alert severity="warning" sx={{ mt: 1 }}>
               <Typography variant="body2">
-                В этом режиме компаратор используется как источник для Timer1 Input Capture.
-                Необходимо также настроить Timer1 в режиме Input Capture.
+                В этом режиме компаратор используется как источник для Timer1
+                Input Capture. Необходимо также настроить Timer1 в режиме Input
+                Capture.
               </Typography>
             </Alert>
           )}

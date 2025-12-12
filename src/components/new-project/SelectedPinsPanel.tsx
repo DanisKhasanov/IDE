@@ -1,18 +1,14 @@
 import React, { useState } from "react";
-import {
-  Box,
-  Typography,
-  Alert,
-  Tabs,
-  Tab,
-} from "@mui/material";
+import { Box, Typography, Alert, Tabs, Tab } from "@mui/material";
 import type { BoardConfig, SelectedPinFunction } from "../../types/boardConfig";
 import { PinsTab } from "./PinsTab";
 import { SystemPeripheralsTab } from "./SystemPeripheralsTab";
+import { TimersTab } from "./TimersTab";
 
 interface SelectedPinsPanelProps {
   selectedPinFunctions: Record<string, SelectedPinFunction[]>;
   systemPeripherals: Record<string, SelectedPinFunction>;
+  timers: Record<string, SelectedPinFunction>;
   conflicts: string[];
   boardConfig: BoardConfig | null;
   onRemoveFunction: (pinName: string, functionType?: string) => void;
@@ -30,7 +26,14 @@ interface SelectedPinsPanelProps {
     functionType: string,
     settings: Record<string, unknown>
   ) => void;
+  onTimerAdd: (timerName: string, settings: Record<string, unknown>) => void;
+  onTimerRemove: (timerName: string) => void;
+  onTimerSettingsUpdate: (
+    timerName: string,
+    settings: Record<string, unknown>
+  ) => void;
   getSystemPeripherals: () => string[];
+  getAvailableTimers: () => string[];
   selectedPin?: string | null;
   selectedFunctionType?: string | null;
 }
@@ -38,6 +41,7 @@ interface SelectedPinsPanelProps {
 export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
   selectedPinFunctions,
   systemPeripherals,
+  timers,
   conflicts,
   boardConfig,
   onRemoveFunction,
@@ -45,15 +49,20 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
   onSystemPeripheralAdd,
   onSystemPeripheralRemove,
   onSystemPeripheralSettingsUpdate,
+  onTimerAdd,
+  onTimerRemove,
+  onTimerSettingsUpdate,
   getSystemPeripherals,
+  getAvailableTimers,
   selectedPin,
   selectedFunctionType,
 }) => {
-  const [activeTab, setActiveTab] = useState<0 | 1>(0); // 0 - пины, 1 - системные периферии
+  const [activeTab, setActiveTab] = useState<0 | 1 | 2>(0); // 0 - пины, 1 - системные периферии, 2 - таймеры
 
   const hasPins = Object.keys(selectedPinFunctions).length > 0;
   const hasSystemPeripherals = Object.keys(systemPeripherals).length > 0;
-  const hasAnyContent = hasPins || hasSystemPeripherals;
+  const hasTimers = Object.keys(timers).length > 0;
+  const hasAnyContent = hasPins || hasSystemPeripherals || hasTimers;
 
   return (
     <Box
@@ -69,9 +78,9 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
       }}
     >
       {/* Заголовок и конфликты */}
-      <Box sx={{ mb: 2, flexShrink: 0 }}>
+      <Box>
         <Typography variant="subtitle1" sx={{ fontWeight: "bold", mb: 1 }}>
-          Настройки 
+          Настройки
         </Typography>
         {conflicts.length > 0 && (
           <Alert severity="warning" sx={{ mt: 1 }}>
@@ -91,7 +100,7 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
       <Tabs
         value={activeTab}
         onChange={(_, newValue) => {
-          setActiveTab(newValue as 0 | 1);
+          setActiveTab(newValue as 0 | 1 | 2);
         }}
         sx={{ borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
       >
@@ -100,6 +109,9 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
         />
         <Tab
           label={`Системные периферии${hasSystemPeripherals ? ` (${Object.keys(systemPeripherals).length})` : ""}`}
+        />
+        <Tab
+          label={`Таймеры${hasTimers ? ` (${Object.keys(timers).length})` : ""}`}
         />
       </Tabs>
 
@@ -118,7 +130,7 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
             color="text.secondary"
             sx={{ textAlign: "center" }}
           >
-            Выберите пин справа для настройки функций
+            Сначала выберите пин справа
           </Typography>
         </Box>
       ) : activeTab === 0 ? (
@@ -130,7 +142,7 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
           selectedPinFromParent={selectedPin}
           selectedFunctionTypeFromParent={selectedFunctionType}
         />
-      ) : (
+      ) : activeTab === 1 ? (
         <SystemPeripheralsTab
           systemPeripherals={systemPeripherals}
           boardConfig={boardConfig}
@@ -138,6 +150,15 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
           onSystemPeripheralRemove={onSystemPeripheralRemove}
           onSystemPeripheralSettingsUpdate={onSystemPeripheralSettingsUpdate}
           getSystemPeripherals={getSystemPeripherals}
+        />
+      ) : (
+        <TimersTab
+          timers={timers}
+          boardConfig={boardConfig}
+          onTimerAdd={onTimerAdd}
+          onTimerRemove={onTimerRemove}
+          onTimerSettingsUpdate={onTimerSettingsUpdate}
+          getAvailableTimers={getAvailableTimers}
         />
       )}
     </Box>

@@ -1,18 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Typography,
   Paper,
   Chip,
   IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import { PanelGroup, Panel } from "react-resizable-panels";
-import type { BoardConfig, SelectedPinFunction } from "../types/boardConfig";
+import type { BoardConfig, SelectedPinFunction } from "@/types/boardConfig";
 import { RenderSettings } from "@/components/common/RenderSettings";
 
 interface PinsTabProps {
@@ -40,12 +35,70 @@ export const PinsTab: React.FC<PinsTabProps> = ({
   const [selectedFunctionType, setSelectedFunctionType] = useState<
     string | null
   >(null);
+  
+  // Используем ref для отслеживания текущего выбора, чтобы сохранять его при обновлении настроек
+  const currentSelectionRef = useRef<{ pin: string | null; functionType: string | null }>({
+    pin: null,
+    functionType: null,
+  });
+
+  // Используем ref для отслеживания предыдущих значений из родителя, чтобы различать реальные изменения от обновлений настроек
+  const prevParentSelectionRef = useRef<{ pin: string | null; functionType: string | null }>({
+    pin: null,
+    functionType: null,
+  });
+
+  // Обновляем ref при изменении выбора
+  useEffect(() => {
+    currentSelectionRef.current = {
+      pin: selectedPin,
+      functionType: selectedFunctionType,
+    };
+  }, [selectedPin, selectedFunctionType]);
 
   // Автоматически выбираем пин и функцию, когда они меняются извне
   useEffect(() => {
+    const currentPin = currentSelectionRef.current.pin;
+    const currentFunc = currentSelectionRef.current.functionType;
+    const prevParentPin = prevParentSelectionRef.current.pin;
+    const prevParentFunc = prevParentSelectionRef.current.functionType;
+    
+    // Проверяем, изменились ли значения из родителя
+    const parentPinChanged = prevParentPin !== selectedPinFromParent;
+    const parentFuncChanged = prevParentFunc !== selectedFunctionTypeFromParent;
+    
+    // Обновляем ref с текущими значениями из родителя
+    prevParentSelectionRef.current = {
+      pin: selectedPinFromParent || null,
+      functionType: selectedFunctionTypeFromParent || null,
+    };
+
+    // Если значения из родителя не изменились, но selectedPinFunctions обновился (например, из-за изменения настроек),
+    // и текущий выбор все еще валиден, сохраняем его
+    if (!parentPinChanged && !parentFuncChanged && currentPin && currentFunc) {
+      const functions = selectedPinFunctions[currentPin];
+      if (functions && functions.some((f) => f.functionType === currentFunc)) {
+        // Выбор все еще валиден, ничего не меняем
+        return;
+      }
+    }
+
     if (selectedPinFromParent) {
       const functions = selectedPinFunctions[selectedPinFromParent];
       if (functions && functions.length > 0) {
+        // Если уже выбран этот пин и функция существует, и родитель не изменился явно, сохраняем выбор
+        const shouldPreserveSelection =
+          currentPin === selectedPinFromParent &&
+          currentFunc &&
+          functions.some((f) => f.functionType === currentFunc) &&
+          !parentPinChanged &&
+          !parentFuncChanged;
+        
+        if (shouldPreserveSelection) {
+          // Выбор уже правильный, ничего не меняем
+          return;
+        }
+        
         setSelectedPin(selectedPinFromParent);
         // Если указана конкретная функция извне, выбираем её, иначе первую доступную
         if (selectedFunctionTypeFromParent) {
@@ -58,6 +111,15 @@ export const PinsTab: React.FC<PinsTabProps> = ({
             setSelectedFunctionType(functions[0].functionType);
           }
         } else {
+          // Если текущая функция существует и родитель не изменился, сохраняем её, иначе выбираем первую
+          if (
+            currentFunc &&
+            functions.some((f) => f.functionType === currentFunc) &&
+            !parentPinChanged
+          ) {
+            // Сохраняем текущую функцию - не меняем состояние
+            return;
+          }
           setSelectedFunctionType(functions[0].functionType);
         }
       } else {
@@ -66,7 +128,15 @@ export const PinsTab: React.FC<PinsTabProps> = ({
         setSelectedFunctionType(null);
       }
     } else {
-      // Если пин не выбран, сбрасываем выбор
+      // Если пин не выбран извне, но у нас есть локальный выбор и функции существуют, сохраняем его
+      if (currentPin && currentFunc) {
+        const functions = selectedPinFunctions[currentPin];
+        if (functions && functions.some((f) => f.functionType === currentFunc)) {
+          // Выбор все еще валиден, ничего не меняем
+          return;
+        }
+      }
+      // Только если пин действительно не выбран и выбор невалиден, сбрасываем
       setSelectedPin(null);
       setSelectedFunctionType(null);
     }
@@ -77,7 +147,9 @@ export const PinsTab: React.FC<PinsTabProps> = ({
   ]);
 
   // Автоматически выбираем новую функцию, если она была добавлена для выбранного пина
+  // Или обновляем выбор, если текущая функция была удалена
   useEffect(() => {
+    // Этот эффект срабатывает только если пин выбран локально и совпадает с родительским
     if (selectedPin && selectedPinFromParent === selectedPin) {
       const functions = selectedPinFunctions[selectedPin];
       if (functions && functions.length > 0) {
@@ -85,10 +157,13 @@ export const PinsTab: React.FC<PinsTabProps> = ({
         const currentFuncExists = functions.some(
           (f) => f.functionType === selectedFunctionType
         );
-        if (!currentFuncExists) {
+        if (!currentFuncExists && selectedFunctionType) {
+          // Только если функция была удалена, выбираем первую доступную
           setSelectedFunctionType(functions[0].functionType);
         }
+        // Если функция существует, ничего не делаем - сохраняем текущий выбор
       } else {
+        // Если функций нет, сбрасываем выбор функции
         setSelectedFunctionType(null);
       }
     }
@@ -100,193 +175,184 @@ export const PinsTab: React.FC<PinsTabProps> = ({
   ]);
 
   return (
-    <PanelGroup direction="vertical" style={{ flex: 1, minHeight: 0 }}>
-      {/* Панель со списком */}
-      <Panel defaultSize={60} minSize={30}>
+    <Box sx={{ display: "flex", height: "100%", flex: 1 }}>
+      {/* Панель со списком пинов */}
+      <Paper
+        sx={{
+          width: "36%",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          borderRight: 1,
+          borderColor: "divider",
+        }}
+      >
         <Box
           sx={{
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
+            overflow: "auto",
+            flex: 1,
+            p: 1,
           }}
         >
-          <Paper sx={{ overflow: "auto", flex: 1, minHeight: 0 }}>
-            <Table stickyHeader size="small" sx={{ p: 2 }}>
-              <TableBody>
-                {Object.entries(selectedPinFunctions).map(
-                  ([pinName, functions]) => {
-                    const pin = boardConfig?.pins.find(
-                      (p) => p.pin === pinName
-                    );
-                    if (!pin || functions.length === 0) return null;
-
-                    return functions.map((func, funcIndex) => {
-                      const isSelected =
-                        selectedPin === pinName &&
-                        selectedFunctionType === func.functionType;
-                      const isFirstFunc = funcIndex === 0;
-
-                      return (
-                        <TableRow
-                          key={`${pinName}-${func.functionType}`}
-                          hover
-                          selected={isSelected}
-                          sx={{
-                            cursor: "pointer",
-                            backgroundColor: isSelected
-                              ? "action.selected"
-                              : "transparent",
-                            "&:hover": {
-                              backgroundColor: isSelected
-                                ? "action.selected"
-                                : "action.hover",
-                            },
-                            "& td": {
-                              py: 0.75,
-                              borderTop: isFirstFunc ? undefined : "none",
-                            },
-                          }}
-                          onClick={() => {
-                            setSelectedPin(pinName);
-                            setSelectedFunctionType(func.functionType);
-                          }}
-                        >
-                          {isFirstFunc && (
-                            <TableCell
-                              rowSpan={functions.length}
-                              sx={{ py: 0.75, verticalAlign: "top" }}
-                            >
-                              <Typography
-                                variant="body2"
-                                sx={{ fontWeight: 500 }}
-                              >
-                                {pin.pin}
-                              </Typography>
-                            </TableCell>
-                          )}
-                          <TableCell sx={{ py: 0.75 }}>
-                            <Chip
-                              label={(() => {
-                                const pinFunc = pin.functions.find(
-                                  (f) => f.type === func.functionType
-                                );
-                                return pinFunc?.role
-                                  ? `${func.functionType} (${pinFunc.role})`
-                                  : func.functionType;
-                              })()}
-                              size="small"
-                              color="primary"
-                              variant="outlined"
-                            />
-                          </TableCell>
-                          <TableCell align="right" sx={{ py: 0.75 }}>
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (
-                                  selectedPin === pinName &&
-                                  selectedFunctionType === func.functionType
-                                ) {
-                                  setSelectedPin(null);
-                                  setSelectedFunctionType(null);
-                                }
-                                onRemoveFunction(pinName, func.functionType);
-                              }}
-                              color="error"
-                              sx={{
-                                p: 0.5,
-                                "&:hover": {
-                                  backgroundColor: "error.light",
-                                },
-                              }}
-                            >
-                              <CloseIcon fontSize="small" />
-                            </IconButton>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    });
-                  }
-                )}
-              </TableBody>
-            </Table>
-          </Paper>
-        </Box>
-      </Panel>
-
-      {/* Панель с настройками пина - всегда видна */}
-      <Panel defaultSize={50}>
-        <Paper
-          sx={{
-            p: 2,
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            borderTop: 1,
-            borderColor: "divider",
-          }}
-        >
-          {selectedPin && selectedFunctionType ? (
-            (() => {
-              const functions = selectedPinFunctions[selectedPin] || [];
-              const func = functions.find(
-                (f) => f.functionType === selectedFunctionType
-              );
-              const pin = boardConfig?.pins.find((p) => p.pin === selectedPin);
-              if (!pin || !func) return null;
-              const pinFunc = pin.functions.find(
-                (f) => f.type === func.functionType
-              );
-              if (!pinFunc) return null;
+          {Object.entries(selectedPinFunctions).map(
+            ([pinName, functions]) => {
+              const pin = boardConfig?.pins.find((p) => p.pin === pinName);
+              if (!pin || functions.length === 0) return null;
 
               return (
-                <>
-                  <Typography>Выберите настройки</Typography>
-                  <Box sx={{ overflow: "auto", flex: 1 }}>
-                    <RenderSettings
-                      func={pinFunc}
-                      settings={func.settings}
-                      onSettingChange={(key: string, value: unknown) => {
-                        const newSettings = {
-                          ...func.settings,
-                          [key]: value,
-                        };
-                        onFunctionSettingsUpdate(
-                          selectedPin,
-                          selectedFunctionType,
-                          newSettings
-                        );
-                      }}
-                      boardConfig={boardConfig}
-                      pinName={selectedPin}
-                    />
-                  </Box>
-                </>
+                <Box key={pinName} sx={{ mb: 1 }}>
+                  {functions.map((func, funcIndex) => {
+                    const isSelected =
+                      selectedPin === pinName &&
+                      selectedFunctionType === func.functionType;
+                    const isFirstFunc = funcIndex === 0;
+
+                    return (
+                      <Box
+                        key={`${pinName}-${func.functionType}`}
+                        onClick={() => {
+                          setSelectedPin(pinName);
+                          setSelectedFunctionType(func.functionType);
+                        }}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                          p: 0.75,
+                          cursor: "pointer",
+                          backgroundColor: isSelected
+                            ? "action.selected"
+                            : "transparent",
+                          "&:hover": {
+                            backgroundColor: isSelected
+                              ? "action.selected"
+                              : "action.hover",
+                          },
+                          borderTop: isFirstFunc ? undefined : "none",
+                        }}
+                      >
+                        {isFirstFunc && (
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: 500,
+                              minWidth: "60px",
+                            }}
+                          >
+                            {pin.pin}
+                          </Typography>
+                        )}
+                        {!isFirstFunc && <Box sx={{ minWidth: "60px" }} />}
+                        <Chip
+                          label={(() => {
+                            const pinFunc = pin.functions.find(
+                              (f) => f.type === func.functionType
+                            );
+                            return pinFunc?.role
+                              ? `${func.functionType} (${pinFunc.role})`
+                              : func.functionType;
+                          })()}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
+                        <Box sx={{ flex: 1 }} />
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (
+                              selectedPin === pinName &&
+                              selectedFunctionType === func.functionType
+                            ) {
+                              setSelectedPin(null);
+                              setSelectedFunctionType(null);
+                            }
+                            onRemoveFunction(pinName, func.functionType);
+                          }}
+                          color="error"
+                          sx={{
+                            p: 0.5,
+                            "&:hover": {
+                              backgroundColor: "error.light",
+                            },
+                          }}
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    );
+                  })}
+                </Box>
               );
-            })()
-          ) : (
-            <Box
-              sx={{
-                display: "flex",
-                flex: 1,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ textAlign: "center" }}
-              >
-                Выберите пин для настройки функций
-              </Typography>
-            </Box>
+            }
           )}
-        </Paper>
-      </Panel>
-    </PanelGroup>
+        </Box>
+      </Paper>
+
+      {/* Панель с настройками пина */}
+      <Paper
+        sx={{
+          flex: 1,
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          p: 1,
+        }}
+      >
+        {selectedFunctionType &&
+          (() => {
+            const functions = selectedPinFunctions[selectedPin] || [];
+            const func = functions.find(
+              (f) => f.functionType === selectedFunctionType
+            );
+            const pin = boardConfig?.pins.find((p) => p.pin === selectedPin);
+            if (!pin || !func) return null;
+            const pinFunc = pin.functions.find(
+              (f) => f.type === func.functionType
+            );
+            if (!pinFunc) return null;
+
+            return (
+              <>
+                <Box sx={{ p: 1, borderBottom: 1, borderColor: "divider" ,display: "flex", justifyContent: "space-between"}}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                    {pin.pin} - {func.functionType}
+                  </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: "text.secondary",
+                        display: "block",
+                      }}
+                    >
+                      Настройки некоторых пинов выбираются автоматически
+                    </Typography>
+                </Box>
+                <Box sx={{ overflow: "auto", flex: 1, p: 1 }}>
+                  <RenderSettings
+                    func={pinFunc}
+                    settings={func.settings}
+                    onSettingChange={(key: string, value: unknown) => {
+                      const newSettings = {
+                        ...func.settings,
+                        [key]: value,
+                      };
+                      onFunctionSettingsUpdate(
+                        selectedPin,
+                        selectedFunctionType,
+                        newSettings
+                      );
+                    }}
+                    boardConfig={boardConfig}
+                    pinName={selectedPin}
+                  />
+                </Box>
+              </>
+            );
+          })()}
+      </Paper>
+    </Box>
   );
 };
