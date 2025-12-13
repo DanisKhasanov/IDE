@@ -50,7 +50,7 @@ const CodeEditorPanel = ({
   onUploadResult,
 }: CodeEditorPanelProps) => {
   const theme = useTheme();
-  const editorTheme = theme.palette.mode === "dark" ? "vs-dark" : "vs";
+  const editorTheme = theme.palette.mode === "dark" ? "vs-dark" : "custom-light";
   const [files, setFiles] = useState<EditorFile[]>([]);
   const [activeFileId, setActiveFileId] = useState<string>("");
   const { showSuccess } = useSnackbar();
@@ -538,10 +538,21 @@ const CodeEditorPanel = ({
                     monacoRef.current = null;
                   };
                 }}
-                beforeMount={() => {
+                beforeMount={(monaco) => {
                   setIsEditorReady(false);
                   editorRef.current = null;
                   monacoRef.current = null;
+                  
+                  // Определяем кастомную тему для светлой темы с фоном, соответствующим MUI
+                  monaco.editor.defineTheme('custom-light', {
+                    base: 'vs',
+                    inherit: true,
+                    rules: [],
+                    colors: {
+                      'editor.background': '#e0e0e0',
+                      'editor.lineHighlightBackground': '#d0d0d0',
+                    },
+                  });
                 }}
                 options={{
                   minimap: { enabled: false },

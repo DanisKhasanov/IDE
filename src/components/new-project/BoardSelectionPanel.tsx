@@ -92,6 +92,21 @@ export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
           ))}
         </Select>
       </FormControl>
+      <FormControl fullWidth sx={{ mt: 2 }}>
+        <InputLabel id="frequency-select-label">Частота CPU</InputLabel>
+        <Select
+          labelId="frequency-select-label"
+          value={selectedFrequency}
+          label="Частота CPU"
+          onChange={(e) => onFrequencyChange(e.target.value)}
+        >
+          {CPU_FREQUENCIES.map((freq) => (
+            <MenuItem key={freq.value} value={freq.value}>
+              {freq.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
 
       <Box sx={{ mt: "auto", pt: 2 }}>
         <TextField
@@ -127,21 +142,6 @@ export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
             Выбрать папку
           </Button>
         </Box>
-        <FormControl fullWidth sx={{ mt: 2 }}>
-          <InputLabel id="frequency-select-label">Частота CPU</InputLabel>
-          <Select
-            labelId="frequency-select-label"
-            value={selectedFrequency}
-            label="Частота CPU"
-            onChange={(e) => onFrequencyChange(e.target.value)}
-          >
-            {CPU_FREQUENCIES.map((freq) => (
-              <MenuItem key={freq.value} value={freq.value}>
-                {freq.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
       </Box>
     </Box>
   );

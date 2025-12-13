@@ -3,6 +3,7 @@ import type { SerialPortInfo } from "@/types/arduino";
 import { platform } from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { isKnownArduinoDevice } from "@/utils/arduino/BoardDetector";
 
 const execAsync = promisify(exec);
 
@@ -10,25 +11,6 @@ const execAsync = promisify(exec);
 
 const LIST_TIMEOUT = 3000; // Таймаут для SerialPort.list() - 3 секунды (уменьшено для более быстрого fallback)
 const FALLBACK_TIMEOUT = 2000; // Таймаут для fallback метода - 2 секунды
-
-// Известные VID/PID для Arduino плат
-const ARDUINO_DEVICES = [
-  { vid: "2341", pid: "0043" }, // Arduino Uno
-  { vid: "2341", pid: "0001" }, // Arduino Uno (старая версия)
-  { vid: "2341", pid: "0010" }, // Arduino Mega
-  { vid: "2341", pid: "0036" }, // Arduino Leonardo
-  { vid: "2341", pid: "0037" }, // Arduino Micro
-  { vid: "2341", pid: "003F" }, // Arduino Nano
-  { vid: "2341", pid: "0243" }, // Arduino Due
-  { vid: "2A03", pid: "0043" }, // Arduino Uno (клоны)
-  { vid: "2A03", pid: "0001" }, // Arduino Uno (клоны, старая версия)
-  // USB-to-Serial чипы, используемые в клонах Arduino
-  { vid: "1A86", pid: "7523" }, // CH340 (китайские клоны Arduino)
-  { vid: "1A86", pid: "5523" }, // CH341 (китайские клоны Arduino)
-  { vid: "10C4", pid: "EA60" }, // CP210x (Silicon Labs)
-  { vid: "0403", pid: "6001" }, // FT232 (FTDI)
-  { vid: "0403", pid: "6014" }, // FT232H (FTDI)
-];
 
 /**
  * Получить список портов через системные команды Linux (fallback метод)
@@ -162,17 +144,7 @@ export async function detectArduinoPorts(): Promise<SerialPortInfo[]> {
 
     // Сначала пытаемся найти порты по VID/PID
     const arduinoPortsByVidPid = allPorts.filter((port) => {
-      if (!port.vendorId || !port.productId) {
-        return false;
-      }
-
-      const matches = ARDUINO_DEVICES.some(
-        (device) =>
-          device.vid.toLowerCase() === port.vendorId?.toLowerCase() &&
-          device.pid.toLowerCase() === port.productId?.toLowerCase()
-      );
-      
-      return matches;
+      return isKnownArduinoDevice(port);
     });
 
     // Если нашли порты по VID/PID, возвращаем их

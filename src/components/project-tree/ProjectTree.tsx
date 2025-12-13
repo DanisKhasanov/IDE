@@ -1,5 +1,7 @@
 import React, { useState, useCallback } from "react";
-import { Card, CardContent, List, Box } from "@mui/material";
+import { Card, CardContent, List, Box, IconButton } from "@mui/material";
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
+import SearchIcon from "@mui/icons-material/Search";
 import NewProjectModal from "@/components/new-project/NewProjectModal";
 import {
   useProjectTree,
@@ -11,6 +13,7 @@ import { ProjectHeader } from "./ProjectHeader";
 import { TreeNode } from "./TreeNode";
 import { EmptyState } from "./EmptyState";
 import { ContextMenu } from "./ContextMenu";
+import SearchTab from "./SearchTab";
 
 type ProjectTreeProps = {
   onFileOpen?: (filePath: string) => void;
@@ -24,6 +27,7 @@ const ProjectTree = ({
   activeFilePath,
 }: ProjectTreeProps) => {
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
 
   // Хуки для управления состоянием
   const {
@@ -144,6 +148,10 @@ const ProjectTree = ({
     [handleCloseProject, removeProjectFolders]
   );
 
+  const handleTabChange = (newValue: number) => {
+    setActiveTab(newValue);
+  };
+
   return (
     <Card
       sx={{
@@ -158,6 +166,45 @@ const ProjectTree = ({
         borderColor: "divider",
       }}
     >
+      {/* Иконки переключения */}
+      <Box
+        sx={{
+          borderBottom: 1,
+          borderColor: "divider",
+          display: "flex",
+          justifyContent: "center",
+          gap: 0.5,
+          p: 0.85,
+        }}
+      >
+        <IconButton
+          onClick={() => handleTabChange(0)}
+          aria-label="Дерево проекта"
+          size="small"
+          sx={{
+            color: activeTab === 0 ? "primary.main" : "text.secondary",
+            "&:hover": {
+              backgroundColor: "action.hover",
+            },
+          }}
+        >
+          <AccountTreeIcon />
+        </IconButton>
+        <IconButton
+          onClick={() => handleTabChange(1)}
+          aria-label="Поиск"
+          size="small"
+          sx={{
+            color: activeTab === 1 ? "primary.main" : "text.secondary",
+            "&:hover": {
+              backgroundColor: "action.hover",
+            },
+          }}
+        >
+          <SearchIcon />
+        </IconButton>
+      </Box>
+
       <CardContent
         sx={{
           flexGrow: 1,
@@ -168,59 +215,67 @@ const ProjectTree = ({
           overflow: "hidden",
         }}
       >
-        {openProjects.length === 0 ? (
-          <EmptyState
-            onNewProjectClick={handleNewProjectClick}
-            onSelectProjectClick={handleSelectProject}
-          />
-        ) : (
-          <List
-            sx={{
-              flexGrow: 1,
-              overflow: "auto",
-              py: 0,
-            }}
-          >
-            {openProjects.map((project) => {
-              const isActive = activeProjectPath === project.path;
-              const isExpanded = expandedProjects.has(project.path);
-              const projectExpandedFolders =
-                expandedFolders.get(project.path) || new Set<string>();
+        {activeTab === 0 ? (
+          // Таб "Дерево проекта"
+          <>
+            {openProjects.length === 0 ? (
+              <EmptyState
+                onNewProjectClick={handleNewProjectClick}
+                onSelectProjectClick={handleSelectProject}
+              />
+            ) : (
+              <List
+                sx={{
+                  flexGrow: 1,
+                  overflow: "auto",
+                  py: 0,
+                }}
+              >
+                {openProjects.map((project) => {
+                  const isActive = activeProjectPath === project.path;
+                  const isExpanded = expandedProjects.has(project.path);
+                  const projectExpandedFolders =
+                    expandedFolders.get(project.path) || new Set<string>();
 
-              return (
-                <Box key={project.path}>
-                  <ProjectHeader
-                    project={project}
-                    isActive={isActive}
-                    isExpanded={isExpanded}
-                    onToggle={handleToggleProject}
-                    onSwitch={handleSwitchProject}
-                    onClose={handleCloseProjectWithEvent}
-                  />
+                  return (
+                    <Box key={project.path}>
+                      <ProjectHeader
+                        project={project}
+                        isActive={isActive}
+                        isExpanded={isExpanded}
+                        onToggle={handleToggleProject}
+                        onSwitch={handleSwitchProject}
+                        onClose={handleCloseProjectWithEvent}
+                      />
 
-                  {/* Дерево файлов проекта (показывается только для раскрытых проектов) */}
-                  {isExpanded && project.tree.type === "directory" && (
-                    <Box sx={{ pl: 2 }}>
-                      <List component="div" disablePadding>
-                        {project.tree.children.map((child) => (
-                          <TreeNode
-                            key={child.id}
-                            node={child}
-                            projectPath={project.path}
-                            expandedFolders={projectExpandedFolders}
-                            activeFilePath={activeFilePath}
-                            onToggle={toggleFolder}
-                            onFileClick={handleFileClick}
-                            onContextMenu={handleContextMenu}
-                          />
-                        ))}
-                      </List>
+                      {/* Дерево файлов проекта (показывается только для раскрытых проектов) */}
+                      {isExpanded && project.tree.type === "directory" && (
+                        <Box sx={{ pl: 2 }}>
+                          <List component="div" disablePadding>
+                            {project.tree.children.map((child) => (
+                              <TreeNode
+                                key={child.id}
+                                node={child}
+                                projectPath={project.path}
+                                expandedFolders={projectExpandedFolders}
+                                activeFilePath={activeFilePath}
+                                onToggle={toggleFolder}
+                                onFileClick={handleFileClick}
+                                onContextMenu={handleContextMenu}
+                              />
+                            ))}
+                          </List>
+                        </Box>
+                      )}
                     </Box>
-                  )}
-                </Box>
-              );
-            })}
-          </List>
+                  );
+                })}
+              </List>
+            )}
+          </>
+        ) : (
+          // Таб "Поиск"
+          <SearchTab onFileOpen={onFileOpen} />
         )}
       </CardContent>
 

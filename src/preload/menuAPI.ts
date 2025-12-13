@@ -33,5 +33,15 @@ export const menuAPI = {
   onToggleTheme: (callback: () => void) => {
     return createIpcListener('toggle-theme', callback);
   },
+
+  // Подписка на событие показа панели GUI
+  onShowGuiPanel: (callback: () => void) => {
+    return createIpcListener('show-gui-panel', callback);
+  },
+
+  // Подписка на событие показа панели графической инициализации
+  onShowGraphicalInit: (callback: () => void) => {
+    return createIpcListener('show-graphical-init', callback);
+  },
 };
 

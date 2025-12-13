@@ -93,6 +93,25 @@ export function createApplicationMenu(): void {
             }
           },
         },
+        { type: "separator" },
+        {
+          label: "Показать панель GUI",
+          click: () => {
+            const mainWindow = windowManager.getMainWindow();
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send("show-gui-panel");
+            }
+          },
+        },
+        {
+          label: "Показать панель графической инициализации",
+          click: () => {
+            const mainWindow = windowManager.getMainWindow();
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send("show-graphical-init");
+            }
+          },
+        },
       ],
     },
   ];

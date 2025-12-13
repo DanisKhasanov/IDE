@@ -25,6 +25,7 @@ import type {
 } from "@/types/arduino";
 import type { ProjectTreeNode } from "@/types/project";
 import { useSnackbar } from "@/contexts/SnackbarContext";
+import { getBoardName } from "@/utils/arduino/BoardDetector";
 
 interface ArduinoToolbarProps {
   currentProjectPath: string | null;
@@ -43,6 +44,7 @@ const Toolbar = ({
   const { showSuccess, showError, showInfo } = useSnackbar();
   const [ports, setPorts] = useState<SerialPortInfo[]>([]);
   const previousPortsRef = useRef<SerialPortInfo[]>([]);
+  const isInitializedRef = useRef<boolean>(false);
   const [selectedPort, setSelectedPort] = useState<string>("");
   const [lastCompileResult, setLastCompileResult] =
     useState<CompileResult | null>(null);
@@ -73,10 +75,9 @@ const Toolbar = ({
   const handlePortsChanged = useCallback(
     (detectedPorts: SerialPortInfo[]) => {
       const previousPorts = previousPortsRef.current;
+      const isInitialized = isInitializedRef.current;
 
-      // Определяем подключенные и отключенные порты (только если это не первая загрузка)
-      // Не показываем уведомления при первой загрузке (когда previousPorts пустой)
-      if (previousPorts.length > 0) {
+      if (isInitialized) {
         const currentPaths = new Set(detectedPorts.map(p => p.path));
         const previousPaths = new Set(previousPorts.map(p => p.path));
 
@@ -92,20 +93,23 @@ const Toolbar = ({
 
         // Показываем уведомления о подключенных портах
         connectedPorts.forEach(port => {
-          const portName = port.friendlyName || port.path;
-          showInfo(`Порт подключен: ${portName}`, { autoHideDuration: 3000 });
+          const boardName = getBoardName(port);
+          showInfo(`Плата подключена: ${boardName}`, { autoHideDuration: 3000 });
         });
 
         // Показываем уведомления об отключенных портах
         disconnectedPorts.forEach(port => {
-          const portName = port.friendlyName || port.path;
-          showInfo(`Порт отключен: ${portName}`, { autoHideDuration: 3000 });
+          const boardName = getBoardName(port);
+          showInfo(`Плата отключена: ${boardName}`, { autoHideDuration: 3000 });
         });
       }
 
       // Обновляем состояние портов и ref
       previousPortsRef.current = detectedPorts;
       setPorts(detectedPorts);
+      
+      // Помечаем, что инициализация завершена (после первого обновления)
+      isInitializedRef.current = true;
 
       // Автоматически выбираем первый порт, если он есть и текущий порт не выбран
       if (detectedPorts.length > 0) {
@@ -193,6 +197,7 @@ const Toolbar = ({
         setPermissionDialogDismissed(false);
         setPreviousPermissionsHasAccess(null);
         previousPortsRef.current = [];
+        isInitializedRef.current = false;
         return;
       }
 
@@ -492,7 +497,7 @@ const Toolbar = ({
             ) : (
               ports.map((port) => (
                 <MenuItem key={port.path} value={port.path}>
-                  {port.friendlyName || port.path}
+                  {getBoardName(port)}
                 </MenuItem>
               ))
             )}

@@ -16,6 +16,8 @@ export interface IDEConfig {
   openProjects: string[]; // список путей открытых проектов
   toolchainInstalled?: boolean; // флаг установки toolchain
   toolchainChecked?: boolean; // флаг проверки toolchain (чтобы не проверять каждый раз)
+  isGuiPanelVisible?: boolean; // видимость панели GUI
+  isGraphicalInitVisible?: boolean; // видимость панели графической инициализации
 }
 
 const CONFIG_FILE_NAME = 'ide-config.json';
@@ -41,6 +43,8 @@ const defaultConfig: IDEConfig = {
   openProjects: [],
   toolchainInstalled: false,
   toolchainChecked: false,
+  isGuiPanelVisible: true,
+  isGraphicalInitVisible: true,
 };
 
 /**
@@ -345,6 +349,32 @@ export const getToolchainChecked = async (): Promise<boolean> => {
 export const setToolchainChecked = async (checked: boolean): Promise<void> => {
   const config = await loadConfig();
   config.toolchainChecked = checked;
+  await saveConfig(config);
+};
+
+// Получение видимости панели GUI
+export const getGuiPanelVisible = async (): Promise<boolean> => {
+  const config = await loadConfig();
+  return config.isGuiPanelVisible ?? true;
+};
+
+// Сохранение видимости панели GUI
+export const setGuiPanelVisible = async (visible: boolean): Promise<void> => {
+  const config = await loadConfig();
+  config.isGuiPanelVisible = visible;
+  await saveConfig(config);
+};
+
+// Получение видимости панели графической инициализации
+export const getGraphicalInitVisible = async (): Promise<boolean> => {
+  const config = await loadConfig();
+  return config.isGraphicalInitVisible ?? true;
+};
+
+// Сохранение видимости панели графической инициализации
+export const setGraphicalInitVisible = async (visible: boolean): Promise<void> => {
+  const config = await loadConfig();
+  config.isGraphicalInitVisible = visible;
   await saveConfig(config);
 };
 

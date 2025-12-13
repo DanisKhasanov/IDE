@@ -84,6 +84,9 @@ declare global {
       onProjectListChanged: (callback: () => void) => () => void;
       // Обработчик переключения темы
       onToggleTheme: (callback: () => void) => () => void;
+      // Обработчики показа панелей
+      onShowGuiPanel: (callback: () => void) => () => void;
+      onShowGraphicalInit: (callback: () => void) => () => void;
       // Методы для сохранения файлов
       saveFile: (filePath: string, content: string) => Promise<{ success: boolean }>;
       saveFileAs: (currentFilePath: string, content: string) => Promise<{ success: boolean; filePath: string } | null>;
@@ -109,6 +112,11 @@ declare global {
       toolchainSetInstalled: (installed: boolean) => Promise<{ success: boolean; error?: string }>;
       toolchainInstall: () => Promise<InstallResult>;
       onToolchainInstallProgress: (callback: (progress: InstallProgress) => void) => () => void;
+      // UI API
+      getGuiPanelVisible: () => Promise<boolean>;
+      setGuiPanelVisible: (visible: boolean) => Promise<{ success: boolean }>;
+      getGraphicalInitVisible: () => Promise<boolean>;
+      setGraphicalInitVisible: (visible: boolean) => Promise<{ success: boolean }>;
     };
   }
 }

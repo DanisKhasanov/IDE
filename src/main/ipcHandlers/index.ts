@@ -4,6 +4,7 @@ import { registerFileHandlers } from "./fileHandlers";
 import { registerTerminalHandlers } from "./terminalHandlers";
 import { registerArduinoHandlers } from "./arduinoHandlers";
 import { registerToolchainHandlers } from "./toolchainHandlers";
+import { registerUIHandlers } from "./uiHandlers";
 
 /**
  * Список всех IPC обработчиков для удаления при hot reload
@@ -48,6 +49,10 @@ const ALL_HANDLERS = [
   "toolchain-get-installed-status",
   "toolchain-set-installed",
   "toolchain-install",
+  "get-gui-panel-visible",
+  "set-gui-panel-visible",
+  "get-graphical-init-visible",
+  "set-graphical-init-visible",
 ];
 
 /**
@@ -78,5 +83,6 @@ export function registerIpcHandlers(): void {
   registerTerminalHandlers();
   registerArduinoHandlers();
   registerToolchainHandlers();
+  registerUIHandlers();
 }
 

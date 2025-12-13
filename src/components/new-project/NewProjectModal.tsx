@@ -17,7 +17,7 @@ import type {
 } from "@/types/boardConfig";
 import { BoardSelectionPanel } from "./BoardSelectionPanel";
 import { SelectedPinsPanel } from "./SelectedPinsPanel";
-import { PinsListPanel } from "../PinsListPanel";
+import { PinsListPanel } from "../common/PinsListPanel";
 import { useSnackbar } from "@/contexts/SnackbarContext";
 import atmega328pConfigData from "@config/boards/atmega328p.json";
 const atmega328pConfig = atmega328pConfigData as unknown as BoardConfig;

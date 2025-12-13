@@ -205,7 +205,7 @@ const App = () => {
               <PanelResizeHandle />
 
               {/* Редактор кода */}
-              <Panel defaultSize={52} minSize={35}>
+              <Panel defaultSize={65} minSize={35}>
                 <Box display="flex" height="100%">
                   <CodeEditorPanel
                     onFileOpenRequest={setFileHandler}

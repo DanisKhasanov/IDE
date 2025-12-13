@@ -4,6 +4,7 @@ import { terminalAPI } from './terminalAPI';
 import { arduinoAPI } from './arduinoAPI';
 import { menuAPI } from './menuAPI';
 import { toolchainAPI } from './toolchainAPI';
+import { uiAPI } from './uiAPI';
 
 /**
  * Сборка всех API для экспорта через contextBridge
@@ -51,6 +52,8 @@ export const electronAPI = {
   onMenuSaveFileAs: menuAPI.onMenuSaveFileAs,
   onProjectListChanged: menuAPI.onProjectListChanged,
   onToggleTheme: menuAPI.onToggleTheme,
+  onShowGuiPanel: menuAPI.onShowGuiPanel,
+  onShowGraphicalInit: menuAPI.onShowGraphicalInit,
 
   // API для работы с Arduino
   arduinoCompile: arduinoAPI.compile,
@@ -72,5 +75,11 @@ export const electronAPI = {
   toolchainSetInstalled: toolchainAPI.setInstalled,
   toolchainInstall: toolchainAPI.install,
   onToolchainInstallProgress: toolchainAPI.onInstallProgress,
+
+  // API для работы с UI настройками
+  getGuiPanelVisible: uiAPI.getGuiPanelVisible,
+  setGuiPanelVisible: uiAPI.setGuiPanelVisible,
+  getGraphicalInitVisible: uiAPI.getGraphicalInitVisible,
+  setGraphicalInitVisible: uiAPI.setGraphicalInitVisible,
 };
 

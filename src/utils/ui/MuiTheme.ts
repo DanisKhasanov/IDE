@@ -11,9 +11,9 @@ export const getMuiThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
     palette: {
       mode,
       primary: {
-        main: isDark ? '#64b5f6' : '#546e7a',
-        light: isDark ? '#90caf9' : '#78909c',
-        dark: isDark ? '#1976d2' : '#37474f',
+        main: isDark ? '#64b5f6' : '#1976d2',
+        light: isDark ? '#90caf9' : '#42a5f5',
+        dark: isDark ? '#1976d2' : '#1565c0',
         contrastText: isDark ? '#000' : '#fff',
       },
       secondary: {
@@ -41,18 +41,18 @@ export const getMuiThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
         contrastText: isDark ? '#000' : '#fff',
       },
       success: {
-        main: isDark ? '#66bb6a' : '#2e7d32',
-        light: isDark ? '#81c784' : '#4caf50',
-        dark: isDark ? '#388e3c' : '#1b5e20',
+        main: isDark ? '#66bb6a' : '#4caf50',
+        light: isDark ? '#81c784' : '#66bb6a',
+        dark: isDark ? '#388e3c' : '#2e7d32',
         contrastText: '#fff',
       },
       background: {
-        default: isDark ? '#121212' : '#a0a0a0',
-        paper: isDark ? '#1e1e1e' : '#f2f2f2',
+        default: isDark ? '#121212' : '#8a8a8a',
+        paper: isDark ? '#1e1e1e' : '#e0e0e0',
       },
       text: {
-        primary: isDark ? '#ffffff' : '#212121',
-        secondary: isDark ? '#b0b0b0' : '#757575',
+        primary: isDark ? '#ffffff' : '#000000',
+        secondary: isDark ? '#b0b0b0' : '#424242',
         disabled: isDark ? '#666666' : '#bdbdbd',
       },
       divider: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)',

@@ -1,16 +1,7 @@
-import { useState, useEffect } from "react";
 import { Box } from "@mui/material";
-import { PinsListPanel } from "../PinsListPanel";
 import { GuiPanel } from "./GuiPanel";
-import type {
-  BoardConfig,
-  PinConfig,
-  PinFunction,
-  SelectedPinFunction,
-} from "@/types/boardConfig";
-import atmega328pConfigData from "@config/boards/atmega328p.json";
-
-const atmega328pConfig = atmega328pConfigData as unknown as BoardConfig;
+import GraphicalInitialization from "./GraphicalInitialization";
+import { useAdditionalPanel } from "@/hooks/ui/useAdditionalPanel";
 
 interface AdditionalPanelProps {
   currentProjectPath?: string | null;
@@ -19,30 +10,29 @@ interface AdditionalPanelProps {
 const AdditionalPanel: React.FC<AdditionalPanelProps> = ({
   currentProjectPath,
 }) => {
-  const [boardConfig] = useState<BoardConfig>(atmega328pConfig);
-  const [selectedPin, setSelectedPin] = useState<string | null>(null);
-  const [selectedPinFunctions] = useState<
-    Record<string, SelectedPinFunction[]>
-  >({});
+  const {
+    isGuiPanelVisible,
+    isGraphicalInitVisible,
+    hideGuiPanel,
+    hideGraphicalInit,
+  } = useAdditionalPanel();
 
-  // Загрузка конфигурации пинов из проекта (если есть)
-  useEffect(() => {
-    // TODO: Загрузить конфигурацию пинов из проекта, если она сохранена
-    // Пока используем пустую конфигурацию
-  }, [currentProjectPath]);
+  // Если обе панели скрыты, не рендерим ничего
+  if (!isGuiPanelVisible && !isGraphicalInitVisible) {
+    return null;
+  }
 
-  const handlePinClick = (pinName: string) => {
-    setSelectedPin(pinName);
+  // Вычисляем высоты панелей
+  const getGuiPanelHeight = () => {
+    if (!isGuiPanelVisible) return "0%";
+    if (!isGraphicalInitVisible) return "100%";
+    return "50%";
   };
 
-  const handleFunctionSelect = () => {
-    // В режиме просмотра не добавляем функции, только показываем информацию
-    // Можно добавить логику для редактирования в будущем
-  };
-
-  const getPinFunctions = (pin: PinConfig): PinFunction[] => {
-    // Исключаем PCINT из списка доступных функций
-    return (pin.functions || []).filter((func) => func.type !== "PCINT");
+  const getGraphicalInitHeight = () => {
+    if (!isGraphicalInitVisible) return "0%";
+    if (!isGuiPanelVisible) return "100%";
+    return "50%";
   };
 
   return (
@@ -56,44 +46,45 @@ const AdditionalPanel: React.FC<AdditionalPanelProps> = ({
       }}
     >
       {/* Верхняя секция - GUI */}
-      <Box
-        sx={{
-          height: "50%",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          borderBottom: "1px solid",
-          borderColor: "divider",
-        }}
-      >
-        <GuiPanel />
-      </Box>
+      {isGuiPanelVisible && (
+        <Box
+          sx={{
+            height: getGuiPanelHeight(),
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            borderBottom: isGraphicalInitVisible ? "1px solid" : "none",
+            borderColor: "divider",
+            transition: "height 0.2s ease-in-out",
+          }}
+        >
+          <GuiPanel onClose={hideGuiPanel} />
+        </Box>
+      )}
 
-      {/* Нижняя секция - Контроллер */}
-      <Box
-        sx={{
-          height: "50%",
-          minHeight: 0,
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          position: "relative",
-          "& > *": {
-            width: "100%",
-            maxWidth: "100%",
-          },
-        }}
-      >
-        <PinsListPanel
-          boardConfig={boardConfig}
-          selectedPin={selectedPin}
-          selectedPinFunctions={selectedPinFunctions}
-          onPinClick={handlePinClick}
-          onFunctionSelect={handleFunctionSelect}
-          getPinFunctions={getPinFunctions}
-          size="small"
-        />
-      </Box>
+      {/* Нижняя секция - Графическая инициализация */}
+      {isGraphicalInitVisible && (
+        <Box
+          sx={{
+            height: getGraphicalInitHeight(),
+            minHeight: 0,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            position: "relative",
+            "& > *": {
+              width: "100%",
+              maxWidth: "100%",
+            },
+            transition: "height 0.2s ease-in-out",
+          }}
+        >
+          <GraphicalInitialization
+            currentProjectPath={currentProjectPath}
+            onClose={hideGraphicalInit}
+          />
+        </Box>
+      )}
     </Box>
   );
 };
