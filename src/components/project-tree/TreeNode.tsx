@@ -39,7 +39,7 @@ export const TreeNode: React.FC<TreeNodeProps> = ({
 }) => {
   const isDirectory = node.type === "directory";
   const isExpanded = expandedFolders.has(node.id);
-  const isActive = activeFilePath === node.path;
+  const isActive = activeFilePath === node.path && !isDirectory;
 
   return (
     <Box key={node.id}>

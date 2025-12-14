@@ -33,9 +33,7 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
 }) => {
   const handleClick = (e: React.MouseEvent) => {
     // Если клик на кнопку закрытия, не обрабатываем
-    if (
-      (e.target as HTMLElement).closest('button[title="Закрыть проект"]')
-    ) {
+    if ((e.target as HTMLElement).closest('button[title="Закрыть проект"]')) {
       return;
     }
     // При клике на всю кнопку сворачиваем/разворачиваем проект
@@ -75,14 +73,14 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
             }}
           >
             {isExpanded ? (
-              <FolderOpenIcon fontSize="small" />
-            ) : (
-              <FolderIcon fontSize="small" />
-            )}
-            {isExpanded ? (
               <ExpandMoreIcon fontSize="small" />
             ) : (
               <ChevronRightIcon fontSize="small" />
+            )}
+            {isExpanded ? (
+              <FolderOpenIcon fontSize="small" />
+            ) : (
+              <FolderIcon fontSize="small" />
             )}
           </Box>
         </ListItemIcon>
@@ -94,6 +92,7 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
+            ml: 1,
           }}
         />
         <IconButton
@@ -117,4 +116,3 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
     </ListItem>
   );
 };
-

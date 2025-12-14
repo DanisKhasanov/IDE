@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Box, Typography, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import TuneIcon from '@mui/icons-material/Tune';
+import TuneIcon from "@mui/icons-material/Tune";
 import { GuiSettingsDialog } from "./GuiSettingsDialog";
 
 interface GuiPanelProps {
@@ -34,30 +34,11 @@ export const GuiPanel: React.FC<GuiPanelProps> = ({ onClose }) => {
           <IconButton
             size="small"
             onClick={() => setSettingsOpen(true)}
-            sx={{
-              opacity: 0.6,
-              "&:hover": {
-                opacity: 1,
-                backgroundColor: "action.hover",
-              },
-            }}
             title="Настройки GUI"
           >
             <TuneIcon fontSize="small" />
           </IconButton>
-          <IconButton
-            size="small"
-            onClick={onClose}
-            sx={{
-              opacity: 0.6,
-              "&:hover": {
-                opacity: 1,
-                backgroundColor: "error.main",
-                color: "error.contrastText",
-              },
-            }}
-            title="Скрыть панель GUI"
-          >
+          <IconButton size="small" onClick={onClose} title="Скрыть панель GUI">
             <CloseIcon fontSize="small" />
           </IconButton>
         </Box>
@@ -84,4 +65,3 @@ export const GuiPanel: React.FC<GuiPanelProps> = ({ onClose }) => {
     </Box>
   );
 };
-

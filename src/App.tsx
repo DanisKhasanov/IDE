@@ -1,9 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import {
-  Box,
-  CssBaseline,
-  ThemeProvider,
-} from "@mui/material";
+import { Box, CssBaseline, ThemeProvider } from "@mui/material";
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import CodeEditorPanel from "@/components/code-editor/CodeEditorPanel";
 import AdditionalPanel from "@/components/additional-panel/AdditionalPanel";
@@ -37,7 +33,7 @@ const App = () => {
   >("terminal");
   const [toolchainModalOpen, setToolchainModalOpen] = useState(false);
   //Выбор темы
-  const { mode, theme, toggleMode } = useTheme();
+  const { theme, toggleMode } = useTheme();
   //Выбор видимости терминала
   const { isTerminalVisible, toggleTerminal } = useTerminal({
     currentProjectPath,

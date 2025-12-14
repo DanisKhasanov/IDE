@@ -70,14 +70,6 @@ const GraphicalInitialization: React.FC<GraphicalInitializationProps> = ({
           <IconButton
             size="small"
             onClick={onClose}
-            sx={{
-              opacity: 0.6,
-              "&:hover": {
-                opacity: 1,
-                backgroundColor: "error.main",
-                color: "error.contrastText",
-              },
-            }}
             title="Скрыть панель графической инициализации"
           >
             <CloseIcon fontSize="small" />
