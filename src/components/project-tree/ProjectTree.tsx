@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, List, Box, IconButton } from "@mui/material";
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import SearchIcon from "@mui/icons-material/Search";
@@ -71,42 +71,39 @@ const ProjectTree = ({
   });
 
   // Обработчики для контекстного меню
-  const handleCreateFile = useCallback(() => {
+  const handleCreateFile = () => {
     if (contextMenu) {
       createFile(contextMenu.nodePath);
     }
     handleCloseContextMenu();
-  }, [contextMenu, createFile, handleCloseContextMenu]);
+  };
 
-  const handleCreateFolder = useCallback(() => {
+  const handleCreateFolder = () => {
     if (contextMenu) {
       createFolder(contextMenu.nodePath);
     }
     handleCloseContextMenu();
-  }, [contextMenu, createFolder, handleCloseContextMenu]);
+  };
 
-  const handleDeleteFile = useCallback(() => {
+  const handleDeleteFile = () => {
     if (contextMenu) {
       deleteFile(contextMenu.nodePath);
     }
     handleCloseContextMenu();
-  }, [contextMenu, deleteFile, handleCloseContextMenu]);
+  };
 
-  const handleDeleteFolder = useCallback(() => {
+  const handleDeleteFolder = () => {
     if (contextMenu) {
       deleteFolder(contextMenu.nodePath);
     }
     handleCloseContextMenu();
-  }, [contextMenu, deleteFolder, handleCloseContextMenu]);
+  };
 
-  const handleFileClick = useCallback(
-    (filePath: string) => {
-      if (onFileOpen) {
-        onFileOpen(filePath);
-      }
-    },
-    [onFileOpen]
-  );
+  const handleFileClick = (filePath: string) => {
+    if (onFileOpen) {
+      onFileOpen(filePath);
+    }
+  };
 
   const handleNewProjectClick = () => {
     setIsNewProjectModalOpen(true);
@@ -139,14 +136,14 @@ const ProjectTree = ({
     setIsNewProjectModalOpen(false);
   };
 
-  const handleCloseProjectWithEvent = useCallback(
-    (projectPath: string, event: React.MouseEvent) => {
-      event.stopPropagation();
-      handleCloseProject(projectPath);
-      removeProjectFolders(projectPath);
-    },
-    [handleCloseProject, removeProjectFolders]
-  );
+  const handleCloseProjectWithEvent = (
+    projectPath: string,
+    event: React.MouseEvent
+  ) => {
+    event.stopPropagation();
+    handleCloseProject(projectPath);
+    removeProjectFolders(projectPath);
+  };
 
   const handleTabChange = (newValue: number) => {
     setActiveTab(newValue);
