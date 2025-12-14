@@ -61,21 +61,31 @@ export const useAdditionalPanel = () => {
     }
   }, []);
 
-  // Подписка на события меню для показа панелей
+  // Подписка на события меню для переключения панелей
   useEffect(() => {
     const unsubscribeShowGui = window.electronAPI.onShowGuiPanel(() => {
-      showGuiPanel();
+      // Переключаем состояние панели GUI
+      if (isGuiPanelVisible) {
+        hideGuiPanel();
+      } else {
+        showGuiPanel();
+      }
     });
 
     const unsubscribeShowGraphicalInit = window.electronAPI.onShowGraphicalInit(() => {
-      showGraphicalInit();
+      // Переключаем состояние панели графической инициализации
+      if (isGraphicalInitVisible) {
+        hideGraphicalInit();
+      } else {
+        showGraphicalInit();
+      }
     });
 
     return () => {
       unsubscribeShowGui();
       unsubscribeShowGraphicalInit();
     };
-  }, [showGuiPanel, showGraphicalInit]);
+  }, [isGuiPanelVisible, isGraphicalInitVisible, showGuiPanel, hideGuiPanel, showGraphicalInit, hideGraphicalInit]);
 
   return {
     isGuiPanelVisible,

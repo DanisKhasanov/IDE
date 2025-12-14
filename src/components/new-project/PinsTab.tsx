@@ -217,8 +217,7 @@ export const PinsTab: React.FC<PinsTabProps> = ({
                         sx={{
                           display: "flex",
                           alignItems: "center",
-                          gap: 1,
-                          p: 0.75,
+                          p: 1,
                           cursor: "pointer",
                           backgroundColor: isSelected
                             ? "action.selected"
@@ -233,9 +232,7 @@ export const PinsTab: React.FC<PinsTabProps> = ({
                       >
                         {isFirstFunc && (
                           <Typography
-                            variant="body2"
                             sx={{
-                              fontWeight: 500,
                               minWidth: "60px",
                             }}
                           >

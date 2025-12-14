@@ -95,7 +95,8 @@ export function createApplicationMenu(): void {
         },
         { type: "separator" },
         {
-          label: "Показать панель GUI",
+          label: "Переключить панель GUI",
+          accelerator: "CommandOrControl+Shift+G",
           click: () => {
             const mainWindow = windowManager.getMainWindow();
             if (mainWindow && !mainWindow.isDestroyed()) {
@@ -104,7 +105,8 @@ export function createApplicationMenu(): void {
           },
         },
         {
-          label: "Показать панель графической инициализации",
+          label: "Переключить панель ГИ",
+          accelerator: "CommandOrControl+Shift+I",
           click: () => {
             const mainWindow = windowManager.getMainWindow();
             if (mainWindow && !mainWindow.isDestroyed()) {

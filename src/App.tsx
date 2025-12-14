@@ -17,6 +17,7 @@ import {
   useFileHandler,
   useNewProjectModal,
 } from "@hooks/index";
+import { useAdditionalPanel } from "@/hooks/ui/useAdditionalPanel";
 import { SnackbarProvider } from "@/contexts/SnackbarContext";
 
 import type { CompilationProblem } from "@/components/terminal/ProblemsTab";
@@ -41,6 +42,13 @@ const App = () => {
   const { isTerminalVisible, toggleTerminal } = useTerminal({
     currentProjectPath,
   });
+  //Видимость дополнительных панелей
+  const {
+    isGuiPanelVisible,
+    isGraphicalInitVisible,
+    hideGuiPanel,
+    hideGraphicalInit,
+  } = useAdditionalPanel();
   //Обработка открытия файлов
   const { handleFileOpen, setFileHandler } = useFileHandler();
   //Обработка открытия проекта
@@ -283,14 +291,23 @@ const App = () => {
                 </Box>
               </Panel>
 
-              <PanelResizeHandle />
-
-              {/* Информация о проекте */}
-              <Panel defaultSize={33} minSize={15} maxSize={45}>
-                <Box display="flex" height="100%">
-                  <AdditionalPanel currentProjectPath={currentProjectPath} />
-                </Box>
-              </Panel>
+              {/* Информация о проекте - показываем только если хотя бы одна панель видна */}
+              {(isGuiPanelVisible || isGraphicalInitVisible) && (
+                <>
+                  <PanelResizeHandle />
+                  <Panel defaultSize={33} minSize={15} maxSize={45}>
+                    <Box display="flex" height="100%">
+                      <AdditionalPanel
+                        currentProjectPath={currentProjectPath}
+                        isGuiPanelVisible={isGuiPanelVisible}
+                        isGraphicalInitVisible={isGraphicalInitVisible}
+                        hideGuiPanel={hideGuiPanel}
+                        hideGraphicalInit={hideGraphicalInit}
+                      />
+                    </Box>
+                  </Panel>
+                </>
+              )}
             </PanelGroup>
           </Box>
         </Box>

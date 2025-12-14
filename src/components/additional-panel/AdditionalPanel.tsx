@@ -1,21 +1,22 @@
 import { Box } from "@mui/material";
 import { GuiPanel } from "./GuiPanel";
 import GraphicalInitialization from "./GraphicalInitialization";
-import { useAdditionalPanel } from "@/hooks/ui/useAdditionalPanel";
 
 interface AdditionalPanelProps {
   currentProjectPath?: string | null;
+  isGuiPanelVisible: boolean;
+  isGraphicalInitVisible: boolean;
+  hideGuiPanel: () => Promise<void>;
+  hideGraphicalInit: () => Promise<void>;
 }
 
 const AdditionalPanel: React.FC<AdditionalPanelProps> = ({
   currentProjectPath,
+  isGuiPanelVisible,
+  isGraphicalInitVisible,
+  hideGuiPanel,
+  hideGraphicalInit,
 }) => {
-  const {
-    isGuiPanelVisible,
-    isGraphicalInitVisible,
-    hideGuiPanel,
-    hideGraphicalInit,
-  } = useAdditionalPanel();
 
   // Если обе панели скрыты, не рендерим ничего
   if (!isGuiPanelVisible && !isGraphicalInitVisible) {
