@@ -1,8 +1,6 @@
 import type { ForgeConfig } from '@electron-forge/shared-types';
-import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDeb } from '@electron-forge/maker-deb';
-import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
@@ -69,22 +67,17 @@ const config: ForgeConfig = {
     // Разрешаем пересборку для целевой платформы
     force: true,
   },
-  makers: (() => {
-    const makers = [];
-    if (process.platform === 'win32') {
-      makers.push(new MakerSquirrel({}));
-    }
-    if (process.platform === 'darwin') {
-      makers.push(new MakerZIP({}, ['darwin']));
-    }
-    if (process.platform === 'linux') {
-      makers.push(new MakerDeb({}));
-      // Временно отключаем RPM из-за проблем с правами доступа
-      // makers.push(new MakerRpm({}));
-      makers.push(new MakerZIP({}, ['linux']));
-    }
-    return makers;
-  })(),
+  makers: [
+    // Windows makers (MakerSquirrel требует Windows, поэтому используем только ZIP для кроссплатформенной сборки)
+    new MakerZIP({}, ['win32']),
+    // macOS makers
+    new MakerZIP({}, ['darwin']),
+    // Linux makers
+    new MakerDeb({}),
+    // Временно отключаем RPM из-за проблем с правами доступа
+    // new MakerRpm({}),
+    new MakerZIP({}, ['linux']),
+  ],
   plugins: [
     // Плагин для автоматической распаковки нативных модулей из asar архива
     // Должен быть ПЕРВЫМ, чтобы правильно обработать нативные модули перед сборкой
