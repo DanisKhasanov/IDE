@@ -1,11 +1,90 @@
-import { SerialPort } from "serialport";
 import type { SerialPortInfo } from "@/types/arduino";
 import { platform } from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { isKnownArduinoDevice } from "@/utils/arduino/BoardDetector";
+import { app } from "electron";
+import { join, dirname } from "path";
+import { existsSync } from "fs";
+import Module from "module";
 
 const execAsync = promisify(exec);
+
+// Динамический импорт serialport для правильной работы в упакованном приложении
+// Нативные модули должны загружаться через require в runtime
+let SerialPortModule: typeof import("serialport") | null = null;
+
+function getSerialPort(): typeof import("serialport") {
+  if (!SerialPortModule) {
+    try {
+      if (app.isPackaged) {
+        // В упакованном приложении пробуем несколько вариантов путей
+        const resourcesPath = process.resourcesPath;
+        
+        if (!resourcesPath) {
+          throw new Error("process.resourcesPath не определен в упакованном приложении");
+        }
+        
+        // Добавляем путь к app.asar.unpacked/node_modules в NODE_PATH для правильного разрешения модулей
+        const unpackedNodeModulesPath = join(resourcesPath, "app.asar.unpacked", "node_modules");
+        if (existsSync(unpackedNodeModulesPath)) {
+          // Добавляем путь в Module._nodeModulePaths для текущего модуля
+          const ModuleInternal = Module as any;
+          if (ModuleInternal._nodeModulePaths) {
+            const originalNodeModulePaths = ModuleInternal._nodeModulePaths;
+            ModuleInternal._nodeModulePaths = function(from: string) {
+              const paths = originalNodeModulePaths.call(this, from);
+              if (!paths.includes(unpackedNodeModulesPath)) {
+                paths.unshift(unpackedNodeModulesPath);
+              }
+              return paths;
+            };
+          }
+        }
+        
+        // Вариант 1: Стандартный require (должен работать с AutoUnpackNativesPlugin и настроенным NODE_PATH)
+        try {
+          SerialPortModule = require("serialport");
+          return SerialPortModule;
+        } catch (standardError) {
+          // Игнорируем ошибку, пробуем прямые пути
+        }
+        
+        // Вариант 2: Прямой путь к app.asar.unpacked
+        const unpackedPaths = [
+          join(resourcesPath, "app.asar.unpacked", "node_modules", "serialport"),
+          join(dirname(app.getAppPath()), "app.asar.unpacked", "node_modules", "serialport"),
+        ];
+        
+        for (const serialportPath of unpackedPaths) {
+          if (existsSync(serialportPath)) {
+            try {
+              SerialPortModule = require(serialportPath);
+              return SerialPortModule;
+            } catch (pathError) {
+              // Пробуем следующий путь
+              continue;
+            }
+          }
+        }
+        
+        // Если все варианты не сработали, выбрасываем ошибку
+        throw new Error(
+          `Не удалось загрузить serialport в упакованном приложении. ` +
+          `Проверьте, что модуль правильно распакован из asar архива.`
+        );
+      } else {
+        // В режиме разработки используем стандартный импорт
+        SerialPortModule = require("serialport");
+        return SerialPortModule;
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки serialport:", error);
+      throw error;
+    }
+  }
+  return SerialPortModule;
+}
 
 // Для serialport v13+ метод list() доступен через SerialPort.list()
 
@@ -93,6 +172,8 @@ async function listSerialPortsLinuxFallback(): Promise<SerialPortInfo[]> {
  */
 export async function listSerialPorts(): Promise<SerialPortInfo[]> {
   try {
+    // Получаем модуль serialport динамически
+    const { SerialPort } = getSerialPort();
     // Добавляем таймаут для предотвращения зависания
     const listPromise = SerialPort.list();
     const timeoutPromise = new Promise<never>((_, reject) => {

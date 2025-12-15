@@ -8,8 +8,12 @@
     "start": "electron-forge start -- --no-sandbox",
     "fix-sandbox": "./fix-sandbox.sh",
     "clean-ide-cache": "./clean-ide-cache.sh",
+    "clean:natives": "rm -rf node_modules/node-pty/build node_modules/serialport/build node_modules/@serialport/bindings-cpp/build node_modules/.cache",
     "package": "electron-forge package",
+    "package:win": "electron-forge package --platform=win32 --arch=x64",
+    "package:win:clean": "npm run clean:natives && npm run package:win",
     "make": "electron-forge make",
+    "make:win": "electron-forge make --platform=win32 --arch=x64",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx ."
   },

@@ -5,7 +5,7 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
-import { copyFileSync, mkdirSync, existsSync, readdirSync } from 'fs';
+import { copyFileSync, mkdirSync, existsSync, readdirSync, rmSync } from 'fs';
 import { resolve } from 'path';
 
 const config: ForgeConfig = {
@@ -19,6 +19,8 @@ const config: ForgeConfig = {
       'node_modules/node-pty/**/*',
       '**/node_modules/serialport/**/*',
       'node_modules/serialport/**/*',
+      '**/node_modules/@serialport/bindings-cpp/**/*',
+      'node_modules/@serialport/bindings-cpp/**/*',
     ],
     // Убеждаемся, что нативные модули пересобираются
     ignore: [
@@ -26,6 +28,31 @@ const config: ForgeConfig = {
     ],
   },
   hooks: {
+    // Хук для пересборки нативных модулей после извлечения, но перед упаковкой
+    packageAfterExtract: async (_forgeConfig, buildPath, _electronVersion, platform, arch) => {
+      // Удаляем старые нативные модули, чтобы принудительно пересобрать их для целевой платформы
+      const nodePtyPath = resolve(buildPath, 'node_modules/node-pty/build');
+      const serialportPath = resolve(buildPath, 'node_modules/serialport/build');
+      const bindingsCppPath = resolve(buildPath, 'node_modules/@serialport/bindings-cpp/build');
+      
+      if (existsSync(nodePtyPath)) {
+        console.log(`Удаление старых нативных модулей node-pty...`);
+        rmSync(nodePtyPath, { recursive: true, force: true });
+      }
+      if (existsSync(serialportPath)) {
+        console.log(`Удаление старых нативных модулей serialport...`);
+        rmSync(serialportPath, { recursive: true, force: true });
+      }
+      if (existsSync(bindingsCppPath)) {
+        console.log(`Удаление старых нативных модулей @serialport/bindings-cpp...`);
+        rmSync(bindingsCppPath, { recursive: true, force: true });
+      }
+      
+      // Пересобираем нативные модули для целевой платформы
+      // Electron Forge должен автоматически пересобрать модули, но удаление старых
+      // гарантирует, что будут использованы модули для правильной платформы
+      console.log(`Пересборка нативных модулей для ${platform}-${arch}...`);
+    },
     // Хук для копирования конфигурационных файлов после сборки, но перед упаковкой
     packageAfterCopy: async (_forgeConfig, buildPath) => {
       // На этом этапе файлы уже собраны в buildPath
@@ -63,8 +90,10 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {
     // Пересобираем только необходимые нативные модули
-    onlyModules: ['node-pty', 'serialport'],
+    // @serialport/bindings-cpp - это нативный модуль, который используется serialport
+    onlyModules: ['node-pty', 'serialport', '@serialport/bindings-cpp'],
     // Разрешаем пересборку для целевой платформы
+    // Это критично для кроссплатформенной сборки
     force: true,
   },
   makers: [
