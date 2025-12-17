@@ -2,6 +2,7 @@ import { BrowserWindow, app } from "electron";
 import type { IPty } from "node-pty";
 import { join, dirname } from "path";
 import { existsSync } from "fs";
+import { execSync } from "child_process";
 import Module from "module";
 
 // Динамический импорт node-pty для правильной работы в упакованном приложении
@@ -100,6 +101,94 @@ function getPty(): typeof import("node-pty") {
 }
 
 /**
+ * Получить путь к shell для Windows
+ * Проверяет наличие PowerShell и использует cmd.exe как fallback
+ */
+function getWindowsShell(): string {
+  const systemRoot = process.env.SystemRoot || "C:\\Windows";
+  
+  // Список возможных shell для проверки (в порядке приоритета)
+  const shellCandidates = [
+    // PowerShell Core (pwsh.exe) - современная версия
+    "pwsh.exe",
+    // Стандартные пути к Windows PowerShell
+    join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
+    join(systemRoot, "SysWOW64", "WindowsPowerShell", "v1.0", "powershell.exe"),
+    // PowerShell из переменной окружения
+    process.env.PSModulePath?.split(";")[0]?.replace("Modules", "powershell.exe"),
+    // PowerShell в PATH
+    "powershell.exe",
+  ].filter(Boolean) as string[];
+
+  // Проверяем наличие PowerShell
+  for (const shellPath of shellCandidates) {
+    try {
+      // Если это просто имя файла, пробуем найти через where
+      if (shellPath.endsWith(".exe") && !shellPath.includes("\\") && !shellPath.includes("/")) {
+        try {
+          // Используем where.exe для поиска в PATH
+          const result = execSync(`where ${shellPath}`, { 
+            stdio: ["ignore", "pipe", "ignore"],
+            encoding: "utf8",
+            timeout: 1000,
+          });
+          const foundPath = result.trim().split("\n")[0]?.trim();
+          if (foundPath && existsSync(foundPath)) {
+            return foundPath;
+          }
+        } catch {
+          // Игнорируем ошибку, пробуем следующий вариант
+        }
+      } else {
+        // Проверяем существование файла напрямую
+        if (existsSync(shellPath)) {
+          return shellPath;
+        }
+      }
+    } catch {
+      // Продолжаем проверку следующего варианта
+    }
+  }
+
+  // Fallback на cmd.exe (всегда доступен на Windows)
+  const cmdPaths = [
+    join(systemRoot, "System32", "cmd.exe"),
+    join(systemRoot, "SysWOW64", "cmd.exe"),
+    "cmd.exe",
+  ];
+
+  for (const cmdPath of cmdPaths) {
+    try {
+      if (cmdPath.includes("\\") || cmdPath.includes("/")) {
+        if (existsSync(cmdPath)) {
+          return cmdPath;
+        }
+      } else {
+        // Проверяем через where
+        try {
+          const result = execSync(`where ${cmdPath}`, { 
+            stdio: ["ignore", "pipe", "ignore"],
+            encoding: "utf8",
+            timeout: 1000,
+          });
+          const foundPath = result.trim().split("\n")[0]?.trim();
+          if (foundPath && existsSync(foundPath)) {
+            return foundPath;
+          }
+        } catch {
+          // Игнорируем
+        }
+      }
+    } catch {
+      // Продолжаем
+    }
+  }
+
+  // Последний fallback - просто cmd.exe (должен быть в PATH)
+  return "cmd.exe";
+}
+
+/**
  * Менеджер для управления терминалами
  */
 export class TerminalManager {
@@ -119,35 +208,49 @@ export class TerminalManager {
    */
   createTerminal(cwd?: string): number {
     const ptyModule = getPty();
-    const shell =
-      process.platform === "win32"
-        ? "powershell.exe"
-        : process.env.SHELL || "/bin/bash";
+    
+    // Определяем shell в зависимости от платформы
+    let shell: string;
+    if (process.platform === "win32") {
+      shell = getWindowsShell();
+    } else {
+      shell = process.env.SHELL || "/bin/bash";
+    }
+
     const terminalId = this.nextTerminalId++;
 
-    const ptyProcess = ptyModule.spawn(shell, [], {
-      name: "xterm-color",
-      cols: 80,
-      rows: 24,
-      cwd: cwd || process.cwd(),
-      env: process.env as { [key: string]: string },
-    });
+    try {
+      const ptyProcess = ptyModule.spawn(shell, [], {
+        name: "xterm-color",
+        cols: 80,
+        rows: 24,
+        cwd: cwd || process.cwd(),
+        env: process.env as { [key: string]: string },
+      });
 
-    this.terminals.set(terminalId, ptyProcess);
+      this.terminals.set(terminalId, ptyProcess);
 
-    // Отправка данных из терминала в рендерер
-    ptyProcess.onData((data) => {
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        this.mainWindow.webContents.send("terminal-data", terminalId, data);
-      }
-    });
+      // Отправка данных из терминала в рендерер
+      ptyProcess.onData((data) => {
+        if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+          this.mainWindow.webContents.send("terminal-data", terminalId, data);
+        }
+      });
 
-    // Обработка закрытия терминала
-    ptyProcess.onExit(() => {
-      this.terminals.delete(terminalId);
-    });
+      // Обработка закрытия терминала
+      ptyProcess.onExit(() => {
+        this.terminals.delete(terminalId);
+      });
 
-    return terminalId;
+      return terminalId;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Не удалось создать терминал с shell "${shell}": ${errorMessage}\n` +
+        `Рабочая директория: ${cwd || process.cwd()}\n` +
+        `Платформа: ${process.platform}`
+      );
+    }
   }
 
   /**

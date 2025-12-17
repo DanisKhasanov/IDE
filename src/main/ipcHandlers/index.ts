@@ -1,10 +1,11 @@
-import { ipcMain } from "electron";
+import { ipcMain, BrowserWindow } from "electron";
 import { registerProjectHandlers } from "./projectHandlers";
 import { registerFileHandlers } from "./fileHandlers";
 import { registerTerminalHandlers } from "./terminalHandlers";
 import { registerArduinoHandlers } from "./arduinoHandlers";
 import { registerToolchainHandlers } from "./toolchainHandlers";
 import { registerUIHandlers } from "./uiHandlers";
+import { registerSerialDataHandlers } from "./serialDataHandlers";
 
 /**
  * Список всех IPC обработчиков для удаления при hot reload
@@ -53,6 +54,10 @@ const ALL_HANDLERS = [
   "set-gui-panel-visible",
   "get-graphical-init-visible",
   "set-graphical-init-visible",
+  "serial-data-open",
+  "serial-data-close",
+  "serial-data-write",
+  "serial-data-get-open-ports",
 ];
 
 /**
@@ -71,7 +76,7 @@ function removeAllHandlers(): void {
 /**
  * Регистрация всех IPC обработчиков
  */
-export function registerIpcHandlers(): void {
+export function registerIpcHandlers(mainWindow: BrowserWindow | null = null): void {
   console.log("Регистрируем IPC обработчики...");
 
   // Удаляем старые обработчики, если они есть (для hot reload)
@@ -84,5 +89,6 @@ export function registerIpcHandlers(): void {
   registerArduinoHandlers();
   registerToolchainHandlers();
   registerUIHandlers();
+  registerSerialDataHandlers(mainWindow);
 }
 

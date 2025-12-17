@@ -14,7 +14,7 @@ const execAsync = promisify(exec);
 // Нативные модули должны загружаться через require в runtime
 let SerialPortModule: typeof import("serialport") | null = null;
 
-function getSerialPort(): typeof import("serialport") {
+export function getSerialPort(): typeof import("serialport") {
   if (!SerialPortModule) {
     try {
       if (app.isPackaged) {
