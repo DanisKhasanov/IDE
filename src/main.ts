@@ -4,6 +4,7 @@ import { windowManager } from "./main/managers/WindowManager";
 import { terminalManager } from "./main/managers/TerminalManager";
 import { serialPortWatcher } from "./main/managers/SerialPortWatcher";
 import { createApplicationMenu } from "./main/menu/menu";
+import { closeAllSerialPorts } from "./main/ipcHandlers/serialDataHandlers";
 
 /**
  * Главный процесс Electron приложения
@@ -70,12 +71,14 @@ const createWindow = () => {
 app.whenReady().then(() => {
   console.log("Electron готов, создаем окно...");
   
-  // Регистрируем все IPC обработчики для связи между главным процессом и рендерером
-  // Перерегистрируем на случай hot reload во время разработки
-  registerIpcHandlers();
-  
   // Создаем главное окно приложения
   createWindow();
+  
+  // Регистрируем все IPC обработчики для связи между главным процессом и рендерером
+  // Передаем mainWindow для обработчиков Serial данных
+  // Перерегистрируем на случай hot reload во время разработки
+  const mainWindow = windowManager.getMainWindow();
+  registerIpcHandlers(mainWindow);
 });
 
 /**
@@ -121,6 +124,9 @@ app.on("will-quit", () => {
   
   // Останавливаем отслеживание портов
   serialPortWatcher.stopWatching();
+  
+  // Закрываем все открытые Serial порты
+  closeAllSerialPorts();
   
   // Очищаем все терминалы и освобождаем ресурсы
   terminalManager.clear();

@@ -5,6 +5,7 @@ import { arduinoAPI } from './arduinoAPI';
 import { menuAPI } from './menuAPI';
 import { toolchainAPI } from './toolchainAPI';
 import { uiAPI } from './uiAPI';
+import { serialDataAPI } from './serialDataAPI';
 
 /**
  * Сборка всех API для экспорта через contextBridge
@@ -81,5 +82,14 @@ export const electronAPI = {
   setGuiPanelVisible: uiAPI.setGuiPanelVisible,
   getGraphicalInitVisible: uiAPI.getGraphicalInitVisible,
   setGraphicalInitVisible: uiAPI.setGraphicalInitVisible,
+
+  // API для работы с Serial данными
+  serialDataOpen: serialDataAPI.open,
+  serialDataClose: serialDataAPI.close,
+  serialDataWrite: serialDataAPI.write,
+  serialDataGetOpenPorts: serialDataAPI.getOpenPorts,
+  serialDataOnData: serialDataAPI.onData,
+  serialDataOnError: serialDataAPI.onError,
+  serialDataOnClose: serialDataAPI.onClose,
 };
 

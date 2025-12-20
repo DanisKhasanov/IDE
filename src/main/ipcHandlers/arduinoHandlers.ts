@@ -10,6 +10,7 @@ import {
   setupSerialPortPermissions 
 } from "@utils/serial/SerialPortPermissions";
 import { serialPortWatcher } from "@main/managers/SerialPortWatcher";
+import { closeSerialPortForUpload } from "./serialDataHandlers";
 
 /**
  * Регистрация IPC обработчиков для работы с Arduino
@@ -108,6 +109,11 @@ export function registerArduinoHandlers(): void {
           port: portPath,
           board: boardName,
         });
+
+        // Закрываем Serial порт, если он открыт (например, в GUI панели)
+        // Это необходимо, чтобы avrdude мог получить доступ к порту
+        await closeSerialPortForUpload(portPath);
+
         const boardConfig = await parseBoardConfig(boardName);
         const result = await uploadFirmware(hexFilePath, portPath, boardConfig);
         console.log("Результат заливки:", result);

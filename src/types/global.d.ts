@@ -117,6 +117,14 @@ declare global {
       setGuiPanelVisible: (visible: boolean) => Promise<{ success: boolean }>;
       getGraphicalInitVisible: () => Promise<boolean>;
       setGraphicalInitVisible: (visible: boolean) => Promise<{ success: boolean }>;
+      // Serial Data API
+      serialDataOpen: (portPath: string, baudRate?: number) => Promise<{ success: boolean; error?: string }>;
+      serialDataClose: (portPath: string) => Promise<{ success: boolean; error?: string }>;
+      serialDataWrite: (portPath: string, data: string) => Promise<{ success: boolean; error?: string }>;
+      serialDataGetOpenPorts: () => Promise<{ success: boolean; ports?: string[] }>;
+      serialDataOnData: (callback: (portPath: string, data: Record<string, any>) => void) => () => void;
+      serialDataOnError: (callback: (portPath: string, error: string) => void) => () => void;
+      serialDataOnClose: (callback: (portPath: string) => void) => () => void;
     };
   }
 }
