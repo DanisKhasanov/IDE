@@ -174,7 +174,7 @@ const ToolchainSetupModal: React.FC<ToolchainSetupModalProps> = ({
           pb: 1,
         }}
       >
-        <Typography variant="h6">Установка AVR Toolchain</Typography>
+        <Typography>Установка AVR Toolchain</Typography>
         <IconButton aria-label="close" onClick={handleClose}>
           <CloseIcon />
         </IconButton>
@@ -198,6 +198,11 @@ const ToolchainSetupModal: React.FC<ToolchainSetupModalProps> = ({
                   <Typography variant="body1" fontWeight="bold">
                     AVR Toolchain установлен и готов к использованию!
                   </Typography>
+                  {status.tools.avrdude && (
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      avrdude: {status.versions.avrdude || "установлен"}
+                    </Typography>
+                  )}
                 </Alert>
               ) : (
                 <Alert severity="warning" icon={<WarningIcon />}>
@@ -208,6 +213,18 @@ const ToolchainSetupModal: React.FC<ToolchainSetupModalProps> = ({
                     Для компиляции Arduino проектов необходимо установить
                     инструменты разработки.
                   </Typography>
+                  {status.errors.length > 0 && (
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="body2" component="div">
+                        <strong>Ошибки проверки:</strong>
+                        <ul style={{ marginTop: 4, marginBottom: 4, paddingLeft: 20 }}>
+                          {status.errors.map((error, idx) => (
+                            <li key={idx} style={{ fontSize: "0.875rem" }}>{error}</li>
+                          ))}
+                        </ul>
+                      </Typography>
+                    </Box>
+                  )}
                 </Alert>
               )}
 
@@ -281,17 +298,19 @@ const ToolchainSetupModal: React.FC<ToolchainSetupModalProps> = ({
                           overflowY: "auto",
                         }}
                       >
-                        {installProgress.map((progress, index) => (
-                          <Box key={index} sx={{ mb: 0.5 }}>
-                            {progress.error ? (
-                              <Typography sx={{ color: "error.light" }}>
-                                {progress.output}
-                              </Typography>
-                            ) : (
-                              <Typography>{progress.output}</Typography>
-                            )}
-                          </Box>
-                        ))}
+                        {installProgress
+                          .filter((progress) => progress != null)
+                          .map((progress, index) => (
+                            <Box key={index} sx={{ mb: 0.5 }}>
+                              {progress?.error ? (
+                                <Typography sx={{ color: "error.light" }}>
+                                  {progress.output}
+                                </Typography>
+                              ) : (
+                                <Typography>{progress?.output || ""}</Typography>
+                              )}
+                            </Box>
+                          ))}
                       </Paper>
                     )}
                   </Paper>
@@ -325,6 +344,16 @@ const ToolchainSetupModal: React.FC<ToolchainSetupModalProps> = ({
               </Button>
             )}
           </>
+        )}
+        {!checking && status && !installing && (
+          <Button
+            onClick={checkToolchain}
+            variant="outlined"
+            color="primary"
+            disabled={checking}
+          >
+            Проверить снова
+          </Button>
         )}
         <Button
           onClick={handleClose}

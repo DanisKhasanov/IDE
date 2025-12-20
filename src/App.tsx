@@ -196,7 +196,7 @@ const App = () => {
           >
             <PanelGroup direction="horizontal">
               {/* Дерево проектов */}
-              <Panel defaultSize={15} minSize={14} maxSize={40}>
+              <Panel defaultSize={18} minSize={14} maxSize={40}>
                 <Box display="flex" height="100%">
                   <ProjectTree
                     onFileOpen={handleFileOpen}
@@ -209,7 +209,7 @@ const App = () => {
               <PanelResizeHandle />
 
               {/* Редактор кода */}
-              <Panel defaultSize={65} minSize={35}>
+              <Panel defaultSize={isGuiPanelVisible || isGraphicalInitVisible ? 57 : 82} minSize={35}>
                 <Box display="flex" height="100%">
                   <CodeEditorPanel
                     onFileOpenRequest={setFileHandler}
@@ -291,7 +291,7 @@ const App = () => {
               {(isGuiPanelVisible || isGraphicalInitVisible) && (
                 <>
                   <PanelResizeHandle />
-                  <Panel defaultSize={33} minSize={15} maxSize={45}>
+                  <Panel defaultSize={25} minSize={15} maxSize={45}>
                     <Box display="flex" height="100%">
                       <AdditionalPanel
                         currentProjectPath={currentProjectPath}

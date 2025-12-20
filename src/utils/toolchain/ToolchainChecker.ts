@@ -60,68 +60,67 @@ export async function checkToolchain(): Promise<ToolchainStatus> {
   }
 
   // Проверка avrdude
-  // avrdude -v выводит версию, но завершается с ошибкой, если не указан программист
-  // Поэтому проверяем и stdout и stderr, и ищем версию в обоих потоках
+  // Сначала проверяем наличие команды через which/where
   try {
-    const { stdout, stderr } = await execAsync("avrdude -v 2>&1", { timeout: 5000 });
-    const output = stdout + stderr;
-    
-    // Проверяем, что команда не была "не найдена"
-    const lowerOutput = output.toLowerCase();
-    if (lowerOutput.includes("command not found") || 
-        lowerOutput.includes("не найдена") ||
-        lowerOutput.includes("не найден") ||
-        lowerOutput.includes("could not be found")) {
-      throw new Error("avrdude не найден");
+    // Проверяем наличие avrdude в PATH
+    const whichCmd = process.platform === "win32" ? "where avrdude" : "which avrdude";
+    try {
+      await execAsync(whichCmd, { timeout: 3000 });
+      // Команда найдена, теперь проверяем версию
+    } catch (whichError) {
+      // Команда не найдена в PATH
+      status.errors.push("avrdude не найден в PATH");
+      return status;
     }
-    
-    // Ищем версию в формате "avrdude: Version X.Y" или "avrdude version X.Y"
-    const versionMatch = output.match(/avrdude[:\s]+version[:\s]+(\d+\.\d+)/i);
-    
-    if (versionMatch) {
-      status.tools.avrdude = true;
-      status.versions.avrdude = versionMatch[1];
-    } else {
-      // Если версия не найдена, но команда выполнилась и вывела что-то,
-      // значит avrdude установлен, просто не удалось извлечь версию
-      if (output.length > 0 && !lowerOutput.includes("error")) {
+
+    // Если команда найдена, проверяем версию
+    // avrdude -v выводит версию, но завершается с ошибкой, если не указан программист
+    // Используем -? для вывода справки, которая содержит версию
+    try {
+      const { stdout, stderr } = await execAsync("avrdude -? 2>&1", { timeout: 5000 });
+      const output = (stdout + stderr).toLowerCase();
+      
+      // Проверяем, что это не ошибка "команда не найдена"
+      if (output.includes("command not found") || 
+          output.includes("не найдена") ||
+          output.includes("не найден") ||
+          output.includes("could not be found")) {
+        status.errors.push("avrdude не найден в PATH");
+        return status;
+      }
+      
+      // Ищем версию в формате "avrdude: Version X.Y" или "avrdude version X.Y"
+      const versionMatch = (stdout + stderr).match(/avrdude[:\s]+version[:\s]+(\d+\.\d+(?:\.\d+)?)/i);
+      
+      if (versionMatch) {
+        status.tools.avrdude = true;
+        status.versions.avrdude = versionMatch[1];
+      } else if (output.includes("avrdude") && output.length > 0) {
+        // Если в выводе есть упоминание avrdude, значит он установлен
         status.tools.avrdude = true;
       } else {
-        throw new Error("avrdude не найден");
+        status.errors.push("avrdude найден, но не удалось определить версию");
+        status.tools.avrdude = true; // Считаем установленным, если команда выполнилась
+      }
+    } catch (versionError) {
+      // Если команда which нашла avrdude, но проверка версии не удалась,
+      // все равно считаем, что avrdude установлен (возможно, проблема с правами доступа)
+      const err = versionError as Error & { code?: number };
+      if (err.code === 127) {
+        status.errors.push("avrdude не найден в PATH");
+      } else {
+        // Команда существует, но возможно есть другие проблемы
+        // Проверяем через более простую команду
+        try {
+          await execAsync("avrdude 2>&1", { timeout: 3000 });
+          status.tools.avrdude = true;
+        } catch {
+          status.errors.push("avrdude найден, но не работает корректно");
+        }
       }
     }
   } catch (error) {
-    // Проверяем, не является ли ошибка просто отсутствием программиста
-    const err = error as Error & { stderr?: string; stdout?: string; code?: number };
-    const errorMessage = (err.stderr || err.stdout || err.message || "").toLowerCase();
-    
-    // Код 127 означает "command not found" в Unix системах
-    if (err.code === 127) {
-      status.errors.push("avrdude не найден в PATH");
-      return status;
-    }
-    
-    // Проверяем, что это не ошибка "команда не найдена"
-    if (errorMessage.includes("command not found") || 
-        errorMessage.includes("не найдена") ||
-        errorMessage.includes("не найден") ||
-        errorMessage.includes("could not be found")) {
-      status.errors.push("avrdude не найден в PATH");
-      return status;
-    }
-    
-    // Если в выводе есть "version" и нет ошибок "не найдена", значит avrdude установлен
-    if (errorMessage.includes("version") && 
-        !errorMessage.includes("command not found") &&
-        !errorMessage.includes("не найдена")) {
-      status.tools.avrdude = true;
-      const versionMatch = (err.stderr || err.stdout || err.message || "").match(/version[:\s]+(\d+\.\d+)/i);
-      if (versionMatch) {
-        status.versions.avrdude = versionMatch[1];
-      }
-    } else {
-      status.errors.push("avrdude не найден в PATH");
-    }
+    status.errors.push("avrdude не найден в PATH");
   }
 
   // Toolchain считается установленным, если все три инструмента доступны

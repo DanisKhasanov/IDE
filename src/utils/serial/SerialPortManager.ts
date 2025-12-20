@@ -217,7 +217,7 @@ export async function listSerialPorts(): Promise<SerialPortInfo[]> {
 
 /**
  * Обнаружить порты, которые могут быть Arduino платами
- * Фильтрует по известным VID/PID, а если не найдено - показывает все USB/Serial порты
+ * Фильтрует по известным VID/PID, а если не найдено - показывает только реальные Serial/COM порты
  */
 export async function detectArduinoPorts(): Promise<SerialPortInfo[]> {
   try {
@@ -234,6 +234,7 @@ export async function detectArduinoPorts(): Promise<SerialPortInfo[]> {
     }
     
     // Если не нашли по VID/PID, ищем порты по названию (для Linux и других случаев)
+    // Показываем только реальные Serial/COM порты, а не любые USB устройства
     const arduinoPortsByName = allPorts.filter((port) => {
       const pathLower = port.path.toLowerCase();
       const friendlyLower = (port.friendlyName || "").toLowerCase();
@@ -245,15 +246,17 @@ export async function detectArduinoPorts(): Promise<SerialPortInfo[]> {
         return false;
       }
 
-      // Проверяем по названию порта (Linux: /dev/ttyUSB0, /dev/ttyACM0, Windows: COM3)
-      // Только USB/Serial порты, не системные последовательные порты
+      // Проверяем по названию порта - только реальные Serial/COM порты:
+      // - Linux: /dev/ttyUSB*, /dev/ttyACM* (USB Serial и ACM порты)
+      // - Windows: COM* (COM порты)
+      // - macOS: /dev/cu.*, /dev/tty.* (но только если это USB Serial устройства)
       const isUsbSerialPort =
-        pathLower.includes("ttyusb") ||
-        pathLower.includes("ttyacm") ||
-        pathLower.includes("com") ||
-        (pathLower.includes("usb") && !pathLower.includes("/dev/ttys"));
+        pathLower.match(/\/dev\/ttyusb\d+/) ||  // /dev/ttyUSB0, /dev/ttyUSB1, etc.
+        pathLower.match(/\/dev\/ttyacm\d+/) ||  // /dev/ttyACM0, /dev/ttyACM1, etc.
+        pathLower.match(/^com\d+$/);            // COM1, COM2, COM3, etc. (Windows)
 
-      // Проверяем по friendly name или manufacturer
+      // Проверяем по friendly name или manufacturer (для случаев, когда порт может быть Arduino,
+      // но не имеет стандартного названия порта)
       const isArduinoLike =
         friendlyLower.includes("arduino") ||
         manufacturerLower.includes("arduino") ||
@@ -271,12 +274,10 @@ export async function detectArduinoPorts(): Promise<SerialPortInfo[]> {
 
     return [];
   } catch (error) {
-    // В случае ошибки возвращаем все порты
-    try {
-      return await listSerialPorts();
-    } catch (listError) {
-      return [];
-    }
+    // В случае ошибки возвращаем пустой массив, а не все порты
+    // Это предотвращает показ любых USB устройств, когда COM порт не подключен
+    console.error("Ошибка обнаружения Arduino портов:", error);
+    return [];
   }
 }
 

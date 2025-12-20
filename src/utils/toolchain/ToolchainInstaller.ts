@@ -34,18 +34,18 @@ export function getInstallCommands(): InstallCommands {
       platform: "macos",
       commands: [
         "brew tap osx-cross/avr",
-        "brew install avr-gcc",
+        "brew install avr-gcc avrdude",
       ],
       description: "Установка через Homebrew",
       instructions: [
         "Убедитесь, что у вас установлен Homebrew (https://brew.sh/)",
         "Откройте терминал и выполните следующие команды:",
         "brew tap osx-cross/avr",
-        "brew install avr-gcc",
+        "brew install avr-gcc avrdude",
         "После установки проверьте наличие инструментов:",
         "avr-gcc --version",
         "avr-objcopy --version",
-        "avrdude -v",
+        "avrdude -?",
       ],
     };
   }
@@ -225,7 +225,7 @@ export class ToolchainInstaller extends EventEmitter {
         }
 
         // Выполняем установку через Homebrew
-        const cmd = "brew tap osx-cross/avr && brew install avr-gcc";
+        const cmd = "brew tap osx-cross/avr && brew install avr-gcc avrdude";
         
         this.emit("progress", {
           step: "Подготовка",
