@@ -1,48 +1,76 @@
 import React, { useState, useEffect, useRef } from "react";
-import { 
-  Box, 
-  Typography, 
-  IconButton, 
-  Card, 
+import {
+  Box,
+  Typography,
+  IconButton,
+  Card,
   CardContent,
   Alert,
   CircularProgress,
+  Tooltip,
+  Switch,
+  FormControlLabel,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import OpenInFullIcon from "@mui/icons-material/OpenInFull";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import type { SensorData } from "@/utils/serial/SerialDataReader";
-import { loadGuiPanelSettings } from "@/utils/config/GuiPanelSettings";
+import { loadGuiPanelSettings, saveGuiPanelSettings } from "@/utils/config/GuiPanelSettings";
 
-interface GuiPanelProps {
-  onClose?: () => void;
-  onOpenSettings?: () => void;
+interface GuiSettingsPageProps {
+  onClose: () => void;
 }
 
-// Компонент компактного цифрового табло для мини-панели
-const CompactDisplay: React.FC<{ 
+// Компонент цифрового табло для отображения значения
+const DigitalDisplay: React.FC<{ 
   label: string; 
   value: string | number; 
   unit?: string;
   color?: string;
-}> = ({ label, value, unit = "", color = "primary" }) => {
+  fieldKey: string;
+  showInMiniPanel: boolean;
+  onToggleMiniPanel: (fieldKey: string, show: boolean) => void;
+}> = ({ label, value, unit = "", color = "primary", fieldKey, showInMiniPanel, onToggleMiniPanel }) => {
   return (
     <Card 
       sx={{ 
+        height: "100%",
         background: `linear-gradient(135deg, ${color === "primary" ? "#1976d2" : color === "success" ? "#2e7d32" : "#d32f2f"}15 0%, ${color === "primary" ? "#1976d2" : color === "success" ? "#2e7d32" : "#d32f2f"}05 100%)`,
         border: `1px solid ${color === "primary" ? "#1976d2" : color === "success" ? "#2e7d32" : "#d32f2f"}30`,
+        position: "relative",
       }}
     >
-      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+      <CardContent sx={{ p: 3 }}>
+        {/* Переключатель для мини-панели */}
+        <Box
+          sx={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            zIndex: 1,
+          }}
+        >
+          <Tooltip title={showInMiniPanel ? "Скрыть в мини-панели" : "Показать в мини-панели"}>
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={showInMiniPanel}
+                  onChange={(e) => onToggleMiniPanel(fieldKey, e.target.checked)}
+                />
+              }
+              label=""
+              sx={{ m: 0 }}
+            />
+          </Tooltip>
+        </Box>
+
         <Typography 
-          variant="caption" 
+          variant="body2" 
           color="text.secondary" 
           sx={{ 
+            mb: 2, 
             textTransform: "uppercase",
-            letterSpacing: 0.5,
+            letterSpacing: 1,
             fontWeight: 500,
-            fontSize: 9,
-            display: "block",
-            mb: 0.5,
           }}
         >
           {label}
@@ -51,16 +79,18 @@ const CompactDisplay: React.FC<{
           sx={{
             display: "flex",
             alignItems: "baseline",
+            justifyContent: "center",
             gap: 0.5,
           }}
         >
           <Typography
-            variant="h6"
+            variant="h2"
             component="div"
             sx={{
               fontFamily: "'Roboto Mono', monospace",
               fontWeight: 700,
               color: `${color === "primary" ? "#1976d2" : color === "success" ? "#2e7d32" : "#d32f2f"}`,
+              textShadow: `0 0 20px ${color === "primary" ? "#1976d240" : color === "success" ? "#2e7d3240" : "#d32f2f40"}`,
               lineHeight: 1.2,
             }}
           >
@@ -68,11 +98,12 @@ const CompactDisplay: React.FC<{
           </Typography>
           {unit && (
             <Typography
-              variant="caption"
+              variant="h5"
               component="span"
               sx={{
                 color: "text.secondary",
                 fontWeight: 500,
+                ml: 0.5,
               }}
             >
               {unit}
@@ -143,7 +174,7 @@ const parseField = (key: string, value: unknown) => {
   };
 };
 
-export const GuiPanel: React.FC<GuiPanelProps> = ({ onClose, onOpenSettings }) => {
+export const GuiSettingsPage: React.FC<GuiSettingsPageProps> = ({ onClose }) => {
   const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -158,6 +189,24 @@ export const GuiPanel: React.FC<GuiPanelProps> = ({ onClose, onOpenSettings }) =
     const settings = loadGuiPanelSettings();
     setVisibleFields(settings.visibleFields);
   }, []);
+
+  // Обработчик переключения видимости в мини-панели
+  const handleToggleMiniPanel = (fieldKey: string, show: boolean) => {
+    setVisibleFields((prev) => {
+      let newFields: string[];
+      if (show) {
+        // Добавляем поле, если его еще нет
+        newFields = prev.includes(fieldKey) ? prev : [...prev, fieldKey];
+      } else {
+        // Удаляем поле
+        newFields = prev.filter((f) => f !== fieldKey);
+      }
+      
+      // Сохраняем настройки
+      saveGuiPanelSettings({ visibleFields: newFields });
+      return newFields;
+    });
+  };
 
   // Подключение к Arduino при монтировании компонента
   useEffect(() => {
@@ -268,95 +317,61 @@ export const GuiPanel: React.FC<GuiPanelProps> = ({ onClose, onOpenSettings }) =
     };
   }, [isConnected, portPath]);
 
-  // Обновляем видимые поля при изменении настроек
-  useEffect(() => {
-    // Проверяем периодически (для обновления в той же вкладке)
-    const interval = setInterval(() => {
-      const settings = loadGuiPanelSettings();
-      if (JSON.stringify(settings.visibleFields) !== JSON.stringify(visibleFields)) {
-        setVisibleFields(settings.visibleFields);
-      }
-    }, 500);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [visibleFields]);
-
-  // Фильтруем данные по видимым полям
-  // Если нет выбранных полей, не показываем ничего
-  const displayData = sensorData && visibleFields.length > 0
-    ? Object.entries(sensorData).filter(([key]) => visibleFields.includes(key))
-    : [];
-
   return (
     <Box
       sx={{
-        height: "100%",
+        height: "100vh",
         display: "flex",
         flexDirection: "column",
-        position: "relative",
-        p: 1.5,
-        overflow: "hidden",
+        bgcolor: "background.default",
       }}
     >
-      {/* Кнопки управления */}
+      {/* Заголовок страницы */}
       <Box
         sx={{
-          position: "absolute",
-          top: 4,
-          right: 4,
-          zIndex: 1,
           display: "flex",
-          gap: 0.5,
+          alignItems: "center",
+          p: 2,
+          borderBottom: 1,
+          borderColor: "divider",
+          bgcolor: "background.paper",
         }}
       >
-        {onOpenSettings && (
-          <IconButton
-            size="small"
-            onClick={onOpenSettings}
-            title="Открыть полноразмерный вид"
-            sx={{ p: 0.5 }}
-          >
-            <OpenInFullIcon fontSize="small" />
-          </IconButton>
+        <IconButton onClick={onClose} sx={{ mr: 2 }}>
+          <ArrowBackIcon />
+        </IconButton>
+        <Typography variant="h5" component="h1">
+          GUI - Полноразмерный вид
+        </Typography>
+      </Box>
+
+      {/* Статус подключения */}
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: "divider", bgcolor: "background.paper" }}>
+        {isConnected ? (
+          <Alert severity="success">
+            Подключен {portPath && `к ${portPath}`}
+          </Alert>
+        ) : (
+          <Alert severity="warning">
+            Ожидание подключения...
+          </Alert>
         )}
-        {onClose && (
-          <IconButton 
-            size="small" 
-            onClick={onClose} 
-            title="Скрыть панель GUI"
-            sx={{ p: 0.5 }}
-          >
-            <CloseIcon fontSize="small" />
-          </IconButton>
+        {error && (
+          <Alert severity="error" sx={{ mt: 1 }}>
+            {error}
+          </Alert>
         )}
       </Box>
 
-      {/* Статус подключения - компактный */}
-      {isConnected ? (
-        <Alert severity="success" sx={{ py: 0.5, my: 0.5, fontSize: '0.7rem' }}>
-          Подключен
-        </Alert>
-      ) : (
-        <Alert severity="warning" sx={{ py: 0.5, my: 0.5, fontSize: '0.7rem' }}>
-          Ожидание...
-        </Alert>
-      )}
-      {error && (
-        <Alert severity="error" sx={{ py: 0.5, my: 0.5, fontSize: '0.7rem' }}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Отображение данных - компактная сетка */}
+      {/* Отображение данных в виде цифрового табло */}
       <Box
         sx={{
           flex: 1,
           overflow: "auto",
+          p: 3,
           display: "flex",
-          alignItems: displayData.length > 0 ? "flex-start" : "center",
-          justifyContent: displayData.length > 0 ? "flex-start" : "center",
+          alignItems: sensorData ? "flex-start" : "center",
+          justifyContent: sensorData ? "flex-start" : "center",
         }}
       >
         {!sensorData ? (
@@ -365,29 +380,12 @@ export const GuiPanel: React.FC<GuiPanelProps> = ({ onClose, onOpenSettings }) =
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: 1,
+              gap: 2,
             }}
           >
-            <CircularProgress size={24} />
-            <Typography variant="caption" color="text.secondary">
-              Ожидание данных...
-            </Typography>
-          </Box>
-        ) : displayData.length === 0 ? (
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 1,
-              p: 2,
-            }}
-          >
-            <Typography variant="body2" color="text.secondary" textAlign="center">
-              Нет выбранных полей для отображения
-            </Typography>
-            <Typography variant="caption" color="text.secondary" textAlign="center">
-              Откройте полноразмерный вид, чтобы выбрать поля для мини-панели
+            <CircularProgress />
+            <Typography variant="body1" color="text.secondary">
+              Ожидание данных от контроллера...
             </Typography>
           </Box>
         ) : (
@@ -397,21 +395,29 @@ export const GuiPanel: React.FC<GuiPanelProps> = ({ onClose, onOpenSettings }) =
               gridTemplateColumns: {
                 xs: "1fr",
                 sm: "repeat(2, 1fr)",
+                md: "repeat(3, 1fr)",
+                lg: "repeat(4, 1fr)",
               },
-              gap: 1,
+              gap: 3,
               width: "100%",
+              maxWidth: 1400,
+              mx: "auto",
             }}
           >
-            {displayData.map(([key, value]) => {
+            {/* Автоматически создаем цифровое табло для каждого поля в JSON */}
+            {Object.entries(sensorData).map(([key, value]) => {
               const parsed = parseField(key, value);
               
               return (
-                <CompactDisplay
+                <DigitalDisplay
                   key={key}
                   label={parsed.label}
                   value={parsed.value}
                   unit={parsed.unit}
                   color={parsed.color}
+                  fieldKey={key}
+                  showInMiniPanel={visibleFields.includes(key)}
+                  onToggleMiniPanel={handleToggleMiniPanel}
                 />
               );
             })}

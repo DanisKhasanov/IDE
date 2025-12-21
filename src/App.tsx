@@ -6,6 +6,7 @@ import AdditionalPanel from "@/components/additional-panel/AdditionalPanel";
 import ProjectTree from "@/components/project-tree/ProjectTree";
 import NewProjectModal from "@/components/new-project/NewProjectModal";
 import ToolchainSetupModal from "@/components/common/ToolchainSetupModal";
+import { GuiSettingsPage } from "@/components/additional-panel/gui/GuiSettingsPage";
 import {
   useTheme,
   useTerminal,
@@ -32,6 +33,7 @@ const App = () => {
     "terminal" | "problems"
   >("terminal");
   const [toolchainModalOpen, setToolchainModalOpen] = useState(false);
+  const [guiSettingsPageOpen, setGuiSettingsPageOpen] = useState(false);
   //Выбор темы
   const { theme, toggleMode } = useTheme();
   //Выбор видимости терминала
@@ -177,6 +179,18 @@ const App = () => {
     checkToolchainOnFirstLaunch();
   }, []);
 
+  // Если открыта страница настроек GUI, показываем её вместо основного интерфейса
+  if (guiSettingsPageOpen) {
+    return (
+      <ThemeProvider theme={theme}>
+        <SnackbarProvider>
+          <CssBaseline />
+          <GuiSettingsPage onClose={() => setGuiSettingsPageOpen(false)} />
+        </SnackbarProvider>
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <SnackbarProvider>
@@ -299,6 +313,7 @@ const App = () => {
                         isGraphicalInitVisible={isGraphicalInitVisible}
                         hideGuiPanel={hideGuiPanel}
                         hideGraphicalInit={hideGraphicalInit}
+                        onOpenGuiSettings={() => setGuiSettingsPageOpen(true)}
                       />
                     </Box>
                   </Panel>

@@ -123,7 +123,7 @@ export class CodeGenerator {
       }
     }
     if (functionsByType.ADC && functionsByType.ADC.length > 0) {
-      initFunctions.push(this.generateADCInit(functionsByType.ADC[0]));
+      initFunctions.push(this.generateADCInit(functionsByType.ADC));
       if (functionsByType.ADC[0].settings.mode === "FreeRunning") {
         isrFunctions.push(this.generateADCISR());
       }
@@ -234,6 +234,7 @@ ${isrFunctions.join("\n\n")}
       functionDeclarations.push("void timer2_init(void);");
     }
     if (functionsByType.ADC && functionsByType.ADC.length > 0) {
+      functionDeclarations.push("void adc_init_single_channel(uint8_t channel);");
       functionDeclarations.push("void adc_init(void);");
     }
     if (functionsByType.ANALOG_COMPARATOR && functionsByType.ANALOG_COMPARATOR.length > 0) {
@@ -363,7 +364,7 @@ ${functionDeclarations.join("\n")}
       }
     }
     if (functionsByType.ADC && functionsByType.ADC.length > 0) {
-      initFunctions.push(this.generateADCInit(functionsByType.ADC[0]));
+      initFunctions.push(this.generateADCInit(functionsByType.ADC));
       if (functionsByType.ADC[0].settings.mode === "FreeRunning") {
         isrFunctions.push(this.generateADCISR());
       }
@@ -404,19 +405,36 @@ ${isrFunctions.join("\n\n")}
     const defaultBaud = this.boardConfig.peripherals.UART?.baudRates?.[0] || 9600;
     const uartBaud = uartFunc?.settings?.baud || defaultBaud;
 
-    const functionCalls = initFunctions.map((func) => {
-      const match = func.match(/void\s+(\w+)\s*\(/);
-      if (!match) return "";
-      
-      const funcName = match[1];
-      
-      // Для uart_init передаём параметр baud
-      if (funcName === "uart_init") {
-        return `    ${funcName}(${uartBaud});`;
+    const functionCalls: string[] = [];
+    const addedFunctions = new Set<string>(); // Для предотвращения дубликатов
+    
+    // Находим все функции во всех строках инициализации
+    initFunctions.forEach((func) => {
+      // Используем глобальный поиск, чтобы найти все функции в строке
+      const matches = func.matchAll(/void\s+(\w+)\s*\(/g);
+      for (const match of matches) {
+        const funcName = match[1];
+        
+        // Пропускаем вспомогательные функции, которые вызываются только из других функций инициализации
+        if (funcName === "adc_init_single_channel") {
+          continue;
+        }
+        
+        // Пропускаем, если функция уже добавлена
+        if (addedFunctions.has(funcName)) {
+          continue;
+        }
+        
+        addedFunctions.add(funcName);
+        
+        // Для uart_init передаём параметр baud
+        if (funcName === "uart_init") {
+          functionCalls.push(`    ${funcName}(${uartBaud});`);
+        } else {
+          functionCalls.push(`    ${funcName}();`);
+        }
       }
-      
-      return `    ${funcName}();`;
-    }).filter(Boolean);
+    });
 
     return `void pins_init_all(void) {
 ${functionCalls.join("\n")}
@@ -1361,26 +1379,40 @@ ${functionCalls.join("\n")}
     return isrs.length > 0 ? isrs.join("\n\n") : null;
   }
 
-  private generateADCInit(func: SelectedPinFunction): string {
-    const pin = this.findPinByName(func.pinName);
-    if (!pin) return "";
+  private generateADCInit(adcFunctions: SelectedPinFunction[]): string {
+    if (adcFunctions.length === 0) return "";
 
-    const adcFunc = pin.functions.find((f) => f.type === "ADC");
-    if (!adcFunc) return "";
-    
-    // Для ADC channel может быть числом (channel) или channelNumber
-    const channel = (adcFunc.channelNumber !== undefined) 
-      ? adcFunc.channelNumber 
-      : (typeof adcFunc.channel === 'number' ? adcFunc.channel : undefined);
-    
-    if (channel === undefined) return "";
-    const reference = func.settings.reference || "AVcc";
+    // Собираем все уникальные каналы ADC
+    const channelsSet = new Set<number>();
+    for (const func of adcFunctions) {
+      const pin = this.findPinByName(func.pinName);
+      if (!pin) continue;
+
+      const adcFunc = pin.functions.find((f) => f.type === "ADC");
+      if (!adcFunc) continue;
+      
+      // Для ADC channel может быть числом (channel) или channelNumber
+      const channel = (adcFunc.channelNumber !== undefined) 
+        ? adcFunc.channelNumber 
+        : (typeof adcFunc.channel === 'number' ? adcFunc.channel : undefined);
+      
+      if (channel !== undefined) {
+        channelsSet.add(channel);
+      }
+    }
+
+    const channels = Array.from(channelsSet).sort();
+    if (channels.length === 0) return "";
+
+    // Настройки берем из первой функции (они должны быть одинаковыми для всех каналов)
+    const firstFunc = adcFunctions[0];
+    const reference = firstFunc.settings.reference || "AVcc";
     // Если prescaler не выбран или равен 0, используем значение по умолчанию 128
-    let prescaler = func.settings.prescaler;
+    let prescaler = firstFunc.settings.prescaler;
     if (!prescaler || prescaler === 0) {
       prescaler = 128;
     }
-    const mode = func.settings.mode || "Single";
+    const mode = firstFunc.settings.mode || "Single";
 
     const refMap: Record<string, string> = {
       AVcc: "(1 << REFS0)",
@@ -1403,10 +1435,48 @@ ${functionCalls.join("\n")}
       prescaler = 128; // Используем значение по умолчанию, если prescaler невалиден
     }
 
-    const code: string[] = ["void adc_init() {"];
-    code.push(`    ADMUX = ${refMap[reference]}; // ${reference} как опорное напряжение`);
-    code.push(`    ADMUX |= ${channel}; // Канал ADC${channel}`);
-    code.push(`    ADCSRA = (1 << ADEN) | ${prescalerMap[prescaler]}; // Enable ADC, Prescaler ${prescaler}`);
+    // Генерируем функцию adc_init_single_channel
+    const singleChannelCode: string[] = [];
+    singleChannelCode.push("void adc_init_single_channel(uint8_t channel) {");
+    singleChannelCode.push("    if (channel > 7) return; // Только каналы 0–7 для ATmega328P");
+    singleChannelCode.push("");
+    singleChannelCode.push("    // Маска для настройки DDRC");
+    singleChannelCode.push("    uint8_t pin_mask = 0;");
+    singleChannelCode.push("");
+    singleChannelCode.push("    switch (channel) {");
+    singleChannelCode.push("        case 0: pin_mask = (1 << DDC0); break;");
+    singleChannelCode.push("        case 1: pin_mask = (1 << DDC1); break;");
+    singleChannelCode.push("        case 2: pin_mask = (1 << DDC2); break;");
+    singleChannelCode.push("        case 3: pin_mask = (1 << DDC3); break;");
+    singleChannelCode.push("        case 4: pin_mask = (1 << DDC4); break;");
+    singleChannelCode.push("        case 5: pin_mask = (1 << DDC5); break;");
+    singleChannelCode.push("        default: break; // Каналы 6 и 7 не требуют настройки PORTC");
+    singleChannelCode.push("    }");
+    singleChannelCode.push("");
+    singleChannelCode.push("    if (pin_mask != 0) {");
+    singleChannelCode.push("        DDRC &= ~pin_mask;      // Установить пин как INPUT");
+    singleChannelCode.push("        PORTC &= ~pin_mask;     // Отключить подтягивающий резистор");
+    singleChannelCode.push("    }");
+    singleChannelCode.push("");
+    singleChannelCode.push(`    // Установка опорного напряжения ${reference}`);
+    singleChannelCode.push(`    ADMUX = ${refMap[reference]};`);
+    singleChannelCode.push("");
+    singleChannelCode.push("    // Включение АЦП и установка предделителя");
+    singleChannelCode.push(`    ADCSRA = (1 << ADEN) | ${prescalerMap[prescaler]}; // Prescaler ${prescaler}`);
+    singleChannelCode.push("}");
+
+    // Генерируем функцию adc_init, которая инициализирует все каналы
+    const code: string[] = [];
+    code.push(singleChannelCode.join("\n"));
+    code.push("");
+    code.push("void adc_init() {");
+    
+    // Вызываем adc_init_single_channel для каждого канала
+    for (const channel of channels) {
+      code.push(`    adc_init_single_channel(${channel});`);
+    }
+    
+    // Дополнительные настройки для FreeRunning режима
     if (mode === "FreeRunning") {
       code.push("    ADCSRA |= (1 << ADATE) | (1 << ADIE); // Auto Triggering, Interrupt");
       code.push("    ADCSRA |= (1 << ADSC); // Start conversion");

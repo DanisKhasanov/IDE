@@ -1,0 +1,380 @@
+{
+  "GPIO": {
+    "id": "GPIO",
+    "name": "General Purpose Input/Output",
+    "config": {
+      "modes": {
+        "name": "Режим",
+        "values": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+      },
+      "defaultMode": "INPUT"
+    },
+    "pinMapping": {
+      "pins": [
+        "PB0",
+        "PB1",
+        "PB2",
+        "PB3",
+        "PB4",
+        "PB5",
+        "PC0",
+        "PC1",
+        "PC2",
+        "PC3",
+        "PC4",
+        "PC5",
+        "PD0",
+        "PD1",
+        "PD2",
+        "PD3",
+        "PD4",
+        "PD5",
+        "PD6",
+        "PD7"
+      ]
+    }
+  },
+  "UART": {
+    "id": "UART",
+    "name": "Universal Asynchronous Receiver/Transmitter",
+    "config": {
+      "baudRates": {
+        "name": "Скорость передачи",
+        "values": [9600, 19200, 38400, 57600, 115200]
+      },
+      "dataBits": {
+        "name": "Биты данных",
+        "values": [5, 6, 7, 8, 9]
+      },
+      "stopBits": {
+        "name": "Стоп-биты",
+        "values": [1, 2]
+      },
+      "parity": {
+        "name": "Чётность",
+        "values": ["None", "Even", "Odd"]
+      },
+      "modes": {
+        "name": "Режим",
+        "values": ["Asynchronous", "Synchronous"]
+      }
+    },
+    "interrupts": {
+      "RX": {
+        "name": "USART_RX",
+        "description": "Прерывание при приёме данных"
+      },
+      "TX": {
+        "name": "USART_TX",
+        "description": "Прерывание при завершении передачи"
+      },
+      "UDRE": {
+        "name": "USART_UDRE",
+        "description": "Прерывание при пустом регистре данных"
+      }
+    },
+    "pinMapping": {
+      "TX": ["PD1"],
+      "RX": ["PD0"]
+    }
+  },
+  "SPI": {
+    "id": "SPI",
+    "name": "Serial Peripheral Interface",
+    "config": {
+      "modes": {
+        "name": "Режим",
+        "values": ["Master", "Slave"]
+      },
+      "cpol": {
+        "name": "CPOL (Полярность тактового сигнала)",
+        "values": [0, 1]
+      },
+      "cpha": {
+        "name": "CPHA (Фаза тактового сигнала)",
+        "values": [0, 1]
+      },
+      "speeds": {
+        "name": "Скорость",
+        "values": ["fosc/4", "fosc/16", "fosc/64", "fosc/128"]
+      }
+    },
+    "enableInterrupt": true,
+    "interrupts": {
+      "SPI_STC": {
+        "name": "SPI_STC_vect",
+        "description": "Прерывание при завершении передачи SPI"
+      }
+    },
+    "pinMapping": {
+      "MOSI": ["PB3"],
+      "MISO": ["PB4"],
+      "SCK": ["PB5"],
+      "SS": ["PB2"]
+    }
+  },
+  "I2C": {
+    "id": "I2C",
+    "name": "Two Wire Interface",
+    "config": {
+      "modes": {
+        "name": "Режим",
+        "values": ["Master", "Slave"]
+      },
+      "speeds": {
+        "name": "Скорость",
+        "values": [100000, 400000]
+      },
+      "slaveAddressRange": {
+        "name": "Диапазон адресов устройства",
+        "values": [8, 119]
+      }
+    },
+    "enableInterrupt": true,
+    "interrupts": {
+      "TWI": {
+        "name": "TWI_vect",
+        "description": "Прерывание при событии на шине I2C"
+      }
+    },
+    "pinMapping": {
+      "SDA": ["PC4"],
+      "SCL": ["PC5"]
+    }
+  },
+  "TIMER0": {
+    "id": "TIMER0",
+    "name": "Timer/Counter 0",
+    "config": {
+      "modes": {
+        "name": "Режим",
+        "values": [
+          "Normal",
+          "CTC",
+          "FastPWM",
+          "PhaseCorrectPWM",
+          "PhaseFrequencyCorrectPWM"
+        ]
+      },
+      "prescalers": {
+        "name": "Делитель частоты",
+        "values": [1, 8, 64, 256, 1024]
+      }
+    },
+    "channels": ["OC0A", "OC0B"],
+    "pinMapping": {
+      "OC0A": ["PD6"],
+      "OC0B": ["PD5"]
+    }
+  },
+  "TIMER1": {
+    "id": "TIMER1",
+    "name": "Timer/Counter 1",
+    "config": {
+      "modes": {
+        "name": "Режим",
+        "values": [
+          "Normal",
+          "CTC",
+          "FastPWM",
+          "PhaseCorrectPWM",
+          "PhaseFrequencyCorrectPWM",
+          "InputCapture"
+        ]
+      },
+      "prescalers": {
+        "name": "Делитель частоты",
+        "values": [1, 8, 64, 256, 1024]
+      }
+    },
+    "channels": ["OC1A", "OC1B", "IC1"],
+    "interrupts": {
+      "OVF": {
+        "name": "TIMER1_OVF_vect",
+        "description": "Переполнение таймера 1"
+      },
+      "COMPA": {
+        "name": "TIMER1_COMPA_vect",
+        "description": "Совпадение канала A таймера 1"
+      },
+      "COMPB": {
+        "name": "TIMER1_COMPB_vect",
+        "description": "Совпадение канала B таймера 1"
+      },
+      "CAPT": {
+        "name": "TIMER1_CAPT_vect",
+        "description": "Захват таймера 1"
+      }
+    },
+    "pinMapping": {
+      "OC1A": ["PB1"],
+      "OC1B": ["PB2"],
+      "IC1": ["PD0"]
+    }
+  },
+  "TIMER2": {
+    "id": "TIMER2",
+    "name": "Timer/Counter 2",
+    "config": {
+      "modes": {
+        "name": "Режим",
+        "values": [
+          "Normal",
+          "CTC",
+          "FastPWM",
+          "PhaseCorrectPWM",
+          "PhaseFrequencyCorrectPWM"
+        ]
+      },
+      "prescalers": {
+        "name": "Делитель частоты",
+        "values": [1, 8, 32, 64, 128, 256, 1024]
+      }
+    },
+    "channels": ["OC2A", "OC2B"],
+    "interrupts": {
+      "OVF": {
+        "name": "TIMER2_OVF_vect",
+        "description": "Переполнение таймера 2"
+      },
+      "COMPA": {
+        "name": "TIMER2_COMPA_vect",
+        "description": "Совпадение канала A таймера 2"
+      },
+      "COMPB": {
+        "name": "TIMER2_COMPB_vect",
+        "description": "Совпадение канала B таймера 2"
+      }
+    },
+    "pinMapping": {
+      "OC2A": ["PB3"],
+      "OC2B": ["PD3"]
+    }
+  },
+  "ADC": {
+    "id": "ADC",
+    "name": "Analog to Digital Converter",
+    "config": {
+      "channels": {
+        "name": "Каналы",
+        "values": [0, 1, 2, 3, 4, 5]
+      },
+      "reference": {
+        "name": "Опорное напряжение",
+        "values": ["AVcc", "AREF", "Internal1.1V"]
+      },
+      "prescalers": {
+        "name": "Делитель частоты",
+        "values": [2, 4, 8, 16, 32, 64, 128]
+      },
+      "modes": {
+        "name": "Режим",
+        "values": ["Single", "FreeRunning"]
+      }
+    },
+    "interrupts": {
+      "ADC": {
+        "name": "ADC_vect",
+        "description": "Прерывание при завершении преобразования ADC"
+      }
+    },
+    "pinMapping": {
+      "ADC0": ["PC0"],
+      "ADC1": ["PC1"],
+      "ADC2": ["PC2"],
+      "ADC3": ["PC3"],
+      "ADC4": ["PC4"],
+      "ADC5": ["PC5"]
+    }
+  },
+  "EXTERNAL_INTERRUPT": {
+    "id": "EXTERNAL_INTERRUPT",
+    "name": "External Interrupt",
+    "config": {
+      "interrupts": {
+        "name": "Прерывания",
+        "values": ["INT0", "INT1"]
+      },
+      "triggers": {
+        "name": "Триггеры",
+        "values": ["LOW", "CHANGE", "RISING", "FALLING"]
+      }
+    },
+    "interrupts": {
+      "INT0": {
+        "name": "INT0_vect",
+        "description": "Внешнее прерывание INT0"
+      },
+      "INT1": {
+        "name": "INT1_vect",
+        "description": "Внешнее прерывание INT1"
+      }
+    },
+    "pinMapping": {
+      "INT0": ["PD2"],
+      "INT1": ["PD3"]
+    }
+  },
+  "PCINT": {
+    "id": "PCINT",
+    "name": "Pin Change Interrupt",
+    "config": {
+      "groups": {
+        "name": "Группы",
+        "values": ["PCINT0-7", "PCINT8-14", "PCINT16-23"]
+      }
+    },
+    "interrupts": {
+      "PCINT0": {
+        "name": "PCINT0_vect",
+        "description": "Прерывание изменения пина группы 0 (PB0-PB7)"
+      },
+      "PCINT1": {
+        "name": "PCINT1_vect",
+        "description": "Прерывание изменения пина группы 1 (PC0-PC6)"
+      },
+      "PCINT2": {
+        "name": "PCINT2_vect",
+        "description": "Прерывание изменения пина группы 2 (PD0-PD7)"
+      }
+    },
+    "pinMapping": {
+      "PCINT0-7": ["PB0", "PB1", "PB2", "PB3", "PB4", "PB5"],
+      "PCINT8-14": ["PC0", "PC1", "PC2", "PC3", "PC4", "PC5"],
+      "PCINT16-23": ["PD0", "PD1", "PD2", "PD3", "PD4", "PD5", "PD6", "PD7"]
+    }
+  },
+  "ANALOG_COMPARATOR": {
+    "id": "ANALOG_COMPARATOR",
+    "name": "Analog Comparator",
+    "config": {
+      "modes": {
+        "name": "Режим",
+        "values": ["Interrupt", "Timer1Capture"]
+      }
+    },
+    "interrupts": {
+      "ACI": {
+        "name": "ANALOG_COMP_vect",
+        "description": "Прерывание аналогового компаратора"
+      }
+    },
+    "pinMapping": {
+      "AIN0": ["PD6"],
+      "AIN1": ["PD7"]
+    }
+  },
+  "WATCHDOG": {
+    "id": "WATCHDOG",
+    "name": "Watchdog Timer",
+    "config": {
+      "timeouts": {
+        "name": "Таймаут",
+        "values": [16, 32, 64, 125, 250, 500, 1000, 2000, 4000, 8000]
+      }
+    },
+    "pinMapping": {
+      "pins": []
+    }
+  }
+}

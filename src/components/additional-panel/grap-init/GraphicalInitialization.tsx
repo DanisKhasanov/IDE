@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Box, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import { PinsListPanel } from "../common/PinsListPanel";
+import { PinsListPanel } from "@/components/common/PinsListPanel";
 import type {
   BoardConfig,
   PinConfig,

@@ -1,0 +1,427 @@
+{
+  "gpio": {
+    "modes": {
+      "INPUT": [
+        "{{pin.ddr}} &= ~(1 << {{pin.bit}}); // {{pin.name}} как INPUT",
+        "{{pin.port}} &= ~(1 << {{pin.bit}}); // Отключить подтяжку"
+      ],
+      "INPUT_PULLUP": [
+        "{{pin.ddr}} &= ~(1 << {{pin.bit}}); // {{pin.name}} как INPUT",
+        "{{pin.port}} |= (1 << {{pin.bit}}); // Включить подтяжку"
+      ],
+      "OUTPUT_LOW": [
+        "{{pin.ddr}} |= (1 << {{pin.bit}}); // {{pin.name}} как OUTPUT",
+        "{{pin.port}} &= ~(1 << {{pin.bit}}); // LOW"
+      ],
+      "OUTPUT_HIGH": [
+        "{{pin.ddr}} |= (1 << {{pin.bit}}); // {{pin.name}} как OUTPUT",
+        "{{pin.port}} |= (1 << {{pin.bit}}); // HIGH"
+      ]
+    }
+  },
+
+  "uart": {
+    "init": {
+      "async": [
+        "UBRR0H = (F_CPU / 16 / {{baud}} - 1) >> 8;",
+        "UBRR0L = (F_CPU / 16 / {{baud}} - 1);",
+        "UCSR0B = (1 << RXEN0) | (1 << TXEN0);",
+        "UCSR0C = ({{parityBits}} << UPM00) | ({{stopBits}} << USBS0) | ({{dataBits}} << UCSZ00);"
+      ],
+      "sync": [
+        "UBRR0H = (F_CPU / 2 / {{baud}} - 1) >> 8;",
+        "UBRR0L = (F_CPU / 2 / {{baud}} - 1);",
+        "UCSR0B = (1 << RXEN0) | (1 << TXEN0) | (1 << UCSZ02);",
+        "UCSR0C = ({{parityBits}} << UPM00) | ({{stopBits}} << USBS0) | ({{dataBits}} << UCSZ00);"
+      ]
+    },
+    "interrupts": {
+      "RX": ["UCSR0B |= (1 << RXCIE0); // Включить прерывание приёма"],
+      "TX": ["UCSR0B |= (1 << TXCIE0); // Включить прерывание передачи"],
+      "UDRE": ["UCSR0B |= (1 << UDRIE0); // Включить прерывание пустого буфера"]
+    },
+    "isr": {
+      "RX": [
+        "ISR(USART_RX_vect) {",
+        "    uint8_t data = UDR0;",
+        "    // Обработка принятых данных",
+        "}"
+      ],
+      "TX": [
+        "ISR(USART_TX_vect) {",
+        "    // Готов к передаче следующего байта",
+        "}"
+      ],
+      "UDRE": [
+        "ISR(USART_UDRE_vect) {",
+        "    // Регистр данных пуст, можно отправлять",
+        "}"
+      ]
+    }
+  },
+
+  "spi": {
+    "init": {
+      "master": [
+        "SPCR = (1 << SPE) | (1 << MSTR) | ({{cpol}} << CPOL) | ({{cpha}} << CPHA) | ({{speedBits}} << SPR0);",
+        "{{ssPin.ddr}} |= (1 << {{ssPin.bit}}); // {{ssPin.name}} (SS) как OUTPUT",
+        "{{mosiPin.ddr}} |= (1 << {{mosiPin.bit}}); // {{mosiPin.name}} (MOSI) как OUTPUT",
+        "{{sckPin.ddr}} |= (1 << {{sckPin.bit}}); // {{sckPin.name}} (SCK) как OUTPUT",
+        "{{misoPin.ddr}} &= ~(1 << {{misoPin.bit}}); // {{misoPin.name}} (MISO) как INPUT"
+      ],
+      "slave": [
+        "SPCR = (1 << SPE) | ({{cpol}} << CPOL) | ({{cpha}} << CPHA);",
+        "{{ssPin.ddr}} &= ~(1 << {{ssPin.bit}}); // {{ssPin.name}} (SS) как INPUT",
+        "{{mosiPin.ddr}} &= ~(1 << {{mosiPin.bit}}); // {{mosiPin.name}} (MOSI) как INPUT",
+        "{{misoPin.ddr}} |= (1 << {{misoPin.bit}}); // {{misoPin.name}} (MISO) как OUTPUT",
+        "{{sckPin.ddr}} &= ~(1 << {{sckPin.bit}}); // {{sckPin.name}} (SCK) как INPUT"
+      ]
+    },
+    "interrupt": ["SPCR |= (1 << SPIE); // Включить прерывание SPI"],
+    "isr": [
+      "ISR(SPI_STC_vect) {",
+      "    uint8_t data = SPDR;",
+      "    // Обработка SPI данных",
+      "}"
+    ]
+  },
+
+  "i2c": {
+    "init": {
+      "master": [
+        "TWBR = ((F_CPU / {{speed}}) - 16) / 2;",
+        "TWSR = 0; // Prescaler = 1",
+        "TWCR = (1 << TWEN); // Включить TWI"
+      ],
+      "slave": [
+        "TWAR = ({{slaveAddress}} << 1);",
+        "TWCR = (1 << TWEN) | (1 << TWEA); // Включить TWI и подтверждение"
+      ]
+    },
+    "interrupt": ["TWCR |= (1 << TWIE); // Включить прерывание TWI"],
+    "isr": [
+      "ISR(TWI_vect) {",
+      "    uint8_t status = TWSR & 0xF8;",
+      "    // Обработка статуса I2C",
+      "}"
+    ]
+  },
+
+  "timer0": {
+    "init": {
+      "normal": [
+        "TCCR0A = 0;",
+        "TCCR0B = ({{prescalerBits}} << CS00);",
+        "TCNT0 = 0;"
+      ],
+      "ctc": [
+        "TCCR0A = (1 << WGM01);",
+        "TCCR0B = ({{prescalerBits}} << CS00);",
+        "OCR0A = {{compareValue}};",
+        "TCNT0 = 0;"
+      ],
+      "fast_pwm": [
+        "{{pin.ddr}} |= (1 << {{pin.bit}}); // {{pin.name}} ({{channel}}) как OUTPUT",
+        "TCCR0A = (1 << WGM01) | (1 << WGM00) | (1 << COM0{{channel}}1);",
+        "TCCR0B = ({{prescalerBits}} << CS00);",
+        "OCR0{{channel}} = {{dutyCycle}};"
+      ],
+      "phase_correct_pwm": [
+        "{{pin.ddr}} |= (1 << {{pin.bit}}); // {{pin.name}} ({{channel}}) как OUTPUT",
+        "TCCR0A = (1 << WGM00) | (1 << COM0{{channel}}1);",
+        "TCCR0B = ({{prescalerBits}} << CS00);",
+        "OCR0{{channel}} = {{dutyCycle}};"
+      ]
+    },
+    "interrupt": {
+      "ovf": ["TIMSK0 |= (1 << TOIE0); // Включить прерывание переполнения"],
+      "compa": ["TIMSK0 |= (1 << OCIE0A); // Включить прерывание сравнения A"],
+      "compb": ["TIMSK0 |= (1 << OCIE0B); // Включить прерывание сравнения B"]
+    },
+    "isr": {
+      "ovf": [
+        "ISR(TIMER0_OVF_vect) {",
+        "    // Обработка переполнения таймера 0",
+        "}"
+      ],
+      "compa": [
+        "ISR(TIMER0_COMPA_vect) {",
+        "    // Обработка сравнения канала A таймера 0",
+        "}"
+      ],
+      "compb": [
+        "ISR(TIMER0_COMPB_vect) {",
+        "    // Обработка сравнения канала B таймера 0",
+        "}"
+      ]
+    }
+  },
+
+  "timer1": {
+    "init": {
+      "normal": [
+        "TCCR1A = 0;",
+        "TCCR1B = ({{prescalerBits}} << CS10);",
+        "TCNT1 = 0;"
+      ],
+      "ctc": [
+        "TCCR1A = 0;",
+        "TCCR1B = (1 << WGM12) | ({{prescalerBits}} << CS10);",
+        "OCR1A = {{compareValue}};",
+        "TCNT1 = 0;"
+      ],
+      "fast_pwm": [
+        "{{pin.ddr}} |= (1 << {{pin.bit}}); // {{pin.name}} ({{channel}}) как OUTPUT",
+        "TCCR1A = (1 << WGM11) | (1 << WGM10) | (1 << COM1{{channel}}1);",
+        "TCCR1B = (1 << WGM13) | (1 << WGM12) | ({{prescalerBits}} << CS10);",
+        "OCR1{{channel}} = {{dutyCycle}};"
+      ],
+      "phase_correct_pwm": [
+        "{{pin.ddr}} |= (1 << {{pin.bit}}); // {{pin.name}} ({{channel}}) как OUTPUT",
+        "TCCR1A = (1 << WGM11) | (1 << COM1{{channel}}1);",
+        "TCCR1B = (1 << WGM13) | ({{prescalerBits}} << CS10);",
+        "OCR1{{channel}} = {{dutyCycle}};"
+      ],
+      "input_capture": [
+        "{{pin.ddr}} &= ~(1 << {{pin.bit}}); // {{pin.name}} (IC1) как INPUT",
+        "TCCR1B = (1 << ICES1) | ({{prescalerBits}} << CS10);",
+        "TIMSK1 |= (1 << ICIE1);"
+      ]
+    },
+    "interrupt": {
+      "ovf": ["TIMSK1 |= (1 << TOIE1); // Включить прерывание переполнения"],
+      "compa": ["TIMSK1 |= (1 << OCIE1A); // Включить прерывание сравнения A"],
+      "compb": ["TIMSK1 |= (1 << OCIE1B); // Включить прерывание сравнения B"],
+      "capt": ["TIMSK1 |= (1 << ICIE1); // Включить прерывание захвата"]
+    },
+    "isr": {
+      "ovf": [
+        "ISR(TIMER1_OVF_vect) {",
+        "    // Обработка переполнения таймера 1",
+        "}"
+      ],
+      "compa": [
+        "ISR(TIMER1_COMPA_vect) {",
+        "    // Обработка сравнения канала A таймера 1",
+        "}"
+      ],
+      "compb": [
+        "ISR(TIMER1_COMPB_vect) {",
+        "    // Обработка сравнения канала B таймера 1",
+        "}"
+      ],
+      "capt": [
+        "ISR(TIMER1_CAPT_vect) {",
+        "    uint16_t captured = ICR1;",
+        "    // Обработка захваченного значения",
+        "}"
+      ]
+    }
+  },
+
+  "timer2": {
+    "init": {
+      "normal": [
+        "TCCR2A = 0;",
+        "TCCR2B = ({{prescalerBits}} << CS20);",
+        "TCNT2 = 0;"
+      ],
+      "ctc": [
+        "TCCR2A = (1 << WGM21);",
+        "TCCR2B = ({{prescalerBits}} << CS20);",
+        "OCR2A = {{compareValue}};",
+        "TCNT2 = 0;"
+      ],
+      "fast_pwm": [
+        "{{pin.ddr}} |= (1 << {{pin.bit}}); // {{pin.name}} ({{channel}}) как OUTPUT",
+        "TCCR2A = (1 << WGM21) | (1 << WGM20) | (1 << COM2{{channel}}1);",
+        "TCCR2B = ({{prescalerBits}} << CS20);",
+        "OCR2{{channel}} = {{dutyCycle}};"
+      ],
+      "phase_correct_pwm": [
+        "{{pin.ddr}} |= (1 << {{pin.bit}}); // {{pin.name}} ({{channel}}) как OUTPUT",
+        "TCCR2A = (1 << WGM20) | (1 << COM2{{channel}}1);",
+        "TCCR2B = ({{prescalerBits}} << CS20);",
+        "OCR2{{channel}} = {{dutyCycle}};"
+      ]
+    },
+    "interrupt": {
+      "ovf": ["TIMSK2 |= (1 << TOIE2); // Включить прерывание переполнения"],
+      "compa": ["TIMSK2 |= (1 << OCIE2A); // Включить прерывание сравнения A"],
+      "compb": ["TIMSK2 |= (1 << OCIE2B); // Включить прерывание сравнения B"]
+    },
+    "isr": {
+      "ovf": [
+        "ISR(TIMER2_OVF_vect) {",
+        "    // Обработка переполнения таймера 2",
+        "}"
+      ],
+      "compa": [
+        "ISR(TIMER2_COMPA_vect) {",
+        "    // Обработка сравнения канала A таймера 2",
+        "}"
+      ],
+      "compb": [
+        "ISR(TIMER2_COMPB_vect) {",
+        "    // Обработка сравнения канала B таймера 2",
+        "}"
+      ]
+    }
+  },
+
+  "adc": {
+    "init_single_channel": [
+      "void adc_init_single_channel(uint8_t channel) {",
+      "    if (channel > 7) return; // Только каналы 0–7 для ATmega328P",
+      "",
+      "    // Маска для настройки DDRC",
+      "    uint8_t pin_mask = 0;",
+      "",
+      "    switch (channel) {",
+      "        case 0: pin_mask = (1 << DDC0); break;",
+      "        case 1: pin_mask = (1 << DDC1); break;",
+      "        case 2: pin_mask = (1 << DDC2); break;",
+      "        case 3: pin_mask = (1 << DDC3); break;",
+      "        case 4: pin_mask = (1 << DDC4); break;",
+      "        case 5: pin_mask = (1 << DDC5); break;",
+      "        default: break; // Каналы 6 и 7 не требуют настройки PORTC",
+      "    }",
+      "",
+      "    if (pin_mask != 0) {",
+      "        DDRC &= ~pin_mask;      // Установить пин как INPUT",
+      "        PORTC &= ~pin_mask;     // Отключить подтягивающий резистор",
+      "    }",
+      "",
+      "    // Установка опорного напряжения {{reference}}",
+      "    ADMUX = {{referenceBits}};",
+      "",
+      "    // Включение АЦП и установка предделителя",
+      "    ADCSRA = (1 << ADEN) | {{prescalerBits}}; // Prescaler {{prescaler}}",
+      "}"
+    ],
+    "init": {
+      "single": [
+        "void adc_init() {",
+        "    {{#channels}}",
+        "    adc_init_single_channel({{channel}});",
+        "    {{/channels}}",
+        "}"
+      ],
+      "freerunning": [
+        "void adc_init() {",
+        "    {{#channels}}",
+        "    adc_init_single_channel({{channel}});",
+        "    {{/channels}}",
+        "    ADCSRA |= (1 << ADATE) | (1 << ADIE); // Auto Triggering, Interrupt",
+        "    ADCSRA |= (1 << ADSC); // Start conversion",
+        "    sei(); // Enable global interrupts",
+        "}"
+      ]
+    },
+    "interrupt": ["ADCSRA |= (1 << ADIE); // Включить прерывание ADC"],
+    "isr": [
+      "ISR(ADC_vect) {",
+      "    uint16_t adc_value = ADC; // Считать результат",
+      "    // Обработка значения",
+      "}"
+    ]
+  },
+
+  "external_interrupt": {
+    "init": {
+      "INT0": [
+        "EICRA = (EICRA & ~(3 << ISC00)) | ({{triggerBits}} << ISC00);",
+        "EIMSK |= (1 << INT0);"
+      ],
+      "INT1": [
+        "EICRA = (EICRA & ~(3 << ISC10)) | ({{triggerBits}} << ISC10);",
+        "EIMSK |= (1 << INT1);"
+      ]
+    },
+    "isr": {
+      "INT0": [
+        "ISR(INT0_vect) {",
+        "    // Обработка внешнего прерывания INT0",
+        "}"
+      ],
+      "INT1": [
+        "ISR(INT1_vect) {",
+        "    // Обработка внешнего прерывания INT1",
+        "}"
+      ]
+    }
+  },
+
+  "pcint": {
+    "pinSetup": {
+      "inputPullup": [
+        "{{pin.ddr}} &= ~(1 << {{pin.bit}}); // {{pin.name}} как INPUT",
+        "{{pin.port}} |= (1 << {{pin.bit}}); // Включить подтяжку на {{pin.name}}"
+      ]
+    },
+    "init": [
+      "PCICR |= (1 << PCIE{{group}}); // Включить прерывание группы {{group}}",
+      "PCMSK{{group}} |= (1 << PCINT{{number}}); // Включить прерывание для пина {{number}}"
+    ],
+    "isr": {
+      "PCINT0": [
+        "ISR(PCINT0_vect) {",
+        "    uint8_t pin_state = {{pin.pin}}; // Текущее состояние порта",
+        "    // Обработка изменения пина группы 0",
+        "    // Проверить PCMSK0 для определения изменённого пина",
+        "    if (pin_state & (1 << {{pin.bit}})) {",
+        "        // {{pin.name}} стал HIGH",
+        "    } else {",
+        "        // {{pin.name}} стал LOW",
+        "    }",
+        "}"
+      ],
+      "PCINT1": [
+        "ISR(PCINT1_vect) {",
+        "    uint8_t pin_state = {{pin.pin}}; // Текущее состояние порта",
+        "    // Обработка изменения пина группы 1",
+        "    // Проверить PCMSK1 для определения изменённого пина",
+        "    if (pin_state & (1 << {{pin.bit}})) {",
+        "        // {{pin.name}} стал HIGH",
+        "    } else {",
+        "        // {{pin.name}} стал LOW",
+        "    }",
+        "}"
+      ],
+      "PCINT2": [
+        "ISR(PCINT2_vect) {",
+        "    uint8_t pin_state = {{pin.pin}}; // Текущее состояние порта",
+        "    // Обработка изменения пина группы 2",
+        "    // Проверить PCMSK2 для определения изменённого пина",
+        "    if (pin_state & (1 << {{pin.bit}})) {",
+        "        // {{pin.name}} стал HIGH",
+        "    } else {",
+        "        // {{pin.name}} стал LOW",
+        "    }",
+        "}"
+      ]
+    }
+  },
+
+  "analog_comparator": {
+    "init": {
+      "interrupt": ["ACSR = (1 << ACIE); // Включить прерывание компаратора"],
+      "timer1_capture": [
+        "ACSR = (1 << ACIC); // Подключить компаратор к захвату Timer1"
+      ]
+    },
+    "isr": [
+      "ISR(ANALOG_COMP_vect) {",
+      "    // Обработка прерывания аналогового компаратора",
+      "}"
+    ]
+  },
+
+  "watchdog": {
+    "init": [
+      "WDTCSR = (1 << WDCE) | (1 << WDE);",
+      "WDTCSR = ({{timeoutBits}} << WDP0) | (1 << WDE); // Установить таймаут и включить WDT"
+    ],
+    "reset": ["wdt_reset(); // Сбросить watchdog таймер"]
+  }
+}

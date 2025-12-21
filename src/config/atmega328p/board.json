@@ -1,0 +1,46 @@
+{
+  "main": {
+    "id": "ATMEGA328P",
+    "name": "ATmega328P",
+    "frequency": 16000000
+  },
+  "ports": [
+    {
+      "id": "B",
+      "name": "PORTB",
+      "pins": [0, 1, 2, 3, 4, 5],
+      "registers": {
+        "ddr": "DDRB",
+        "port": "PORTB",
+        "pin": "PINB"
+      }
+    },
+    {
+      "id": "C",
+      "name": "PORTC",
+      "pins": [0, 1, 2, 3, 4, 5],
+      "registers": {
+        "ddr": "DDRC",
+        "port": "PORTC",
+        "pin": "PINC"
+      }
+    },
+    {
+      "id": "D",
+      "name": "PORTD",
+      "pins": [0, 1, 2, 3, 4, 5, 6, 7],
+      "registers": {
+        "ddr": "DDRD",
+        "port": "PORTD",
+        "pin": "PIND"
+      }
+    }
+  ],
+  "image": "image.png",
+  "files": {
+    "pins": "pins.json",
+    "peripheries": "peripheries.json",
+    "constraints": "constraints.json",
+    "codegen": "codegen.json"
+  }
+}

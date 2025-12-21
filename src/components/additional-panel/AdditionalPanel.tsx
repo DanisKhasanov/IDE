@@ -1,6 +1,6 @@
 import { Box } from "@mui/material";
-import { GuiPanel } from "./GuiPanel";
-import GraphicalInitialization from "./GraphicalInitialization";
+import { GuiPanel } from "./gui/GuiPanel";
+import GraphicalInitialization from "./grap-init/GraphicalInitialization";
 
 interface AdditionalPanelProps {
   currentProjectPath?: string | null;
@@ -8,6 +8,7 @@ interface AdditionalPanelProps {
   isGraphicalInitVisible: boolean;
   hideGuiPanel: () => Promise<void>;
   hideGraphicalInit: () => Promise<void>;
+  onOpenGuiSettings?: () => void;
 }
 
 const AdditionalPanel: React.FC<AdditionalPanelProps> = ({
@@ -16,6 +17,7 @@ const AdditionalPanel: React.FC<AdditionalPanelProps> = ({
   isGraphicalInitVisible,
   hideGuiPanel,
   hideGraphicalInit,
+  onOpenGuiSettings,
 }) => {
 
   // Если обе панели скрыты, не рендерим ничего
@@ -59,7 +61,7 @@ const AdditionalPanel: React.FC<AdditionalPanelProps> = ({
             transition: "height 0.2s ease-in-out",
           }}
         >
-          <GuiPanel onClose={hideGuiPanel} />
+          <GuiPanel onClose={hideGuiPanel} onOpenSettings={onOpenGuiSettings} />
         </Box>
       )}
 

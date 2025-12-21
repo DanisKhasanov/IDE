@@ -334,7 +334,7 @@ export const GuiPanel: React.FC<GuiPanelProps> = ({ onClose, onOpenSettings }) =
       </Box>
 
       {/* Статус подключения - компактный */}
-      {isConnected ? (
+      {/* {isConnected ? (
         <Alert severity="success" sx={{ py: 0.5, my: 0.5, fontSize: '0.7rem' }}>
           Подключен
         </Alert>
@@ -347,7 +347,7 @@ export const GuiPanel: React.FC<GuiPanelProps> = ({ onClose, onOpenSettings }) =
         <Alert severity="error" sx={{ py: 0.5, my: 0.5, fontSize: '0.7rem' }}>
           {error}
         </Alert>
-      )}
+      )} */}
 
       {/* Отображение данных - компактная сетка */}
       <Box
