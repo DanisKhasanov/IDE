@@ -25,6 +25,20 @@ declare module '*.svg' {
   export default value;
 }
 
+// Типы для Vite import.meta.glob
+declare global {
+  interface ImportMeta {
+    glob: <T = { [key: string]: any }>(
+      pattern: string,
+      options?: {
+        eager?: boolean;
+        import?: string;
+        query?: string;
+      }
+    ) => Record<string, T>;
+  }
+}
+
 type OpenedProjectPayload = {
   path: string;
   name: string;

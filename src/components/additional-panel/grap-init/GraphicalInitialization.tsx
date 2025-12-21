@@ -4,13 +4,11 @@ import CloseIcon from "@mui/icons-material/Close";
 import { PinsListPanel } from "@/components/common/PinsListPanel";
 import type {
   BoardConfig,
-  PinConfig,
-  PinFunction,
   SelectedPinFunction,
 } from "@/types/boardConfig";
-import atmega328pConfigData from "@config/boards/atmega328p.json";
+import { loadBoardConfig } from "@/utils/config/loadBoardConfig";
 
-const atmega328pConfig = atmega328pConfigData as unknown as BoardConfig;
+const atmega328pConfig = loadBoardConfig();
 
 interface GraphicalInitializationProps {
   currentProjectPath?: string | null;
@@ -40,11 +38,6 @@ const GraphicalInitialization: React.FC<GraphicalInitializationProps> = ({
   const handleFunctionSelect = () => {
     // В режиме просмотра не добавляем функции, только показываем информацию
     // Можно добавить логику для редактирования в будущем
-  };
-
-  const getPinFunctions = (pin: PinConfig): PinFunction[] => {
-    // Исключаем PCINT из списка доступных функций
-    return (pin.functions || []).filter((func) => func.type !== "PCINT");
   };
 
   return (
@@ -96,7 +89,6 @@ const GraphicalInitialization: React.FC<GraphicalInitializationProps> = ({
           selectedPinFunctions={selectedPinFunctions}
           onPinClick={handlePinClick}
           onFunctionSelect={handleFunctionSelect}
-          getPinFunctions={getPinFunctions}
           size="small"
         />
       </Box>

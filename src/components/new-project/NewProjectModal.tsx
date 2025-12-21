@@ -13,24 +13,23 @@ import type {
   BoardConfig,
   SelectedPinFunction,
   PinConfig,
-  PinFunction,
 } from "@/types/boardConfig";
 import { BoardSelectionPanel } from "./BoardSelectionPanel";
 import { SelectedPinsPanel } from "./SelectedPinsPanel";
 import { PinsListPanel } from "../common/PinsListPanel";
 import { useSnackbar } from "@/contexts/SnackbarContext";
-import atmega328pConfigData from "@config/boards/atmega328p.json";
-const atmega328pConfig = atmega328pConfigData as unknown as BoardConfig;
+import { loadBoardConfig } from "@/utils/config/loadBoardConfig";
+const CONTROLLER = loadBoardConfig();
 
 // Маппинг плат к конфигурациям микроконтроллеров
 const BOARD_CONFIGS: Record<
   string,
-  { name: string; mcu: string; config: BoardConfig }
+  { name: string; frequency: string; config: BoardConfig }
 > = {
   uno: {
-    name: "Arduino Uno",
-    mcu: "atmega328p",
-    config: atmega328pConfig as BoardConfig,
+    name: CONTROLLER.name,
+    frequency: CONTROLLER.frequency,
+    config: CONTROLLER as BoardConfig,
   },
 };
 
@@ -49,8 +48,9 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   const [parentPath, setParentPath] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [selectedBoard, setSelectedBoard] = useState<string>("uno");
-  const [selectedFrequency, setSelectedFrequency] =
-    useState<string>("16000000L");
+  const [selectedFrequency, setSelectedFrequency] = useState<string>(
+    () => CONTROLLER.frequency
+  );
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
   const [selectedFunctionType, setSelectedFunctionType] = useState<string | null>(null);
   // Храним массив функций на пин (ключ - pinName, значение - массив функций)
@@ -79,12 +79,13 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     
     // Собираем все типы периферий, которые есть на пинах
     currentBoardConfig.pins.forEach((pin) => {
-      pin.functions.forEach((func) => {
-        peripheralsOnPins.add(func.type);
+      const signals = pin.signals || [];
+      signals.forEach((signal) => {
+        peripheralsOnPins.add(signal.type);
         
         // Обрабатываем специальные случаи: TIMER0_PWM -> TIMER0, TIMER1_PWM -> TIMER1, TIMER2_PWM -> TIMER2
-        if (func.type.startsWith("TIMER") && func.type.includes("_PWM")) {
-          const timerName = func.type.split("_PWM")[0]; // Извлекаем TIMER0, TIMER1, TIMER2
+        if (signal.type.startsWith("TIMER") && signal.type.includes("_PWM")) {
+          const timerName = signal.type.split("_PWM")[0]; // Извлекаем TIMER0, TIMER1, TIMER2
           peripheralsOnPins.add(timerName);
         }
       });
@@ -113,10 +114,11 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     if (!currentBoardConfig) return [];
     
     return currentBoardConfig.pins
-      .filter((pin) => 
-        pin.functions.some((func) => func.type === functionType)
-      )
-      .map((pin) => pin.pin);
+      .filter((pin) => {
+        const signals = pin.signals || [];
+        return signals.some((signal) => signal.type === functionType);
+      })
+      .map((pin) => pin.id || pin.pin || "");
   };
 
   // Проверка конфликтов при изменении выбранных функций
@@ -151,20 +153,22 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       if (hasConflictTrigger) {
         const conflictingPins = activeFunctions.filter((func) => {
           const pin = currentBoardConfig.pins.find(
-            (p) => p.pin === func.pinName
+            (p) => (p.id || p.pin) === func.pinName
           );
-          return pin && conflict.pins.includes(pin.pin);
+          const pinId = pin ? (pin.id || pin.pin) : "";
+          return pin && conflict.pins.includes(pinId);
         });
 
         if (conflictingPins.length > 0) {
           // Проверяем, действительно ли есть конфликт
           conflictingPins.forEach((func) => {
             const pin = currentBoardConfig.pins.find(
-              (p) => p.pin === func.pinName
+              (p) => (p.id || p.pin) === func.pinName
             );
             if (pin && conflict.conflictsWith.includes(func.functionType)) {
+              const pinId = pin.id || pin.pin || "";
               detectedConflicts.push(
-                `${conflict.description}: пин ${pin.pin}`
+                `${conflict.description}: пин ${pinId}`
               );
             }
           });
@@ -174,6 +178,35 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
 
     setConflicts(detectedConflicts);
   }, [selectedPinFunctions, currentBoardConfig]);
+
+  // Вывод итоговых данных в консоль при изменении выбранных пинов и их настроек
+  useEffect(() => {
+    // Преобразуем Record<string, SelectedPinFunction[]> в плоский массив
+    const allSelectedPins = Object.values(selectedPinFunctions).flat();
+    
+    // Формируем итоговые данные
+    const finalData = {
+      pins: allSelectedPins.map((func) => ({
+        pinName: func.pinName,
+        functionType: func.functionType,
+        settings: func.settings,
+      })),
+      systemPeripherals: Object.entries(systemPeripherals).map(([functionType, peripheral]) => ({
+        functionType,
+        settings: peripheral.settings,
+      })),
+      timers: Object.entries(timers).map(([timerName, timer]) => ({
+        timerName,
+        settings: timer.settings,
+      })),
+      boardId: selectedBoard,
+      frequency: selectedFrequency,
+    };
+
+    console.log("=== Итоговые данные выбранных пинов и настроек ===");
+    console.log(JSON.stringify(finalData, null, 2));
+    console.log("==================================================");
+  }, [selectedPinFunctions, systemPeripherals, timers, selectedBoard, selectedFrequency]);
 
   const handleSelectFolder = async () => {
     try {
@@ -253,7 +286,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     setParentPath("");
     setIsCreating(false);
     setSelectedBoard("uno");
-    setSelectedFrequency("16000000L");
+    setSelectedFrequency(CONTROLLER.frequency);
     setSelectedPin(null);
     setSelectedFunctionType(null);
     setSelectedPinFunctions({});
@@ -289,7 +322,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       
       for (const conflict of currentBoardConfig.conflicts) {
         const conflictPins = conflict.pins || [];
-        if (!conflictPins.includes(pin.pin)) continue;
+        const pinId = pin.id || pin.pin || "";
+        if (!conflictPins.includes(pinId)) continue;
         
         const conflictsWith = conflict.conflictsWith || [];
         const otherFunc = func1 === "GPIO" ? func2 : func1;
@@ -319,7 +353,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     functionType: string,
     settings: Record<string, unknown>
   ) => {
-    const pin = currentBoardConfig?.pins.find((p) => p.pin === pinName);
+    const pin = currentBoardConfig?.pins.find((p) => (p.id || p.pin) === pinName);
     const existingFunctions = selectedPinFunctions[pinName] || [];
 
     // Проверяем, не выбрана ли уже эта функция
@@ -339,7 +373,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     );
 
     if (incompatible) {
-      const pinDisplay = pin ? pin.pin : pinName;
+      const pinDisplay = pin ? (pin.id || pin.pin) : pinName;
       showWarning(
         `Функция ${functionType} несовместима с уже выбранными функциями на пине ${pinDisplay}`
       );
@@ -352,7 +386,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       const updatedFunctions: Record<string, SelectedPinFunction[]> = { ...selectedPinFunctions };
       
       spiPins.forEach((spiPinName) => {
-        const spiPin = currentBoardConfig?.pins.find((p) => p.pin === spiPinName);
+        const spiPin = currentBoardConfig?.pins.find((p) => (p.id || p.pin) === spiPinName);
         if (!spiPin) return;
         
         const spiPinFunctions = updatedFunctions[spiPinName] || [];
@@ -394,7 +428,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       const updatedFunctions: Record<string, SelectedPinFunction[]> = { ...selectedPinFunctions };
       
       uartPins.forEach((uartPinName) => {
-        const uartPin = currentBoardConfig?.pins.find((p) => p.pin === uartPinName);
+        const uartPin = currentBoardConfig?.pins.find((p) => (p.id || p.pin) === uartPinName);
         if (!uartPin) return;
         
         const uartPinFunctions = updatedFunctions[uartPinName] || [];
@@ -436,7 +470,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       const updatedFunctions: Record<string, SelectedPinFunction[]> = { ...selectedPinFunctions };
       
       i2cPins.forEach((i2cPinName) => {
-        const i2cPin = currentBoardConfig?.pins.find((p) => p.pin === i2cPinName);
+        const i2cPin = currentBoardConfig?.pins.find((p) => (p.id || p.pin) === i2cPinName);
         if (!i2cPin) return;
         
         const i2cPinFunctions = updatedFunctions[i2cPinName] || [];
@@ -719,10 +753,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     });
   };
 
-  const getPinFunctions = (pin: PinConfig): PinFunction[] => {
-    // Исключаем PCINT из списка доступных функций, так как теперь он настраивается через GPIO
-    return (pin.functions || []).filter((func) => func.type !== "PCINT");
-  };
+  // getPinFunctions больше не нужна, так как функции теперь берутся из signals
 
   if (!currentBoardConfig) {
     return null;
@@ -731,8 +762,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   return (
     <Dialog
       open={open}
-      onClose={handleClose}
-      maxWidth="xl"
+      onClose={handleClose} 
       fullWidth
       PaperProps={{
         sx: {
@@ -766,6 +796,11 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
             selectedFrequency={selectedFrequency}
             onBoardChange={(boardId) => {
               setSelectedBoard(boardId);
+              // Обновляем частоту при смене платы
+              const boardConfig = BOARD_CONFIGS[boardId];
+              if (boardConfig) {
+                setSelectedFrequency(boardConfig.frequency);
+              }
               setSelectedPinFunctions({});
               setSystemPeripherals({});
               setSelectedPin(null);
@@ -847,7 +882,6 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
             selectedPinFunctions={selectedPinFunctions}
             onPinClick={handlePinClick}
             onFunctionSelect={handleFunctionSelect}
-            getPinFunctions={getPinFunctions}
           />
         </Box>
       </DialogContent>

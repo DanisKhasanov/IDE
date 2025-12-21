@@ -12,17 +12,12 @@ import {
 import FolderIcon from "@mui/icons-material/Folder";
 import type { BoardConfig } from "@/types/boardConfig";
 
-const CPU_FREQUENCIES = [
-  { value: "8000000L", label: "8 MHz" },
-  { value: "16000000L", label: "16 MHz" },
-  { value: "20000000L", label: "20 MHz" },
-];
 
 interface BoardSelectionPanelProps {
   selectedBoard: string;
   boardConfigs: Record<
     string,
-    { name: string; mcu: string; config: BoardConfig }
+    { name: string; frequency: string; config: BoardConfig }
   >;
   currentBoardConfig: BoardConfig | null;
   projectName: string;
@@ -38,6 +33,7 @@ interface BoardSelectionPanelProps {
 export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
   selectedBoard,
   boardConfigs,
+  currentBoardConfig,
   projectName,
   parentPath,
   selectedFrequency,
@@ -100,11 +96,11 @@ export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
           label="Частота CPU"
           onChange={(e) => onFrequencyChange(e.target.value)}
         >
-          {CPU_FREQUENCIES.map((freq) => (
-            <MenuItem key={freq.value} value={freq.value}>
-              {freq.label}
+          {currentBoardConfig && (
+            <MenuItem key={currentBoardConfig.frequency} value={currentBoardConfig.frequency}>
+              {currentBoardConfig.frequency} Hz
             </MenuItem>
-          ))}
+          )}
         </Select>
       </FormControl>
 

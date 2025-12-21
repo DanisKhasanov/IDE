@@ -11,14 +11,15 @@ import {
   FormControlLabel,
   Box,
 } from "@mui/material";
-import type { PinFunction, BoardConfig } from "../../types/boardConfig";
+import type { PinFunction, BoardConfig, PinSignal, PinConfig } from "../../types/boardConfig";
 
 interface RenderSettingsProps {
-  func: PinFunction;
+  func: PinFunction | { type: string; modes?: string[] };
   settings: Record<string, any>;
   onSettingChange: (key: string, value: any) => void;
   boardConfig: BoardConfig | null;
   pinName?: string;
+  signal?: PinSignal; // Новый формат сигнала
 }
 
 export const RenderSettings: React.FC<RenderSettingsProps> = ({
@@ -27,19 +28,36 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
   onSettingChange,
   boardConfig,
   pinName,
+  signal,
 }) => {
   const handleSettingChange = (key: string, value: any) => {
     onSettingChange(key, value);
   };
 
+  // Получаем доступные режимы GPIO из peripheries.json
+  const getGPIOModes = (): string[] => {
+    if (signal) {
+      // Если есть signal, получаем все GPIO режимы из signals пина
+      const currentPin = pinName
+        ? boardConfig?.pins.find((p) => (p.id || p.pin) === pinName)
+        : null;
+      if (currentPin) {
+        return currentPin.signals
+          .filter((s) => s.type === "GPIO")
+          .map((s) => s.mode);
+      }
+    }
+  
+  };
+
   switch (func.type) {
     case "GPIO": {
-      // Проверяем, поддерживает ли пин PCINT
+      // Проверяем, поддерживает ли пин PCINT из signals
       const currentPin = pinName
-        ? boardConfig?.pins.find((p) => p.pin === pinName)
+        ? boardConfig?.pins.find((p) => (p.id || p.pin) === pinName)
         : null;
       const supportsPCINT =
-        currentPin?.functions.some((f) => f.type === "PCINT") || false;
+        currentPin?.signals?.some((s) => s.type === "PCINT") || false;
       const isInputMode =
         settings.mode === "INPUT" || settings.mode === "INPUT_PULLUP";
 
@@ -54,7 +72,7 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                   label="Режим"
                   onChange={(e) => handleSettingChange("mode", e.target.value)}
                 >
-                  {func.modes?.map((mode) => (
+                  {getGPIOModes().map((mode) => (
                     <MenuItem key={mode} value={mode}>
                       {mode}
                     </MenuItem>
@@ -470,6 +488,12 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
       );
 
     case "EXTERNAL_INTERRUPT":
+      // Получаем триггеры из peripheries.json или из signal metadata
+      const triggers = signal?.metadata?.triggers || 
+        (func as PinFunction).triggers || 
+        boardConfig?.peripherals.EXTERNAL_INTERRUPT?.triggers ||
+        ["LOW", "CHANGE", "RISING", "FALLING"];
+      
       return (
         <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
           <Box sx={{ flex: "1 1 calc(50% - 8px)", minWidth: 0 }}>
@@ -480,7 +504,7 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
                 label="Триггер"
                 onChange={(e) => handleSettingChange("trigger", e.target.value)}
               >
-                {func.triggers?.map((trigger) => (
+                {triggers.map((trigger: string) => (
                   <MenuItem key={trigger} value={trigger}>
                     {trigger}
                   </MenuItem>

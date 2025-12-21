@@ -36,7 +36,7 @@
       }
     }
   ],
-  "image": "image.png",
+  "image": "/src/config/atmega328p/image.png",
   "files": {
     "pins": "pins.json",
     "peripheries": "peripheries.json",

@@ -1,5 +1,29 @@
 // Типы для конфигурации плат и пинов
 
+// Новый формат сигнала из pins.json
+export interface PinSignal {
+  type: string;
+  mode: string;
+  metadata: Record<string, any>;
+}
+
+// Новый формат пина из pins.json
+export interface PinConfig {
+  id: string;
+  port: string;
+  number: number;
+  position: {
+    x: number;
+    y: number;
+  };
+  signals: PinSignal[];
+  // Для обратной совместимости - вычисляемое поле
+  pin?: string;
+  // Для обратной совместимости - преобразованные signals в functions
+  functions?: PinFunction[];
+}
+
+// Старый формат PinFunction (для обратной совместимости)
 export interface PinFunction {
   type: string;
   modes?: string[];
@@ -10,11 +34,6 @@ export interface PinFunction {
   triggers?: string[];
   input?: string;
   channelNumber?: number;
-}
-
-export interface PinConfig {
-  pin: string;
-  functions: PinFunction[];
 }
 
 export interface PeripheralConfig {
@@ -49,7 +68,8 @@ export interface ConflictRule {
 export interface BoardConfig {
   id: string;
   name: string;
-  fCpu: string;
+  frequency: string;
+  image?: string;
   pins: PinConfig[];
   peripherals: Record<string, PeripheralConfig>;
   conflicts: ConflictRule[];

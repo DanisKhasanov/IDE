@@ -56,6 +56,7 @@ export const PinsTab: React.FC<PinsTabProps> = ({
     };
   }, [selectedPin, selectedFunctionType]);
 
+
   // Автоматически выбираем пин и функцию, когда они меняются извне
   useEffect(() => {
     const currentPin = currentSelectionRef.current.pin;
@@ -196,8 +197,12 @@ export const PinsTab: React.FC<PinsTabProps> = ({
         >
           {Object.entries(selectedPinFunctions).map(
             ([pinName, functions]) => {
-              const pin = boardConfig?.pins.find((p) => p.pin === pinName);
+              const pin = boardConfig?.pins.find(
+                (p) => (p.id || p.pin) === pinName
+              );
               if (!pin || functions.length === 0) return null;
+
+              const pinId = pin.id || pin.pin || "";
 
               return (
                 <Box key={pinName} sx={{ mb: 1 }}>
@@ -206,6 +211,22 @@ export const PinsTab: React.FC<PinsTabProps> = ({
                       selectedPin === pinName &&
                       selectedFunctionType === func.functionType;
                     const isFirstFunc = funcIndex === 0;
+
+                    // Находим соответствующий сигнал из signals
+                    const matchingSignal = pin.signals?.find((s) => {
+                      if (func.functionType === "GPIO") {
+                        return s.type === "GPIO";
+                      }
+                      return (
+                        s.type === func.functionType &&
+                        s.mode === func.settings?.mode
+                      );
+                    }) || null;
+
+                    // Формируем отображаемое имя
+                    const displayName = matchingSignal?.metadata?.role
+                      ? `${func.functionType} (${matchingSignal.metadata.role})`
+                      : func.functionType;
 
                     return (
                       <Box
@@ -236,19 +257,12 @@ export const PinsTab: React.FC<PinsTabProps> = ({
                               minWidth: "60px",
                             }}
                           >
-                            {pin.pin}
+                            {pinId}
                           </Typography>
                         )}
                         {!isFirstFunc && <Box sx={{ minWidth: "60px" }} />}
                         <Chip
-                          label={(() => {
-                            const pinFunc = pin.functions.find(
-                              (f) => f.type === func.functionType
-                            );
-                            return pinFunc?.role
-                              ? `${func.functionType} (${pinFunc.role})`
-                              : func.functionType;
-                          })()}
+                          label={displayName}
                           size="small"
                           color="primary"
                           variant="outlined"
@@ -304,18 +318,47 @@ export const PinsTab: React.FC<PinsTabProps> = ({
             const func = functions.find(
               (f) => f.functionType === selectedFunctionType
             );
-            const pin = boardConfig?.pins.find((p) => p.pin === selectedPin);
-            if (!pin || !func) return null;
-            const pinFunc = pin.functions.find(
-              (f) => f.type === func.functionType
+            const pin = boardConfig?.pins.find(
+              (p) => (p.id || p.pin) === selectedPin
             );
-            if (!pinFunc) return null;
+            if (!pin || !func) return null;
+
+            // Находим соответствующий сигнал из pins.json
+            // Для GPIO берем первый GPIO сигнал, для остальных - по типу и режиму
+            let matchingSignal = pin.signals?.find((s) => {
+              if (func.functionType === "GPIO") {
+                return s.type === "GPIO";
+              }
+              return (
+                s.type === func.functionType &&
+                s.mode === func.settings?.mode
+              );
+            });
+
+            // Если не нашли точное совпадение, берем первый сигнал нужного типа
+            if (!matchingSignal) {
+              matchingSignal = pin.signals?.find(
+                (s) => s.type === func.functionType
+              );
+            }
+
+            // Создаем PinFunction для обратной совместимости
+            const pinFunc: any = {
+              type: func.functionType,
+              modes: matchingSignal
+                ? pin.signals
+                    ?.filter((s) => s.type === func.functionType)
+                    .map((s) => s.mode)
+                : undefined,
+            };
+
+            const pinId = pin.id || pin.pin || "";
 
             return (
               <>
                 <Box sx={{ p: 1, borderBottom: 1, borderColor: "divider" ,display: "flex", justifyContent: "space-between"}}>
                   <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                    {pin.pin} - {func.functionType}
+                    {pinId} - {func.functionType}
                   </Typography>
                     <Typography
                       variant="caption"
@@ -331,6 +374,7 @@ export const PinsTab: React.FC<PinsTabProps> = ({
                   <RenderSettings
                     func={pinFunc}
                     settings={func.settings}
+                    signal={matchingSignal}
                     onSettingChange={(key: string, value: unknown) => {
                       const newSettings = {
                         ...func.settings,
