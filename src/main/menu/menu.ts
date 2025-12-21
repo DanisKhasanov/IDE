@@ -71,6 +71,44 @@ export function createApplicationMenu(): void {
       ],
     },
     {
+      label: "Правка",
+      submenu: [
+        {
+          label: "Отменить",
+          role: "undo" as const,
+        },
+        {
+          label: "Повторить",
+          role: "redo" as const,
+        },
+        { type: "separator" },
+        {
+          label: "Вырезать",
+          role: "cut" as const,
+        },
+        {
+          label: "Копировать",
+          role: "copy" as const,
+        },
+        {
+          label: "Вставить",
+          role: "paste" as const,
+        },
+        {
+          label: "Вставить и сопоставить стиль",
+          role: "pasteAndMatchStyle" as const,
+        },
+        {
+          label: "Удалить",
+          role: "delete" as const,
+        },
+        {
+          label: "Выделить все",
+          role: "selectAll" as const,
+        },
+      ],
+    },
+    {
       label: "Вид",
       submenu: [
         {
