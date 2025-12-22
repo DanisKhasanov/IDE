@@ -52,12 +52,13 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
 
   switch (func.type) {
     case "GPIO": {
-      // Проверяем, поддерживает ли пин PCINT из signals
+      // Проверяем, поддерживает ли пин PCINT
+      // PCINT доступен на всех GPIO пинах (если у пина есть GPIO сигналы, значит он может поддерживать PCINT)
       const currentPin = pinName
         ? boardConfig?.pins.find((p) => (p.id || p.pin) === pinName)
         : null;
       const supportsPCINT =
-        currentPin?.signals?.some((s) => s.type === "PCINT") || false;
+        currentPin?.signals?.some((s) => s.type === "GPIO") || false;
       const isInputMode =
         settings.mode === "INPUT" || settings.mode === "INPUT_PULLUP";
 

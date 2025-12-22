@@ -22,14 +22,6 @@
         "type": "GPIO",
         "mode": "INPUT_PULLUP",
         "metadata": {}
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 0,
-          "group": "PCINT0-7"
-        }
       }
     ]
   },
@@ -63,14 +55,6 @@
         "metadata": {
           "channel": "OC1A",
           "role": "OUTPUT_COMPARE"
-        }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 1,
-          "group": "PCINT0-7"
         }
       }
     ]
@@ -114,14 +98,6 @@
           "role": "SS",
           "alternateFunction": null
         }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 2,
-          "group": "PCINT0-7"
-        }
       }
     ]
   },
@@ -164,14 +140,6 @@
           "role": "MOSI",
           "alternateFunction": null
         }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 3,
-          "group": "PCINT0-7"
-        }
       }
     ]
   },
@@ -205,14 +173,6 @@
         "metadata": {
           "role": "MISO",
           "alternateFunction": null
-        }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 4,
-          "group": "PCINT0-7"
         }
       }
     ]
@@ -248,14 +208,6 @@
           "role": "SCK",
           "alternateFunction": null
         }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 5,
-          "group": "PCINT0-7"
-        }
       }
     ]
   },
@@ -289,14 +241,6 @@
         "metadata": {
           "channel": 0,
           "role": "ANALOG_INPUT"
-        }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 8,
-          "group": "PCINT8-14"
         }
       }
     ]
@@ -332,14 +276,6 @@
           "channel": 1,
           "role": "ANALOG_INPUT"
         }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 9,
-          "group": "PCINT8-14"
-        }
       }
     ]
   },
@@ -374,14 +310,6 @@
           "channel": 2,
           "role": "ANALOG_INPUT"
         }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 10,
-          "group": "PCINT8-14"
-        }
       }
     ]
   },
@@ -415,14 +343,6 @@
         "metadata": {
           "channel": 3,
           "role": "ANALOG_INPUT"
-        }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 11,
-          "group": "PCINT8-14"
         }
       }
     ]
@@ -466,14 +386,6 @@
           "role": "SDA",
           "alternateFunction": null
         }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 12,
-          "group": "PCINT8-14"
-        }
       }
     ]
   },
@@ -515,14 +427,6 @@
         "metadata": {
           "role": "SCL",
           "alternateFunction": null
-        }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 13,
-          "group": "PCINT8-14"
         }
       }
     ]
@@ -566,14 +470,6 @@
           "channel": "IC1",
           "role": "INPUT_CAPTURE"
         }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 16,
-          "group": "PCINT16-23"
-        }
       }
     ]
   },
@@ -608,14 +504,6 @@
           "role": "TX",
           "alternateFunction": null
         }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 17,
-          "group": "PCINT16-23"
-        }
       }
     ]
   },
@@ -649,14 +537,6 @@
         "metadata": {
           "interrupt": "INT0",
           "role": "EXTERNAL_INTERRUPT"
-        }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 18,
-          "group": "PCINT16-23"
         }
       }
     ]
@@ -700,14 +580,6 @@
           "channel": "OC2B",
           "role": "OUTPUT_COMPARE"
         }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 19,
-          "group": "PCINT16-23"
-        }
       }
     ]
   },
@@ -734,14 +606,6 @@
         "type": "GPIO",
         "mode": "INPUT_PULLUP",
         "metadata": {}
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 20,
-          "group": "PCINT16-23"
-        }
       }
     ]
   },
@@ -775,14 +639,6 @@
         "metadata": {
           "channel": "OC0B",
           "role": "OUTPUT_COMPARE"
-        }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 21,
-          "group": "PCINT16-23"
         }
       }
     ]
@@ -826,14 +682,6 @@
           "input": "AIN0",
           "role": "ANALOG_INPUT"
         }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 22,
-          "group": "PCINT16-23"
-        }
       }
     ]
   },
@@ -867,14 +715,6 @@
         "metadata": {
           "input": "AIN1",
           "role": "ANALOG_INPUT"
-        }
-      },
-      {
-        "type": "PCINT",
-        "mode": "INTERRUPT",
-        "metadata": {
-          "number": 23,
-          "group": "PCINT16-23"
         }
       }
     ]

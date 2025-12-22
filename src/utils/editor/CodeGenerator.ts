@@ -525,6 +525,23 @@ ${functionCalls.join("\n")}
   }
 
   /**
+   * Вычисляет номер PCINT на основе порта и номера пина
+   * PORTB (PB0-PB5): PCINT0-PCINT5
+   * PORTC (PC0-PC5): PCINT8-PCINT13
+   * PORTD (PD0-PD7): PCINT16-PCINT23
+   */
+  private getPCINTNumber(port: string, pinNumber: number): number | null {
+    if (port === "PB") {
+      return pinNumber; // PCINT0-PCINT5
+    } else if (port === "PC") {
+      return pinNumber + 8; // PCINT8-PCINT13
+    } else if (port === "PD") {
+      return pinNumber + 16; // PCINT16-PCINT23
+    }
+    return null;
+  }
+
+  /**
    * Извлекает PCINT из настроек GPIO функций
    * Создает виртуальные SelectedPinFunction для PCINT на основе GPIO с включенным enablePCINT
    */
@@ -539,9 +556,15 @@ ${functionCalls.join("\n")}
         const pin = this.findPinByName(pinFunc.pinName);
         if (!pin) return;
         
-        // Проверяем, поддерживает ли пин PCINT
-        const pcintFunc = pin.functions.find((f) => f.type === "PCINT");
-        if (!pcintFunc) return;
+        // Проверяем, поддерживает ли пин PCINT (если у пина есть GPIO сигналы, значит он может поддерживать PCINT)
+        const hasGPIO = pin.signals?.some((s) => s.type === "GPIO");
+        if (!hasGPIO) return;
+        
+        // Проверяем, что пин не является специальным (PB6, PB7, PC6 - не поддерживают PCINT)
+        const port = getPortFromPin(pin.pin);
+        const pinNumber = pin.number;
+        const pcintNumber = this.getPCINTNumber(port, pinNumber);
+        if (pcintNumber === null) return;
         
         // Создаем виртуальную функцию PCINT на основе GPIO
         pcintFunctions.push({
@@ -905,10 +928,10 @@ ${functionCalls.join("\n")}
       const pin = this.findPinByName(pinFunc.pinName);
       if (!pin) return;
 
-      const pcintFunc = pin.functions.find((f) => f.type === "PCINT");
-      if (!pcintFunc || pcintFunc.pcintNumber === undefined) return;
-
       const port = getPortFromPin(pin.pin);
+      const pcintNumber = this.getPCINTNumber(port, pin.number);
+      if (pcintNumber === null) return;
+
       let portGroup: string;
       if (port === "PB") {
         portGroup = "PCIE0";
@@ -923,7 +946,7 @@ ${functionCalls.join("\n")}
       }
       portGroups[portGroup].push({
         bit: getBitFromPin(pin.pin),
-        pcintNumber: pcintFunc.pcintNumber,
+        pcintNumber: pcintNumber,
         pinName: pin.pin,
       });
     });
@@ -961,10 +984,10 @@ ${functionCalls.join("\n")}
       const pin = this.findPinByName(pinFunc.pinName);
       if (!pin) return;
 
-      const pcintFunc = pin.functions.find((f) => f.type === "PCINT");
-      if (!pcintFunc || pcintFunc.pcintNumber === undefined) return;
-
       const port = getPortFromPin(pin.pin);
+      const pcintNumber = this.getPCINTNumber(port, pin.number);
+      if (pcintNumber === null) return;
+
       let portGroup: string;
       if (port === "PB") {
         portGroup = "PCINT0";
@@ -979,7 +1002,7 @@ ${functionCalls.join("\n")}
       }
       portGroups[portGroup].push({
         bit: getBitFromPin(pin.pin),
-        pcintNumber: pcintFunc.pcintNumber,
+        pcintNumber: pcintNumber,
         pinName: pin.pin,
       });
     });

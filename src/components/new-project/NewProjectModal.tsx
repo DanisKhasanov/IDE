@@ -179,35 +179,6 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     setConflicts(detectedConflicts);
   }, [selectedPinFunctions, currentBoardConfig]);
 
-  // Вывод итоговых данных в консоль при изменении выбранных пинов и их настроек
-  useEffect(() => {
-    // Преобразуем Record<string, SelectedPinFunction[]> в плоский массив
-    const allSelectedPins = Object.values(selectedPinFunctions).flat();
-    
-    // Формируем итоговые данные
-    const finalData = {
-      pins: allSelectedPins.map((func) => ({
-        pinName: func.pinName,
-        functionType: func.functionType,
-        settings: func.settings,
-      })),
-      systemPeripherals: Object.entries(systemPeripherals).map(([functionType, peripheral]) => ({
-        functionType,
-        settings: peripheral.settings,
-      })),
-      timers: Object.entries(timers).map(([timerName, timer]) => ({
-        timerName,
-        settings: timer.settings,
-      })),
-      boardId: selectedBoard,
-      frequency: selectedFrequency,
-    };
-
-    console.log("=== Итоговые данные выбранных пинов и настроек ===");
-    console.log(JSON.stringify(finalData, null, 2));
-    console.log("==================================================");
-  }, [selectedPinFunctions, systemPeripherals, timers, selectedBoard, selectedFrequency]);
-
   const handleSelectFolder = async () => {
     try {
       if (!window.electronAPI || !window.electronAPI.selectParentFolder) {
