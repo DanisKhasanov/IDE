@@ -7,6 +7,7 @@ import {
   Button,
   Box,
   IconButton,
+  Typography,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import type {
@@ -19,6 +20,7 @@ import { SelectedPinsPanel } from "./SelectedPinsPanel";
 import { PinsListPanel } from "../common/PinsListPanel";
 import { useSnackbar } from "@/contexts/SnackbarContext";
 import { loadBoardConfig } from "@/utils/config/loadBoardConfig";
+import { useProjectConfiguration } from "@/hooks/project/useProjectConfiguration";
 const CONTROLLER = loadBoardConfig();
 
 // Маппинг плат к конфигурациям микроконтроллеров
@@ -47,53 +49,42 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   const [projectName, setProjectName] = useState("");
   const [parentPath, setParentPath] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-  const [selectedBoard, setSelectedBoard] = useState<string>("uno");
-  const [selectedFrequency, setSelectedFrequency] = useState<string>(
-    () => CONTROLLER.frequency
-  );
+  const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
+  const [selectedFrequency, setSelectedFrequency] = useState<string>("");
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
   const [selectedFunctionType, setSelectedFunctionType] = useState<string | null>(null);
-  // Храним массив функций на пин (ключ - pinName, значение - массив функций)
-  const [selectedPinFunctions, setSelectedPinFunctions] = useState<
-    Record<string, SelectedPinFunction[]>
-  >({});
-  // Храним системные периферии (не привязанные к пинам) - ключ: functionType, значение: SelectedPinFunction
-  const [systemPeripherals, setSystemPeripherals] = useState<
-    Record<string, SelectedPinFunction>
-  >({});
-  // Храним независимые таймеры (не привязанные к пинам) - ключ: timerName (TIMER0, TIMER1, TIMER2), значение: SelectedPinFunction
-  const [timers, setTimers] = useState<
-    Record<string, SelectedPinFunction>
-  >({});
   const [conflicts, setConflicts] = useState<string[]>([]);
   const { showError, showWarning } = useSnackbar();
 
   const currentBoardConfig = BOARD_CONFIGS[selectedBoard]?.config;
   
-  // Функция для определения системных периферий (те, что есть в peripherals, но не привязаны к пинам)
+  // Используем единый hook для управления настройками
+  const {
+    configuration,
+    addOrUpdatePinFunction,
+    removePinFunction,
+    updatePeripheralSettingsOnAllPins,
+    addOrUpdateTimer,
+    removeTimer,
+    getPeripheralPins,
+    isPeripheralUsedInPins,
+    getSelectedPinsForPeripheral,
+    getCombinedPeripheralSettings,
+    resetConfiguration,
+  } = useProjectConfiguration(currentBoardConfig);
+  
+  // Деструктурируем для удобства использования
+  const { selectedPinFunctions, timers } = configuration;
+  
+  // Функция для получения всех системных периферий из peripheries.json
   const getSystemPeripherals = (): string[] => {
     if (!currentBoardConfig) return [];
     
+    // Возвращаем все периферии из конфига (кроме таймеров, которые обрабатываются отдельно)
     const peripheralsInConfig = Object.keys(currentBoardConfig.peripherals);
-    const peripheralsOnPins = new Set<string>();
     
-    // Собираем все типы периферий, которые есть на пинах
-    currentBoardConfig.pins.forEach((pin) => {
-      const signals = pin.signals || [];
-      signals.forEach((signal) => {
-        peripheralsOnPins.add(signal.type);
-        
-        // Обрабатываем специальные случаи: TIMER0_PWM -> TIMER0, TIMER1_PWM -> TIMER1, TIMER2_PWM -> TIMER2
-        if (signal.type.startsWith("TIMER") && signal.type.includes("_PWM")) {
-          const timerName = signal.type.split("_PWM")[0]; // Извлекаем TIMER0, TIMER1, TIMER2
-          peripheralsOnPins.add(timerName);
-        }
-      });
-    });
-    
-    // Системные периферии - те, что в конфигурации, но не на пинах и не таймеры
+    // Исключаем таймеры, так как они обрабатываются в отдельном табе
     return peripheralsInConfig.filter((peripheral) => 
-      !peripheralsOnPins.has(peripheral) && 
       !peripheral.startsWith("TIMER")
     );
   };
@@ -109,17 +100,35 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     });
   };
 
-  // Вспомогательная функция для получения пинов периферии из массива pins
-  const getPeripheralPins = (functionType: string): string[] => {
-    if (!currentBoardConfig) return [];
-    
-    return currentBoardConfig.pins
-      .filter((pin) => {
-        const signals = pin.signals || [];
-        return signals.some((signal) => signal.type === functionType);
-      })
-      .map((pin) => pin.id || pin.pin || "");
-  };
+  // getPeripheralPins уже доступен из hook
+
+  // Вывод всех настроек в консоль одним объектом
+  useEffect(() => {
+    const allSettings = {
+      projectName,
+      parentPath,
+      selectedBoard,
+      selectedFrequency,
+      configuration: {
+        selectedPinFunctions,
+        timers,
+      },
+      conflicts,
+      selectedPin,
+      selectedFunctionType,
+    };
+    console.log("📦 Все настройки проекта:", allSettings);
+  }, [
+    projectName,
+    parentPath,
+    selectedBoard,
+    selectedFrequency,
+    selectedPinFunctions,
+    timers,
+    conflicts,
+    selectedPin,
+    selectedFunctionType,
+  ]);
 
   // Проверка конфликтов при изменении выбранных функций
   useEffect(() => {
@@ -179,6 +188,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     setConflicts(detectedConflicts);
   }, [selectedPinFunctions, currentBoardConfig]);
 
+ 
   const handleSelectFolder = async () => {
     try {
       if (!window.electronAPI || !window.electronAPI.selectParentFolder) {
@@ -195,7 +205,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   };
 
   const handleCreate = async () => {
-    if (!parentPath || !projectName || !projectName.trim()) {
+    if (!selectedBoard || !parentPath || !projectName || !projectName.trim()) {
       return;
     }
 
@@ -209,11 +219,6 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       // Подготавливаем конфигурацию пинов для передачи
       // Преобразуем Record<string, SelectedPinFunction[]> в плоский массив
       const allSelectedPins = Object.values(selectedPinFunctions).flat();
-      // Добавляем системные периферии (используем виртуальный pinName "SYSTEM")
-      const systemPeripheralsArray = Object.values(systemPeripherals).map((peripheral) => ({
-        ...peripheral,
-        pinName: "SYSTEM", // Виртуальный pinName для системных периферий
-      }));
       // Добавляем независимые таймеры (используем виртуальный pinName "TIMER")
       const timersArray = Object.entries(timers).map(([timerName, timer]) => ({
         ...timer,
@@ -223,7 +228,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       const pinConfig = {
         boardId: selectedBoard,
         fCpu: selectedFrequency,
-        selectedPins: [...allSelectedPins, ...systemPeripheralsArray, ...timersArray],
+        selectedPins: [...allSelectedPins, ...timersArray],
       };
 
       const project = await window.electronAPI.createNewProject(
@@ -256,12 +261,11 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     setProjectName("");
     setParentPath("");
     setIsCreating(false);
-    setSelectedBoard("uno");
-    setSelectedFrequency(CONTROLLER.frequency);
+    setSelectedBoard(null);
+    setSelectedFrequency("");
     setSelectedPin(null);
     setSelectedFunctionType(null);
-    setSelectedPinFunctions({});
-    setSystemPeripherals({});
+    resetConfiguration();
     setConflicts([]);
     onClose();
   };
@@ -354,13 +358,12 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     // Для SPI автоматически добавляем все 4 пина SPI с одинаковыми настройками
     if (functionType === "SPI") {
       const spiPins = getPeripheralPins("SPI");
-      const updatedFunctions: Record<string, SelectedPinFunction[]> = { ...selectedPinFunctions };
       
       spiPins.forEach((spiPinName) => {
         const spiPin = currentBoardConfig?.pins.find((p) => (p.id || p.pin) === spiPinName);
         if (!spiPin) return;
         
-        const spiPinFunctions = updatedFunctions[spiPinName] || [];
+        const spiPinFunctions = selectedPinFunctions[spiPinName] || [];
         
         // Проверяем, не выбрана ли уже SPI на этом пине
         const spiAlreadySelected = spiPinFunctions.some(
@@ -375,19 +378,11 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
           );
           
           if (!isIncompatible) {
-            updatedFunctions[spiPinName] = [
-              ...spiPinFunctions,
-              {
-                pinName: spiPinName,
-                functionType: "SPI",
-                settings, // Используем те же настройки для всех пинов SPI
-              },
-            ];
+            addOrUpdatePinFunction(spiPinName, "SPI", settings);
           }
         }
       });
       
-      setSelectedPinFunctions(updatedFunctions);
       // Для SPI выбираем первый пин SPI и функцию SPI
       if (spiPins.length > 0) {
         setSelectedPin(spiPins[0]);
@@ -396,13 +391,12 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     } else if (functionType === "UART") {
       // Для UART автоматически добавляем оба пина (RX и TX) с одинаковыми настройками
       const uartPins = getPeripheralPins("UART");
-      const updatedFunctions: Record<string, SelectedPinFunction[]> = { ...selectedPinFunctions };
       
       uartPins.forEach((uartPinName) => {
         const uartPin = currentBoardConfig?.pins.find((p) => (p.id || p.pin) === uartPinName);
         if (!uartPin) return;
         
-        const uartPinFunctions = updatedFunctions[uartPinName] || [];
+        const uartPinFunctions = selectedPinFunctions[uartPinName] || [];
         
         // Проверяем, не выбрана ли уже UART на этом пине
         const uartAlreadySelected = uartPinFunctions.some(
@@ -417,19 +411,11 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
           );
           
           if (!isIncompatible) {
-            updatedFunctions[uartPinName] = [
-              ...uartPinFunctions,
-              {
-                pinName: uartPinName,
-                functionType: "UART",
-                settings, // Используем те же настройки для всех пинов UART
-              },
-            ];
+            addOrUpdatePinFunction(uartPinName, "UART", settings);
           }
         }
       });
       
-      setSelectedPinFunctions(updatedFunctions);
       // Для UART выбираем первый пин UART и функцию UART
       if (uartPins.length > 0) {
         setSelectedPin(uartPins[0]);
@@ -438,13 +424,12 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     } else if (functionType === "I2C") {
       // Для I2C автоматически добавляем оба пина (SDA и SCL) с одинаковыми настройками
       const i2cPins = getPeripheralPins("I2C");
-      const updatedFunctions: Record<string, SelectedPinFunction[]> = { ...selectedPinFunctions };
       
       i2cPins.forEach((i2cPinName) => {
         const i2cPin = currentBoardConfig?.pins.find((p) => (p.id || p.pin) === i2cPinName);
         if (!i2cPin) return;
         
-        const i2cPinFunctions = updatedFunctions[i2cPinName] || [];
+        const i2cPinFunctions = selectedPinFunctions[i2cPinName] || [];
         
         // Проверяем, не выбрана ли уже I2C на этом пине
         const i2cAlreadySelected = i2cPinFunctions.some(
@@ -459,19 +444,11 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
           );
           
           if (!isIncompatible) {
-            updatedFunctions[i2cPinName] = [
-              ...i2cPinFunctions,
-              {
-                pinName: i2cPinName,
-                functionType: "I2C",
-                settings, // Используем те же настройки для всех пинов I2C
-              },
-            ];
+            addOrUpdatePinFunction(i2cPinName, "I2C", settings);
           }
         }
       });
       
-      setSelectedPinFunctions(updatedFunctions);
       // Для I2C выбираем первый пин I2C и функцию I2C
       if (i2cPins.length > 0) {
         setSelectedPin(i2cPins[0]);
@@ -479,17 +456,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       }
     } else {
       // Для других функций добавляем только на выбранный пин
-      setSelectedPinFunctions((prev) => ({
-        ...prev,
-        [pinName]: [
-          ...existingFunctions,
-          {
-            pinName,
-            functionType,
-            settings,
-          },
-        ],
-      }));
+      addOrUpdatePinFunction(pinName, functionType, settings);
       // Автоматически выбираем добавленную функцию
       setSelectedPin(pinName);
       setSelectedFunctionType(functionType);
@@ -497,132 +464,90 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   };
 
   const handleFunctionRemove = (pinName: string, functionType?: string) => {
-    setSelectedPinFunctions((prev) => {
-      // Для SPI удаляем все 4 пина SPI одновременно
-      if (functionType === "SPI") {
-        const spiPins = getPeripheralPins("SPI");
-        const newState = { ...prev };
-        
-        spiPins.forEach((spiPinName) => {
-          const existingFunctions = newState[spiPinName] || [];
-          const filtered = existingFunctions.filter(
-            (f) => f.functionType !== "SPI"
-          );
-          
-          if (filtered.length === 0) {
-            delete newState[spiPinName];
-          } else {
-            newState[spiPinName] = filtered;
-          }
-        });
-        
-        // Если удаляется выбранная функция SPI, сбрасываем выбор
-        if (selectedPin && spiPins.includes(selectedPin) && selectedFunctionType === "SPI") {
-          setSelectedPin(null);
-          setSelectedFunctionType(null);
-        }
-        
-        return newState;
-      }
+    // Для SPI удаляем все 4 пина SPI одновременно
+    if (functionType === "SPI") {
+      const spiPins = getPeripheralPins("SPI");
       
-      // Для UART удаляем оба пина (RX и TX) одновременно
-      if (functionType === "UART") {
-        const uartPins = getPeripheralPins("UART");
-        const newState = { ...prev };
-        
-        uartPins.forEach((uartPinName) => {
-          const existingFunctions = newState[uartPinName] || [];
-          const filtered = existingFunctions.filter(
-            (f) => f.functionType !== "UART"
-          );
-          
-          if (filtered.length === 0) {
-            delete newState[uartPinName];
-          } else {
-            newState[uartPinName] = filtered;
-          }
-        });
-        
-        // Если удаляется выбранная функция UART, сбрасываем выбор
-        if (selectedPin && uartPins.includes(selectedPin) && selectedFunctionType === "UART") {
-          setSelectedPin(null);
-          setSelectedFunctionType(null);
-        }
-        
-        return newState;
-      }
+      spiPins.forEach((spiPinName) => {
+        removePinFunction(spiPinName, "SPI");
+      });
       
-      // Для I2C удаляем оба пина (SDA и SCL) одновременно
-      if (functionType === "I2C") {
-        const i2cPins = getPeripheralPins("I2C");
-        const newState = { ...prev };
-        
-        i2cPins.forEach((i2cPinName) => {
-          const existingFunctions = newState[i2cPinName] || [];
-          const filtered = existingFunctions.filter(
-            (f) => f.functionType !== "I2C"
-          );
-          
-          if (filtered.length === 0) {
-            delete newState[i2cPinName];
-          } else {
-            newState[i2cPinName] = filtered;
-          }
-        });
-        
-        // Если удаляется выбранная функция I2C, сбрасываем выбор
-        if (selectedPin && i2cPins.includes(selectedPin) && selectedFunctionType === "I2C") {
-          setSelectedPin(null);
-          setSelectedFunctionType(null);
-        }
-        
-        return newState;
-      }
-      
-      // Для других функций удаляем только с указанного пина
-      const existingFunctions = prev[pinName] || [];
-      
-      // Если указан тип функции, удаляем только её
-      if (functionType) {
-        const filtered = existingFunctions.filter(
-          (f) => f.functionType !== functionType
-        );
-        
-        // Если удаляется выбранная функция, сбрасываем или обновляем выбор
-        if (selectedPin === pinName && selectedFunctionType === functionType) {
-          if (filtered.length > 0) {
-            // Выбираем первую оставшуюся функцию
-            setSelectedFunctionType(filtered[0].functionType);
-          } else {
-            // Если функций не осталось, сбрасываем выбор
-            setSelectedPin(null);
-            setSelectedFunctionType(null);
-          }
-        }
-        
-        if (filtered.length === 0) {
-          const newState = { ...prev };
-          delete newState[pinName];
-          return newState;
-        }
-        return {
-          ...prev,
-          [pinName]: filtered,
-        };
-      }
-      
-      // Если тип не указан, удаляем все функции пина
-      const newState = { ...prev };
-      delete newState[pinName];
-      
-      // Если удаляется выбранный пин, сбрасываем выбор
-      if (selectedPin === pinName) {
+      // Если удаляется выбранная функция SPI, сбрасываем выбор
+      if (selectedPin && spiPins.includes(selectedPin) && selectedFunctionType === "SPI") {
         setSelectedPin(null);
         setSelectedFunctionType(null);
       }
       
-      return newState;
-    });
+      return;
+    }
+    
+    // Для UART удаляем оба пина (RX и TX) одновременно
+    if (functionType === "UART") {
+      const uartPins = getPeripheralPins("UART");
+      
+      uartPins.forEach((uartPinName) => {
+        removePinFunction(uartPinName, "UART");
+      });
+      
+      // Если удаляется выбранная функция UART, сбрасываем выбор
+      if (selectedPin && uartPins.includes(selectedPin) && selectedFunctionType === "UART") {
+        setSelectedPin(null);
+        setSelectedFunctionType(null);
+      }
+      
+      return;
+    }
+    
+    // Для I2C удаляем оба пина (SDA и SCL) одновременно
+    if (functionType === "I2C") {
+      const i2cPins = getPeripheralPins("I2C");
+      
+      i2cPins.forEach((i2cPinName) => {
+        removePinFunction(i2cPinName, "I2C");
+      });
+      
+      // Если удаляется выбранная функция I2C, сбрасываем выбор
+      if (selectedPin && i2cPins.includes(selectedPin) && selectedFunctionType === "I2C") {
+        setSelectedPin(null);
+        setSelectedFunctionType(null);
+      }
+      
+      return;
+    }
+    
+    // Для других функций удаляем только с указанного пина
+    const existingFunctions = selectedPinFunctions[pinName] || [];
+    
+    // Если указан тип функции, удаляем только её
+    if (functionType) {
+      const filtered = existingFunctions.filter(
+        (f) => f.functionType !== functionType
+      );
+      
+      // Если удаляется выбранная функция, сбрасываем или обновляем выбор
+      if (selectedPin === pinName && selectedFunctionType === functionType) {
+        if (filtered.length > 0) {
+          // Выбираем первую оставшуюся функцию
+          setSelectedFunctionType(filtered[0].functionType);
+        } else {
+          // Если функций не осталось, сбрасываем выбор
+          setSelectedPin(null);
+          setSelectedFunctionType(null);
+        }
+      }
+      
+      removePinFunction(pinName, functionType);
+      return;
+    }
+    
+    // Если тип не указан, удаляем все функции пина
+    removePinFunction(pinName);
+    
+    // Если удаляется выбранный пин, сбрасываем выбор
+    if (selectedPin === pinName) {
+      setSelectedPin(null);
+      setSelectedFunctionType(null);
+    }
   };
 
   const handleFunctionSettingsUpdate = (
@@ -630,105 +555,38 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     functionType: string,
     settings: Record<string, unknown>
   ) => {
-    setSelectedPinFunctions((prev) => {
-      // Для SPI обновляем настройки на всех 4 пинах одновременно
-      if (functionType === "SPI") {
-        const spiPins = getPeripheralPins("SPI");
-        const newState = { ...prev };
-        
-        spiPins.forEach((spiPinName) => {
-          const existingFunctions = newState[spiPinName] || [];
-          const functionIndex = existingFunctions.findIndex(
-            (f) => f.functionType === "SPI"
-          );
-          
-          if (functionIndex !== -1) {
-            const updatedFunctions = [...existingFunctions];
-            updatedFunctions[functionIndex] = {
-              ...updatedFunctions[functionIndex],
-              settings, // Обновляем настройки на всех пинах SPI
-            };
-            newState[spiPinName] = updatedFunctions;
-          }
-        });
-        
-        return newState;
-      }
-      
-      // Для UART обновляем настройки на обоих пинах UART одновременно
-      if (functionType === "UART") {
-        const uartPins = getPeripheralPins("UART");
-        const newState = { ...prev };
-        
-        uartPins.forEach((uartPinName) => {
-          const existingFunctions = newState[uartPinName] || [];
-          const functionIndex = existingFunctions.findIndex(
-            (f) => f.functionType === "UART"
-          );
-          
-          if (functionIndex !== -1) {
-            const updatedFunctions = [...existingFunctions];
-            updatedFunctions[functionIndex] = {
-              ...updatedFunctions[functionIndex],
-              settings, // Обновляем настройки на обоих пинах UART
-            };
-            newState[uartPinName] = updatedFunctions;
-          }
-        });
-        
-        return newState;
-      }
-      
-      // Для I2C обновляем настройки на обоих пинах I2C одновременно
-      if (functionType === "I2C") {
-        const i2cPins = getPeripheralPins("I2C");
-        const newState = { ...prev };
-        
-        i2cPins.forEach((i2cPinName) => {
-          const existingFunctions = newState[i2cPinName] || [];
-          const functionIndex = existingFunctions.findIndex(
-            (f) => f.functionType === "I2C"
-          );
-          
-          if (functionIndex !== -1) {
-            const updatedFunctions = [...existingFunctions];
-            updatedFunctions[functionIndex] = {
-              ...updatedFunctions[functionIndex],
-              settings, // Обновляем настройки на обоих пинах I2C
-            };
-            newState[i2cPinName] = updatedFunctions;
-          }
-        });
-        
-        return newState;
-      }
-      
-      // Для других функций обновляем только на указанном пине
-      const existingFunctions = prev[pinName] || [];
-      const functionIndex = existingFunctions.findIndex(
-        (f) => f.functionType === functionType
-      );
-
-      if (functionIndex === -1) return prev;
-
-      const updatedFunctions = [...existingFunctions];
-      updatedFunctions[functionIndex] = {
-        ...updatedFunctions[functionIndex],
-        settings,
-      };
-
-      return {
-        ...prev,
-        [pinName]: updatedFunctions,
-      };
-    });
+    // Для SPI обновляем настройки на всех 4 пинах одновременно
+    if (functionType === "SPI") {
+      const spiPins = getPeripheralPins("SPI");
+      spiPins.forEach((spiPinName) => {
+        addOrUpdatePinFunction(spiPinName, "SPI", settings);
+      });
+      return;
+    }
+    
+    // Для UART обновляем настройки на обоих пинах UART одновременно
+    if (functionType === "UART") {
+      const uartPins = getPeripheralPins("UART");
+      uartPins.forEach((uartPinName) => {
+        addOrUpdatePinFunction(uartPinName, "UART", settings);
+      });
+      return;
+    }
+    
+    // Для I2C обновляем настройки на обоих пинах I2C одновременно
+    if (functionType === "I2C") {
+      const i2cPins = getPeripheralPins("I2C");
+      i2cPins.forEach((i2cPinName) => {
+        addOrUpdatePinFunction(i2cPinName, "I2C", settings);
+      });
+      return;
+    }
+    
+    // Для других функций обновляем только на указанном пине
+    addOrUpdatePinFunction(pinName, functionType, settings);
   };
 
-  // getPinFunctions больше не нужна, так как функции теперь берутся из signals
 
-  if (!currentBoardConfig) {
-    return null;
-  }
 
   return (
     <Dialog
@@ -768,12 +626,15 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
             onBoardChange={(boardId) => {
               setSelectedBoard(boardId);
               // Обновляем частоту при смене платы
-              const boardConfig = BOARD_CONFIGS[boardId];
-              if (boardConfig) {
-                setSelectedFrequency(boardConfig.frequency);
+              if (boardId) {
+                const boardConfig = BOARD_CONFIGS[boardId];
+                if (boardConfig) {
+                  setSelectedFrequency(boardConfig.frequency);
+                }
+              } else {
+                setSelectedFrequency("");
               }
-              setSelectedPinFunctions({});
-              setSystemPeripherals({});
+              resetConfiguration();
               setSelectedPin(null);
               setSelectedFunctionType(null);
             }}
@@ -782,82 +643,56 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
             onFrequencyChange={setSelectedFrequency}
             onSelectFolder={handleSelectFolder}
           />
-          <SelectedPinsPanel
-            selectedPinFunctions={selectedPinFunctions}
-            systemPeripherals={systemPeripherals}
-            timers={timers}
-            conflicts={conflicts}
-            boardConfig={currentBoardConfig}
-            onRemoveFunction={handleFunctionRemove}
-            onFunctionSettingsUpdate={handleFunctionSettingsUpdate}
-            onSystemPeripheralAdd={(functionType: string, settings: Record<string, unknown>) => {
-              setSystemPeripherals((prev) => ({
-                ...prev,
-                [functionType]: {
-                  pinName: "", // Пустой pinName для системных периферий
-                  functionType,
-                  settings,
-                },
-              }));
-            }}
-            onSystemPeripheralRemove={(functionType: string) => {
-              setSystemPeripherals((prev) => {
-                const newState = { ...prev };
-                delete newState[functionType];
-                return newState;
-              });
-            }}
-            onSystemPeripheralSettingsUpdate={(functionType: string, settings: Record<string, unknown>) => {
-              setSystemPeripherals((prev) => ({
-                ...prev,
-                [functionType]: {
-                  ...prev[functionType],
-                  settings,
-                },
-              }));
-            }}
-            onTimerAdd={(timerName: string, settings: Record<string, unknown>) => {
-              setTimers((prev) => ({
-                ...prev,
-                [timerName]: {
-                  pinName: "", // Пустой pinName для независимых таймеров
-                  functionType: timerName,
-                  settings,
-                },
-              }));
-            }}
-            onTimerRemove={(timerName: string) => {
-              setTimers((prev) => {
-                const newState = { ...prev };
-                delete newState[timerName];
-                return newState;
-              });
-            }}
-            onTimerSettingsUpdate={(timerName: string, settings: Record<string, unknown>) => {
-              setTimers((prev) => ({
-                ...prev,
-                [timerName]: {
-                  ...prev[timerName],
-                  settings,
-                },
-              }));
-            }}
-            getSystemPeripherals={getSystemPeripherals}
-            getAvailableTimers={getAvailableTimers}
-            selectedPin={selectedPin}
-            selectedFunctionType={selectedFunctionType}
-          />
-          <PinsListPanel
-            boardConfig={currentBoardConfig}
-            selectedPin={selectedPin}
-            selectedPinFunctions={selectedPinFunctions}
-            onPinClick={handlePinClick}
-            onFunctionSelect={handleFunctionSelect}
-          />
+          {!selectedBoard || !currentBoardConfig ? (
+            <Box
+              sx={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "column",
+                gap: 2,
+              }}
+            >
+              <Typography variant="h6" color="text.secondary">
+                Выберите плату 
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                После чего Вы сможете настроить проект
+              </Typography>
+            </Box>
+          ) : (
+            <>
+              <SelectedPinsPanel
+                selectedPinFunctions={selectedPinFunctions}
+                timers={timers}
+                conflicts={conflicts}
+                boardConfig={currentBoardConfig ?? null}
+                onRemoveFunction={handleFunctionRemove}
+                onFunctionSettingsUpdate={handleFunctionSettingsUpdate}
+                onPinFunctionAdd={addOrUpdatePinFunction}
+                onPeripheralSettingsUpdate={updatePeripheralSettingsOnAllPins}
+                onTimerAdd={addOrUpdateTimer}
+                onTimerRemove={removeTimer}
+                onTimerSettingsUpdate={addOrUpdateTimer}
+                getSystemPeripherals={getSystemPeripherals}
+                getAvailableTimers={getAvailableTimers}
+                selectedPin={selectedPin}
+                selectedFunctionType={selectedFunctionType}
+              />
+              <PinsListPanel
+                boardConfig={currentBoardConfig ?? null}
+                selectedPin={selectedPin}
+                selectedPinFunctions={selectedPinFunctions}
+                onPinClick={handlePinClick}
+                onFunctionSelect={handleFunctionSelect}
+              />
+            </>
+          )}
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2 }}>
+      <DialogActions>
         <Button onClick={handleClose} disabled={isCreating}>
           Отмена
         </Button>
@@ -865,7 +700,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
           onClick={handleCreate}
           variant="contained"
           disabled={
-            !parentPath || !projectName || !projectName.trim() || isCreating
+            !selectedBoard || !parentPath || !projectName || !projectName.trim() || isCreating
           }
         >
           {isCreating ? "Создание..." : "Создать проект"}

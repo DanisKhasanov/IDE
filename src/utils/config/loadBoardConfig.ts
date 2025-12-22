@@ -51,6 +51,13 @@ export function loadBoardConfig(): BoardConfig {
         }
       });
       peripheral.pins = allPins;
+      // Сохраняем структурированное pinMapping
+      peripheral.pinMapping = peripheralData.pinMapping;
+    }
+
+    // Добавляем название периферии
+    if (peripheralData.name) {
+      peripheral.name = peripheralData.name;
     }
 
     peripherals[key] = peripheral;

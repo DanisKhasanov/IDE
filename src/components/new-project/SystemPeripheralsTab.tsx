@@ -7,20 +7,21 @@ import {
   ListItemButton,
   ListItemText,
   Button,
+  Chip,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import type { BoardConfig, SelectedPinFunction } from "@/types/boardConfig";
 import { RenderSettings } from "@/components/common/RenderSettings";
 
 interface SystemPeripheralsTabProps {
-  systemPeripherals: Record<string, SelectedPinFunction>;
+  selectedPinFunctions: Record<string, SelectedPinFunction[]>;
   boardConfig: BoardConfig | null;
-  onSystemPeripheralAdd: (
+  onPeripheralSettingsUpdate: (
     functionType: string,
     settings: Record<string, unknown>
   ) => void;
-  onSystemPeripheralRemove: (functionType: string) => void;
-  onSystemPeripheralSettingsUpdate: (
+  onPinFunctionAdd?: (
+    pinName: string,
     functionType: string,
     settings: Record<string, unknown>
   ) => void;
@@ -28,11 +29,10 @@ interface SystemPeripheralsTabProps {
 }
 
 export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
-  systemPeripherals,
+  selectedPinFunctions,
   boardConfig,
-  onSystemPeripheralAdd,
-  onSystemPeripheralRemove,
-  onSystemPeripheralSettingsUpdate,
+  onPeripheralSettingsUpdate,
+  onPinFunctionAdd,
   getSystemPeripherals,
 }) => {
   const [selectedSystemPeripheral, setSelectedSystemPeripheral] = useState<
@@ -46,17 +46,67 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
   const getDefaultSystemPeripheralSettings = (
     functionType: string
   ): Record<string, unknown> => {
-    // Возвращаем пустые настройки - значения должны быть выбраны пользователем
-    return {};
+    if (!boardConfig) return {};
+    
+    const peripheralConfig = boardConfig.peripherals[functionType];
+    if (!peripheralConfig) return {};
+    
+    // Устанавливаем значения по умолчанию из конфига
+    const defaults: Record<string, unknown> = {};
+    
+    // Для GPIO устанавливаем defaultMode если есть
+    if (functionType === "GPIO" && peripheralConfig.modes && peripheralConfig.modes.length > 0) {
+      // Ищем defaultMode в config
+      const gpioConfig = boardConfig.peripherals.GPIO;
+      if (gpioConfig) {
+        // Проверяем, есть ли defaultMode в конфиге (нужно будет добавить в peripheries.json)
+        defaults.mode = "INPUT"; // По умолчанию
+      }
+    }
+    
+    return defaults;
   };
 
   const availablePeripherals = getSystemPeripherals();
-  const selectedPeripheral = selectedSystemPeripheral
-    ? systemPeripherals[selectedSystemPeripheral]
+  
+  // Функция для проверки, используется ли периферия на пинах
+  const isPeripheralUsedInPins = (functionType: string): boolean => {
+    return Object.values(selectedPinFunctions)
+      .flat()
+      .some((func) => func.functionType === functionType);
+  };
+  
+  // Функция для получения настроек из пинов
+  const getPeripheralSettingsFromPins = (functionType: string): Record<string, unknown> | null => {
+    for (const functions of Object.values(selectedPinFunctions)) {
+      const func = functions.find((f) => f.functionType === functionType);
+      if (func) {
+        return func.settings;
+      }
+    }
+    return null;
+  };
+  
+  // Функция для получения выбранных пинов для периферии
+  const getSelectedPinsForPeripheral = (functionType: string): string[] => {
+    const result: string[] = [];
+    for (const [pinName, functions] of Object.entries(selectedPinFunctions)) {
+      if (functions.some((f) => f.functionType === functionType)) {
+        result.push(pinName);
+      }
+    }
+    return result;
+  };
+  
+  // Получаем информацию о выбранной периферии из конфига
+  const selectedPeripheralConfig = selectedSystemPeripheral
+    ? boardConfig?.peripherals[selectedSystemPeripheral]
     : null;
 
   // Синхронизируем локальные настройки только при изменении выбранной периферии
-  const currentPeripheralSettings = selectedPeripheral?.settings;
+  const currentPeripheralSettings = selectedSystemPeripheral
+    ? getPeripheralSettingsFromPins(selectedSystemPeripheral)
+    : null;
 
   // Автоматически выбираем первый элемент при открытии таба
   useEffect(() => {
@@ -66,18 +116,16 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
     // Если нет доступных периферий, ничего не делаем
     if (availablePeripherals.length === 0) return;
 
-    // Сначала ищем периферию с примененными настройками
+    // Сначала ищем периферию с примененными настройками на пинах
     const peripheralWithSettings = availablePeripherals.find(
-      (peripheralType) =>
-        systemPeripherals[peripheralType]?.settings &&
-        Object.keys(systemPeripherals[peripheralType].settings).length > 0
+      (peripheralType) => isPeripheralUsedInPins(peripheralType)
     );
 
     // Выбираем периферию с настройками или первую доступную
     const peripheralToSelect =
       peripheralWithSettings || availablePeripherals[0];
     setSelectedSystemPeripheral(peripheralToSelect);
-  }, [availablePeripherals, systemPeripherals, selectedSystemPeripheral]);
+  }, [availablePeripherals, selectedSystemPeripheral]);
 
   useEffect(() => {
     if (selectedSystemPeripheral) {
@@ -117,23 +165,44 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
       }
     });
 
-    // Если периферия еще не добавлена, добавляем её с настройками
-    if (!selectedPeripheral) {
-      onSystemPeripheralAdd(selectedSystemPeripheral, cleanedSettings);
-    } else {
-      // Если периферия уже существует, обновляем её настройки
-      onSystemPeripheralSettingsUpdate(
-        selectedSystemPeripheral,
-        cleanedSettings
+    // Проверяем, выбраны ли конкретные пины
+    const selectedPinsData = cleanedSettings.selectedPins as Record<string, string[]> | undefined;
+    const hasSelectedPins = selectedPinsData && Object.values(selectedPinsData).some(
+      (pins) => Array.isArray(pins) && pins.length > 0
+    );
+
+    if (hasSelectedPins && selectedPinsData && onPinFunctionAdd) {
+      // Применяем настройки к выбранным пинам
+      const settingsWithoutPins = { ...cleanedSettings };
+      delete settingsWithoutPins.selectedPins; // Удаляем selectedPins из настроек
+
+      // Собираем все выбранные пины из всех сигналов
+      const allSelectedPins = new Set<string>();
+      Object.values(selectedPinsData).forEach((pins) => {
+        pins.forEach((pin) => allSelectedPins.add(pin));
+      });
+
+      // Применяем настройки к каждому выбранному пину
+      allSelectedPins.forEach((pinName) => {
+        onPinFunctionAdd(pinName, selectedSystemPeripheral, settingsWithoutPins);
+      });
+
+      // Очищаем локальные настройки после применения
+      setLocalSettings(
+        getDefaultSystemPeripheralSettings(selectedSystemPeripheral)
       );
+    } else if (isPeripheralUsedInPins(selectedSystemPeripheral)) {
+      // Если пины не выбраны, но периферия уже используется на пинах,
+      // обновляем настройки на всех пинах
+      const settingsWithoutPins = { ...cleanedSettings };
+      delete settingsWithoutPins.selectedPins;
+      onPeripheralSettingsUpdate(selectedSystemPeripheral, settingsWithoutPins);
     }
   };
 
   const handleClearSettings = () => {
     if (!selectedSystemPeripheral) return;
 
-    // Удаляем периферию
-    onSystemPeripheralRemove(selectedSystemPeripheral);
     // Сбрасываем локальные настройки
     setLocalSettings(
       getDefaultSystemPeripheralSettings(selectedSystemPeripheral)
@@ -145,9 +214,22 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
     if (!localSettings || Object.keys(localSettings).length === 0) {
       return false;
     }
-    // Проверяем, есть ли хотя бы одно непустое значение
-    return Object.values(localSettings).some(
-      (value) =>
+    
+    // Проверяем выбранные пины
+    if (localSettings.selectedPins) {
+      const selectedPins = localSettings.selectedPins as Record<string, string[]>;
+      const hasSelectedPins = Object.values(selectedPins).some(
+        (pins) => Array.isArray(pins) && pins.length > 0
+      );
+      if (hasSelectedPins) {
+        return true;
+      }
+    }
+    
+    // Проверяем, есть ли хотя бы одно непустое значение (кроме selectedPins)
+    return Object.entries(localSettings).some(
+      ([key, value]) =>
+        key !== "selectedPins" &&
         value !== "" &&
         value !== undefined &&
         value !== null &&
@@ -178,10 +260,7 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
           <Box>
             {availablePeripherals.map((peripheralType) => {
               const isActive = selectedSystemPeripheral === peripheralType;
-              const hasSettings =
-                !!systemPeripherals[peripheralType]?.settings &&
-                Object.keys(systemPeripherals[peripheralType].settings).length >
-                  0;
+              const usedInPins = isPeripheralUsedInPins(peripheralType);
 
               return (
                 <React.Fragment key={peripheralType}>
@@ -189,17 +268,11 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
                     <ListItemButton
                       onClick={() => handlePeripheralClick(peripheralType)}
                       selected={isActive}
-                      sx={{
-                        "&.Mui-selected": {
-                          backgroundColor: "action.selected",
-                          "&:hover": {
-                            backgroundColor: "action.selected",
-                          },
-                        },
-                      }}
                     >
-                      <ListItemText primary={peripheralType} />
-                      {hasSettings && (
+                      <ListItemText 
+                        primary={peripheralType}
+                      />
+                      {usedInPins && (
                         <CheckCircleIcon
                           sx={{
                             color: "success.main",
@@ -230,15 +303,128 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
       >
         <>
           <Box sx={{ mb: 1, p: 1, borderBottom: 1, borderColor: "divider" }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-              {selectedSystemPeripheral}
+            <Typography variant="subtitle1" sx={{ fontWeight: "bold", mb: 1 }}>
+              {selectedPeripheralConfig?.name || selectedSystemPeripheral}
             </Typography>
+            
+            {/* Показываем выбранные пины из selectedPinFunctions */}
+            {selectedSystemPeripheral && isPeripheralUsedInPins(selectedSystemPeripheral) && (
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>
+                  Выбранные пины:
+                </Typography>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                  {getSelectedPinsForPeripheral(selectedSystemPeripheral).map((pin) => (
+                    <Chip
+                      key={pin}
+                      label={pin}
+                      size="small"
+                      color="primary"
+                      variant="filled"
+                      sx={{ fontSize: "0.7rem", height: "24px" }}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+            
+            {selectedPeripheralConfig?.pinMapping && (
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 1 }}>
+                <Typography variant="caption" sx={{ width: "100%", color: "text.secondary", mb: 0.5 }}>
+                  Выберите пины для применения настроек (можно выбрать один или несколько):
+                </Typography>
+                {Object.entries(selectedPeripheralConfig.pinMapping).map(([signal, pins]) => {
+                  // Используем имя сигнала как ключ (для GPIO это будет "pins", для остальных - имя сигнала)
+                  const signalKey = signal;
+                  
+                  // Получаем выбранные пины для этого сигнала из настроек
+                  const selectedPinsForSignal = (localSettings.selectedPins as Record<string, string[]>)?.[signalKey] || [];
+                  
+                  // Фильтруем пины - исключаем те, что уже используются с этой периферией
+                  const availablePins = Array.isArray(pins) ? pins.filter((pin) => {
+                    // Проверяем, не используется ли этот пин уже для данной периферии
+                    const pinFunctions = selectedPinFunctions[pin] || [];
+                    const isAlreadyUsed = pinFunctions.some(
+                      (func) => func.functionType === selectedSystemPeripheral
+                    );
+                    return !isAlreadyUsed;
+                  }) : [];
+                  
+                  // Если нет доступных пинов, не показываем эту секцию
+                  if (availablePins.length === 0) return null;
+                  
+                  return (
+                    <Box key={signal} sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, width: "100%" }}>
+                      {signal !== "pins" && (
+                        <Typography variant="caption" sx={{ color: "text.secondary", minWidth: "60px", pt: 0.5 }}>
+                          {signal}:
+                        </Typography>
+                      )}
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, flex: 1 }}>
+                        {availablePins.map((pin) => {
+                          const isSelected = selectedPinsForSignal.includes(pin);
+                          return (
+                            <Chip
+                              key={pin}
+                              label={pin}
+                              size="small"
+                              variant={isSelected ? "filled" : "outlined"}
+                              color={isSelected ? "primary" : "default"}
+                              onClick={() => {
+                                    setLocalSettings((prev) => {
+                                      const newSettings = { ...prev };
+                                      const currentSelectedPins = (newSettings.selectedPins as Record<string, string[]>) || {};
+                                      const currentSignalPins = currentSelectedPins[signalKey] || [];
+                                      
+                                      if (isSelected) {
+                                        // Удаляем пин из выбранных
+                                        currentSelectedPins[signalKey] = currentSignalPins.filter((p) => p !== pin);
+                                      } else {
+                                        // Добавляем пин в выбранные
+                                        currentSelectedPins[signalKey] = [...currentSignalPins, pin];
+                                      }
+                                      
+                                      // Удаляем пустые массивы
+                                      Object.keys(currentSelectedPins).forEach((key) => {
+                                        if (currentSelectedPins[key].length === 0) {
+                                          delete currentSelectedPins[key];
+                                        }
+                                      });
+                                      
+                                      // Если нет выбранных пинов, удаляем поле selectedPins
+                                      if (Object.keys(currentSelectedPins).length === 0) {
+                                        delete newSettings.selectedPins;
+                                      } else {
+                                        newSettings.selectedPins = currentSelectedPins;
+                                      }
+                                      
+                                      return newSettings;
+                                    });
+                                  }}
+                                  sx={{
+                                    fontSize: "0.7rem",
+                                    height: "24px",
+                                    cursor: "pointer",
+                                    "&:hover": {
+                                      opacity: 0.8,
+                                      transform: "scale(1.05)",
+                                    },
+                                    transition: "all 0.2s",
+                                  }}
+                                />
+                              );
+                            })}
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
           </Box>
           <Box sx={{ overflow: "auto", flex: 1, p: 1 }}>
             <RenderSettings
               func={{
-                type:
-                  selectedPeripheral?.functionType || selectedSystemPeripheral,
+                type: selectedSystemPeripheral,
               }}
               settings={localSettings}
               onSettingChange={(key: string, value: unknown) => {
@@ -270,9 +456,8 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
               gap: 1,
             }}
           >
-            {selectedPeripheral &&
-              selectedPeripheral.settings &&
-              Object.keys(selectedPeripheral.settings).length > 0 && (
+            {selectedSystemPeripheral && 
+              isPeripheralUsedInPins(selectedSystemPeripheral) && (
                 <Button variant="outlined" onClick={handleClearSettings}>
                   Очистить
                 </Button>

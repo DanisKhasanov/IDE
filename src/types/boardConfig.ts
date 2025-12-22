@@ -56,6 +56,9 @@ export interface PeripheralConfig {
   triggers?: string[];
   timeouts?: number[];
   enableInterrupt?: boolean;
+  // Дополнительные поля из peripheries.json
+  name?: string; // Полное название периферии
+  pinMapping?: Record<string, string[]>; // Структурированное отображение пинов (например, {TX: ["PD1"], RX: ["PD0"]})
 }
 
 export interface ConflictRule {

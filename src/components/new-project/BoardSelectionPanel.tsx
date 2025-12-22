@@ -14,16 +14,16 @@ import type { BoardConfig } from "@/types/boardConfig";
 
 
 interface BoardSelectionPanelProps {
-  selectedBoard: string;
+  selectedBoard: string | null;
   boardConfigs: Record<
     string,
     { name: string; frequency: string; config: BoardConfig }
   >;
-  currentBoardConfig: BoardConfig | null;
+  currentBoardConfig: BoardConfig | undefined;
   projectName: string;
   parentPath: string;
   selectedFrequency: string;
-  onBoardChange: (boardId: string) => void;
+  onBoardChange: (boardId: string | null) => void;
   onProjectNameChange: (name: string) => void;
   onParentPathChange: (path: string) => void;
   onFrequencyChange: (frequency: string) => void;
@@ -77,10 +77,13 @@ export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
         <InputLabel id="board-select-label">Плата</InputLabel>
         <Select
           labelId="board-select-label"
-          value={selectedBoard}
+          value={selectedBoard || ""}
           label="Плата"
-          onChange={(e) => onBoardChange(e.target.value)}
+          onChange={(e) => onBoardChange(e.target.value || null)}
         >
+          <MenuItem value="">
+            <em>Не выбрано</em>
+          </MenuItem>
           {Object.entries(boardConfigs).map(([id, board]) => (
             <MenuItem key={id} value={id}>
               {board.name}
@@ -88,7 +91,7 @@ export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
           ))}
         </Select>
       </FormControl>
-      <FormControl fullWidth sx={{ mt: 2 }}>
+      <FormControl fullWidth>
         <InputLabel id="frequency-select-label">Частота CPU</InputLabel>
         <Select
           labelId="frequency-select-label"
@@ -105,6 +108,7 @@ export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
       </FormControl>
 
       <Box sx={{ mt: "auto", pt: 2 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
         <TextField
           inputRef={projectNameInputRef}
           label="Название проекта"
@@ -115,7 +119,6 @@ export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
           variant="outlined"
           placeholder="Введите название проекта"
         />
-        <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 1 }}>
           <TextField
             label="Родительская папка"
             value={parentPath}

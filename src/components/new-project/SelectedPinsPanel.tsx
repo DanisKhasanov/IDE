@@ -7,7 +7,6 @@ import { TimersTab } from "./TimersTab";
 
 interface SelectedPinsPanelProps {
   selectedPinFunctions: Record<string, SelectedPinFunction[]>;
-  systemPeripherals: Record<string, SelectedPinFunction>;
   timers: Record<string, SelectedPinFunction>;
   conflicts: string[];
   boardConfig: BoardConfig | null;
@@ -17,12 +16,12 @@ interface SelectedPinsPanelProps {
     functionType: string,
     settings: Record<string, unknown>
   ) => void;
-  onSystemPeripheralAdd: (
+  onPinFunctionAdd?: (
+    pinName: string,
     functionType: string,
     settings: Record<string, unknown>
   ) => void;
-  onSystemPeripheralRemove: (functionType: string) => void;
-  onSystemPeripheralSettingsUpdate: (
+  onPeripheralSettingsUpdate: (
     functionType: string,
     settings: Record<string, unknown>
   ) => void;
@@ -40,15 +39,13 @@ interface SelectedPinsPanelProps {
 
 export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
   selectedPinFunctions,
-  systemPeripherals,
   timers,
   conflicts,
   boardConfig,
   onRemoveFunction,
   onFunctionSettingsUpdate,
-  onSystemPeripheralAdd,
-  onSystemPeripheralRemove,
-  onSystemPeripheralSettingsUpdate,
+  onPinFunctionAdd,
+  onPeripheralSettingsUpdate,
   onTimerAdd,
   onTimerRemove,
   onTimerSettingsUpdate,
@@ -57,12 +54,10 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
   selectedPin,
   selectedFunctionType,
 }) => {
-  const [activeTab, setActiveTab] = useState<0 | 1 | 2>(0); // 0 - пины, 1 - системные периферии, 2 - таймеры
+  const [activeTab, setActiveTab] = useState<0 | 1 | 2>(0); // 0 - системные периферии, 1 - пины, 2 - таймеры
 
   const hasPins = Object.keys(selectedPinFunctions).length > 0;
-  const hasSystemPeripherals = Object.keys(systemPeripherals).length > 0;
   const hasTimers = Object.keys(timers).length > 0;
-  const hasAnyContent = hasPins || hasSystemPeripherals || hasTimers;
 
   return (
     <Box
@@ -105,10 +100,10 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
         sx={{ borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
       >
         <Tab
-          label={`Пины${hasPins ? ` (${Object.keys(selectedPinFunctions).length})` : ""}`}
+          label="Системные периферии"
         />
         <Tab
-          label={`Системные периферии${hasSystemPeripherals ? ` (${Object.keys(systemPeripherals).length})` : ""}`}
+          label={`Пины${hasPins ? ` (${Object.keys(selectedPinFunctions).length})` : ""}`}
         />
         <Tab
           label={`Таймеры${hasTimers ? ` (${Object.keys(timers).length})` : ""}`}
@@ -116,41 +111,42 @@ export const SelectedPinsPanel: React.FC<SelectedPinsPanelProps> = ({
       </Tabs>
 
       {/* Контент вкладок */}
-      {!hasAnyContent ? (
-        <Box
-          sx={{
-            display: "flex",
-            flex: 1,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ textAlign: "center" }}
-          >
-            Сначала выберите пин справа
-          </Typography>
-        </Box>
-      ) : activeTab === 0 ? (
-        <PinsTab
+      {activeTab === 0 ? (
+        <SystemPeripheralsTab
           selectedPinFunctions={selectedPinFunctions}
           boardConfig={boardConfig}
-          onRemoveFunction={onRemoveFunction}
-          onFunctionSettingsUpdate={onFunctionSettingsUpdate}
-          selectedPinFromParent={selectedPin}
-          selectedFunctionTypeFromParent={selectedFunctionType}
-        />
-      ) : activeTab === 1 ? (
-        <SystemPeripheralsTab
-          systemPeripherals={systemPeripherals}
-          boardConfig={boardConfig}
-          onSystemPeripheralAdd={onSystemPeripheralAdd}
-          onSystemPeripheralRemove={onSystemPeripheralRemove}
-          onSystemPeripheralSettingsUpdate={onSystemPeripheralSettingsUpdate}
+          onPeripheralSettingsUpdate={onPeripheralSettingsUpdate}
+          onPinFunctionAdd={onPinFunctionAdd}
           getSystemPeripherals={getSystemPeripherals}
         />
+      ) : activeTab === 1 ? (
+        !hasPins ? (
+          <Box
+            sx={{
+              display: "flex",
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ textAlign: "center" }}
+            >
+              Сначала настройте системные периферии или выберите пин справа
+            </Typography>
+          </Box>
+        ) : (
+          <PinsTab
+            selectedPinFunctions={selectedPinFunctions}
+            boardConfig={boardConfig}
+            onRemoveFunction={onRemoveFunction}
+            onFunctionSettingsUpdate={onFunctionSettingsUpdate}
+            selectedPinFromParent={selectedPin}
+            selectedFunctionTypeFromParent={selectedFunctionType}
+          />
+        )
       ) : (
         <TimersTab
           timers={timers}

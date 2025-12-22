@@ -6,6 +6,7 @@ export { useProjectFiles } from "./project/useProjectFiles";
 export { useProjectMenu } from "./project/useProjectMenu";
 export { useNewProjectModal } from "./project/useNewProjectModal";
 export { useFileHandler } from "./project/useFileHandler";
+export { useProjectConfiguration, type ProjectConfiguration } from "./project/useProjectConfiguration";
 
 // Editor hooks
 export { useMonacoModel } from "./editor/useMonacoModel";
