@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Box, Typography, Chip, Menu, MenuItem, Divider } from "@mui/material";
 import type {
-  BoardConfig,
   PinConfig,
   PinFunction,
   SelectedPinFunction,
   PinSignal,
 } from "@/types/boardConfig";
+import { getBoardInfo, getPins, getPeripheryDefaultSettings } from "@/utils/config/boardConfigHelpers";
 
 
 // Размер области пина (в процентах)
@@ -24,6 +24,7 @@ interface PinFunctionMenuProps {
   open: boolean;
   onClose: () => void;
   onFunctionClick: (signal: PinSignal) => void;
+  onFunctionRemove?: (pinName: string, functionType: string) => void;
   selectedPinFunctions: Record<string, SelectedPinFunction[]>;
   pinSide?: "left" | "right";
 }
@@ -34,6 +35,7 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
   open,
   onClose,
   onFunctionClick,
+  onFunctionRemove,
   selectedPinFunctions,
   pinSide = "right",
 }) => {
@@ -41,9 +43,23 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
   const signals = pin.signals || [];
 
   const selectedFunctions = selectedPinFunctions[pin.id] || [];
-  const selectedFunctionKeys = selectedFunctions.map(
-    (f) => `${f.functionType}:${f.settings?.mode || ""}`
-  );
+  
+  // Периферии, которые используют несколько пинов одновременно
+  // Для них mode в signal - это роль пина (SS, MOSI, RX, TX, SDA, SCL),
+  // а mode в settings - это режим работы периферии (Master, Slave)
+  const multiPinPeripherals = ["SPI", "UART", "I2C"];
+  
+  // Формируем ключи для проверки выбора
+  // Для периферий с несколькими пинами проверяем только type
+  // Для остальных - type:mode (где mode - это режим из settings)
+  const selectedFunctionKeys = selectedFunctions.map((f) => {
+    if (multiPinPeripherals.includes(f.functionType)) {
+      // Для SPI/UART/I2C проверяем только тип, так как они применяются ко всем пинам
+      return f.functionType;
+    }
+    // Для других функций используем type:mode из settings
+    return `${f.functionType}:${f.settings?.mode || ""}`;
+  });
 
   // Для левой стороны меню открывается справа, для правой - слева
   const horizontalAnchor = pinSide === "left" ? "right" : "left";
@@ -77,8 +93,12 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
           </Typography>
         ) : (
           signals.map((signal, idx) => {
-            // Формируем ключ для проверки выбора: type:mode
-            const signalKey = `${signal.type}:${signal.mode}`;
+            // Формируем ключ для проверки выбора
+            // Для периферий с несколькими пинами проверяем только type
+            // Для остальных - type:mode из signal (где mode - это режим из signal)
+            const signalKey = multiPinPeripherals.includes(signal.type)
+              ? signal.type
+              : `${signal.type}:${signal.mode}`;
             const isSelected = selectedFunctionKeys.includes(signalKey);
 
             const displayName = signal.metadata?.role
@@ -91,10 +111,16 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
               <MenuItem
                 key={idx}
                 onClick={() => {
-                  onFunctionClick(signal);
+                  if (isSelected && onFunctionRemove) {
+                    // Если функция уже выбрана, удаляем её при повторном клике
+                    const pinId = pin.id || pin.pin || "";
+                    onFunctionRemove(pinId, signal.type);
+                  } else {
+                    // Если функция не выбрана, добавляем её
+                    onFunctionClick(signal);
+                  }
                 }}
                 selected={isSelected}
-                disabled={isSelected}
               >
                 <Box
                   sx={{
@@ -120,11 +146,23 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
 
 // Функция для получения дефолтных настроек функции из сигнала
 const getDefaultSettings = (signal: PinSignal): Record<string, unknown> => {
-  const settings = {
+  // Базовые настройки из сигнала
+  const signalSettings = {
     mode: signal.mode,
     ...signal.metadata,
   };
 
+  // Получаем настройки по умолчанию из конфига периферии с учетом текущих настроек
+  // Передаем signalSettings для проверки условных настроек (например, initialState только для OUTPUT)
+  const defaultSettings = getPeripheryDefaultSettings(signal.type, signalSettings);
+
+  // Объединяем: сначала дефолты из конфига, затем перезаписываем значениями из сигнала
+  const settings = {
+    ...defaultSettings,
+    ...signalSettings,
+  };
+
+  // Специфичные настройки для некоторых типов (для обратной совместимости)
   if (signal.type === "SPI") {
     return { speed: "fosc/16", cpol: 0, cpha: 0, ...settings };
   }
@@ -136,7 +174,7 @@ const getDefaultSettings = (signal: PinSignal): Record<string, unknown> => {
 };
 
 interface PinsListPanelProps {
-  boardConfig: BoardConfig | null;
+  boardConfig?: any; // Оставляем для обратной совместимости, но не используем напрямую
   selectedPin: string | null;
   selectedPinFunctions: Record<string, SelectedPinFunction[]>;
   onPinClick: (pinName: string) => void;
@@ -144,6 +182,10 @@ interface PinsListPanelProps {
     pinName: string,
     functionType: string,
     settings: Record<string, unknown>
+  ) => void;
+  onFunctionRemove?: (
+    pinName: string,
+    functionType?: string
   ) => void;
   size?: "small" | "medium";
 }
@@ -154,6 +196,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
   selectedPinFunctions,
   onPinClick,
   onFunctionSelect,
+  onFunctionRemove,
   size = "medium",
 }) => {
   const imageRef = useRef<HTMLImageElement>(null);
@@ -166,17 +209,20 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
   } | null>(null);
 
   // Получаем путь к изображению из конфига
+  const boardInfo = getBoardInfo();
+  const pins = getPins();
+  
   const boardImage = useMemo(() => {
-    if (!boardConfig?.image) return null;
+    if (!boardInfo.image) return null;
 
-    const imagePath = boardConfig.image;
+    const imagePath = boardInfo.image;
     
     if (!imagePath.startsWith("/src/config/")) {
       return `/src/config/${imagePath}`;
     }
 
     return imagePath;
-  }, [boardConfig?.image]);
+  }, [boardInfo.image]);
 
   useEffect(() => {
     if (!boardImage) {
@@ -185,10 +231,6 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
       setImageLoaded(true);
     }
   }, [boardImage]);
-
-  if (!boardConfig) {
-    return null;
-  }
 
   const handlePinClick = (
     event: React.MouseEvent<HTMLDivElement>,
@@ -249,7 +291,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
             <img
               ref={imageRef}
               src={boardImage}
-              alt={boardConfig.name || "Board"}
+              alt={boardInfo.name || "Board"}
               style={{
                 width: size === "small" ? "15vw" : "23vw",
                 opacity: 0.8,
@@ -259,7 +301,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
                 // Скрываем изображение при ошибке загрузки
                 const target = e.currentTarget;
                 target.style.display = "none";
-                console.error(`Ошибка загрузки изображения для платы ${boardConfig.id}`);
+                console.error(`Ошибка загрузки изображения для платы ${boardInfo.id}`);
               }}
             />
           ) : (
@@ -284,7 +326,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
           )}
 
           {/* Точки для визуализации координат пинов */}
-          {boardConfig.pins.map((pin) => {
+          {pins.map((pin) => {
             if (!pin.position || !imageLoaded) return null;
 
             const pinId = pin.id || pin.pin || "";
@@ -329,6 +371,32 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
                     height: "10px",
                     borderRadius: "30%",
                     backgroundColor: dotColor,
+                    ...(selectedPin === pinId && !hasFunction && {
+                      animation: "blink-red-blue 2s ease-in-out infinite",
+                      "@keyframes blink-red-blue": {
+                        "0%, 100%": {
+                          backgroundColor: "#1976d2",
+                          boxShadow: "0 0 5px #1976d2, 0 0 10px #1976d2",
+                        },
+                        "50%": {
+                          backgroundColor: "#ff0000",
+                          boxShadow: "0 0 5px #ff0000, 0 0 10px #ff0000",
+                        },
+                      },
+                    }),
+                    ...(selectedPin === pinId && hasFunction && {
+                      animation: "blink-red-green 2s ease-in-out infinite",
+                      "@keyframes blink-red-green": {
+                        "0%, 100%": {
+                          backgroundColor: "#00ff00",
+                          boxShadow: "0 0 5px #00ff00, 0 0 10px #00ff00",
+                        },
+                        "50%": {
+                          backgroundColor: "#ff0000",
+                          boxShadow: "0 0 5px #ff0000, 0 0 10px #ff0000",
+                        },
+                      },
+                    }),
                   }}
                   title={`${pinId}: x=${pin.position.x}%, y=${pin.position.y}%`}
                 />
@@ -356,6 +424,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
           open={true}
           onClose={handleMenuClose}
           onFunctionClick={handleFunctionClick}
+          onFunctionRemove={onFunctionRemove}
           selectedPinFunctions={selectedPinFunctions}
           pinSide={menuAnchor.side}
         />

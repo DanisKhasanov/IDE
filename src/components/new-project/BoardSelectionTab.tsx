@@ -13,7 +13,7 @@ import FolderIcon from "@mui/icons-material/Folder";
 import type { BoardConfig } from "@/types/boardConfig";
 
 
-interface BoardSelectionPanelProps {
+interface BoardSelectionTabProps {
   selectedBoard: string | null;
   boardConfigs: Record<
     string,
@@ -30,7 +30,7 @@ interface BoardSelectionPanelProps {
   onSelectFolder: () => void;
 }
 
-export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
+export const BoardSelectionTab: React.FC<BoardSelectionTabProps> = ({
   selectedBoard,
   boardConfigs,
   currentBoardConfig,
@@ -60,14 +60,12 @@ export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
   return (
     <Box
       sx={{
-        width: "15%",
         display: "flex",
         flexDirection: "column",
         gap: 2,
         height: "100%",
-        borderRight: 1,
-        borderColor: "divider",
-        pr: 2,
+        p: 2,
+        overflow: "auto",
       }}
     >
       <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
@@ -109,6 +107,9 @@ export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
 
       <Box sx={{ mt: "auto", pt: 2 }}>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+        Расположение проекта
+      </Typography>
         <TextField
           inputRef={projectNameInputRef}
           label="Название проекта"
@@ -145,3 +146,4 @@ export const BoardSelectionPanel: React.FC<BoardSelectionPanelProps> = ({
     </Box>
   );
 };
+

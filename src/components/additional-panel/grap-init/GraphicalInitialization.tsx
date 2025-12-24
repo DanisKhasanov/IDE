@@ -3,12 +3,19 @@ import { Box, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { PinsListPanel } from "@/components/common/PinsListPanel";
 import type {
-  BoardConfig,
   SelectedPinFunction,
 } from "@/types/boardConfig";
-import { loadBoardConfig } from "@/utils/config/loadBoardConfig";
+import { getBoardInfo, getPins, getConflicts, peripheriesJson } from "@/utils/config/boardConfigHelpers";
 
-const atmega328pConfig = loadBoardConfig();
+const boardConfig = {
+  id: getBoardInfo().id,
+  name: getBoardInfo().name,
+  frequency: getBoardInfo().frequency,
+  image: getBoardInfo().image,
+  pins: getPins(),
+  peripherals: peripheriesJson,
+  conflicts: getConflicts(),
+};
 
 interface GraphicalInitializationProps {
   currentProjectPath?: string | null;
@@ -19,7 +26,7 @@ const GraphicalInitialization: React.FC<GraphicalInitializationProps> = ({
   currentProjectPath,
   onClose,
 }) => {
-  const [boardConfig] = useState<BoardConfig>(atmega328pConfig);
+  const [boardConfigState] = useState(boardConfig);
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
   const [selectedPinFunctions] = useState<
     Record<string, SelectedPinFunction[]>

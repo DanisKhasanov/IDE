@@ -42,6 +42,16 @@ export function loadBoardConfig(): BoardConfig {
       peripheral.enableInterrupt = peripheralData.enableInterrupt;
     }
 
+    // Добавляем поле requiresAllPins
+    if (peripheralData.requiresAllPins !== undefined) {
+      peripheral.requiresAllPins = peripheralData.requiresAllPins;
+    }
+
+    // Добавляем информацию о прерываниях
+    if (peripheralData.interrupts) {
+      peripheral.interruptInfo = peripheralData.interrupts;
+    }
+
     // Добавляем pinMapping если нужно
     if (peripheralData.pinMapping) {
       const allPins: string[] = [];

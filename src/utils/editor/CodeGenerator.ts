@@ -1,14 +1,15 @@
-import type { BoardConfig, PinConfig, SelectedPinFunction } from "@/types/boardConfig";
+import type { PinConfig, SelectedPinFunction } from "@/types/boardConfig";
 import { getPortFromPin, getBitFromPin } from "../arduino/PinUtils";
+import { getPins, getPeripheryConfigValue } from "../config/boardConfigHelpers";
 
 /**
  * Генератор кода инициализации для Arduino проектов
  */
 export class CodeGenerator {
-  private boardConfig: BoardConfig;
+  private boardConfig: any; // Оставляем для обратной совместимости
   private fCpu: number;
 
-  constructor(boardConfig: BoardConfig, fCpu: string) {
+  constructor(boardConfig: any, fCpu: string) {
     this.boardConfig = boardConfig;
     // Преобразуем строку типа "16000000L" в число
     this.fCpu = parseInt(fCpu.replace("L", ""), 10);
@@ -402,7 +403,8 @@ ${isrFunctions.join("\n\n")}
    */
   private generateInitAllFunction(initFunctions: string[], selectedPins: SelectedPinFunction[]): string {
     const uartFunc = selectedPins.find((p) => p.functionType === "UART");
-    const defaultBaud = this.boardConfig.peripherals.UART?.baudRates?.[0] || 9600;
+    const uartBaudRates = getPeripheryConfigValue("UART", "baudRates");
+    const defaultBaud = uartBaudRates[0] || 9600;
     const uartBaud = uartFunc?.settings?.baud || defaultBaud;
 
     const functionCalls: string[] = [];
@@ -1596,7 +1598,8 @@ ${functionCalls.join("\n")}
   private generateMainFunction(initFunctions: string[], selectedPins: SelectedPinFunction[]): string {
     // Находим настройки UART для передачи параметра baud
     const uartFunc = selectedPins.find((p) => p.functionType === "UART");
-    const defaultBaud = this.boardConfig.peripherals.UART?.baudRates?.[0] || 9600;
+    const uartBaudRates = getPeripheryConfigValue("UART", "baudRates");
+    const defaultBaud = uartBaudRates[0] || 9600;
     const uartBaud = uartFunc?.settings?.baud || defaultBaud;
 
     const functionCalls = initFunctions.map((func) => {
@@ -1623,7 +1626,8 @@ ${functionCalls.join("\n")}
   }
 
   private findPinByName(pinName: string): PinConfig | undefined {
-    return this.boardConfig.pins.find((p) => p.pin === pinName);
+    const pins = getPins();
+    return pins.find((p) => (p.pin || p.id) === pinName);
   }
 
   /**

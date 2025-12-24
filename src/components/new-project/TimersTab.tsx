@@ -11,6 +11,7 @@ import {
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import type { BoardConfig, SelectedPinFunction } from "@/types/boardConfig";
 import { RenderSettings } from "@/components/common/RenderSettings";
+import { getPeripheryDefaultSettings } from "@/utils/config/boardConfigHelpers";
 
 interface TimersTabProps {
   timers: Record<string, SelectedPinFunction>;
@@ -37,12 +38,9 @@ export const TimersTab: React.FC<TimersTabProps> = ({
     {}
   );
 
-  // Функция для получения дефолтных настроек таймера (без mode и prescaler)
-  const getDefaultTimerSettings = (): Record<string, unknown> => {
-    // Возвращаем пустые настройки - mode и prescaler должны быть выбраны пользователем
-    return {
-      enableInterrupt: false,
-    };
+  // Функция для получения дефолтных настроек таймера из peripheries.json
+  const getDefaultTimerSettings = (timerName: string): Record<string, unknown> => {
+    return getPeripheryDefaultSettings(timerName);
   };
 
   const availableTimers = getAvailableTimers();
@@ -79,7 +77,7 @@ export const TimersTab: React.FC<TimersTabProps> = ({
         setLocalSettings({ ...currentTimerSettings });
       } else {
         // Если таймер еще не добавлен, используем дефолтные настройки
-        setLocalSettings(getDefaultTimerSettings());
+        setLocalSettings(getDefaultTimerSettings(selectedTimer));
       }
     } else {
       setLocalSettings({});
@@ -122,8 +120,8 @@ export const TimersTab: React.FC<TimersTabProps> = ({
 
     // Удаляем таймер
     onTimerRemove(selectedTimer);
-    // Сбрасываем локальные настройки
-    setLocalSettings(getDefaultTimerSettings());
+    // Сбрасываем локальные настройки на дефолтные
+    setLocalSettings(getDefaultTimerSettings(selectedTimer));
   };
 
   // Проверяем, есть ли валидные настройки

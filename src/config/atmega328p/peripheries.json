@@ -5,9 +5,27 @@
     "config": {
       "modes": {
         "name": "Режим",
-        "values": ["INPUT", "OUTPUT", "INPUT_PULLUP"]
+        "type": "select",
+        "values": ["INPUT", "OUTPUT", "INPUT_PULLUP"],
+        "defaultValue": "INPUT",
+        "ui": {
+          "component": "Select",
+          "valueType": "string"
+        }
       },
-      "defaultMode": "INPUT"
+      "initialState": {
+        "name": "Начальное состояние",
+        "type": "select",
+        "values": ["LOW", "HIGH"],
+        "defaultValue": "LOW",
+        "appliesTo": {
+          "mode": "OUTPUT"
+        },
+        "ui": {
+          "component": "Select",
+          "valueType": "string"
+        }
+      }
     },
     "pinMapping": {
       "pins": [
@@ -37,26 +55,66 @@
   "UART": {
     "id": "UART",
     "name": "Universal Asynchronous Receiver/Transmitter",
+    "requiresAllPins": true,
+    "ui": {
+      "alerts": [
+        {
+          "severity": "info",
+          "message": "Настройки UART применяются к обоим пинам (RX и TX), так как они используют один модуль UART0.",
+          "showWhen": "always"
+        }
+      ]
+    },
     "config": {
       "baudRates": {
         "name": "Скорость передачи",
-        "values": [9600, 19200, 38400, 57600, 115200]
+        "type": "select",
+        "values": [9600, 19200, 38400, 57600, 115200],
+        "defaultValue": 9600,
+        "ui": {
+          "component": "Select",
+          "valueType": "number"
+        }
       },
       "dataBits": {
         "name": "Биты данных",
-        "values": [5, 6, 7, 8, 9]
+        "type": "select",
+        "values": [5, 6, 7, 8, 9],
+        "defaultValue": 8,
+        "ui": {
+          "component": "Select",
+          "valueType": "number"
+        }
       },
       "stopBits": {
         "name": "Стоп-биты",
-        "values": [1, 2]
+        "type": "select",
+        "values": [1, 2],
+        "defaultValue": 1,
+        "ui": {
+          "component": "Select",
+          "valueType": "number"
+        }
       },
       "parity": {
         "name": "Чётность",
-        "values": ["None", "Even", "Odd"]
+        "type": "select",
+        "values": ["None", "Even", "Odd"],
+        "defaultValue": "None",
+        "ui": {
+          "component": "Select",
+          "valueType": "string"
+        }
       },
       "modes": {
         "name": "Режим",
-        "values": ["Asynchronous", "Synchronous"]
+        "type": "select",
+        "values": ["Asynchronous", "Synchronous"],
+        "defaultValue": "Asynchronous",
+        "ui": {
+          "component": "Select",
+          "valueType": "string"
+        }
       }
     },
     "interrupts": {
@@ -78,25 +136,50 @@
       "RX": ["PD0"]
     }
   },
-  "SPI": {
+  "SPI": { 
     "id": "SPI",
     "name": "Serial Peripheral Interface",
+    "requiresAllPins": true,
     "config": {
       "modes": {
         "name": "Режим",
-        "values": ["Master", "Slave"]
+        "type": "select",
+        "values": ["Master", "Slave"],
+        "defaultValue": "Master",
+        "ui": {
+          "component": "Select",
+          "valueType": "string"
+        }
       },
       "cpol": {
         "name": "CPOL (Полярность тактового сигнала)",
-        "values": [0, 1]
+        "type": "select",
+        "values": [0, 1],
+        "defaultValue": 0,
+        "ui": {
+          "component": "Select",
+          "valueType": "number"
+        }
       },
       "cpha": {
         "name": "CPHA (Фаза тактового сигнала)",
-        "values": [0, 1]
+        "type": "select",
+        "values": [0, 1],
+        "defaultValue": 0,
+        "ui": {
+          "component": "Select",
+          "valueType": "number"
+        }
       },
       "speeds": {
         "name": "Скорость",
-        "values": ["fosc/4", "fosc/16", "fosc/64", "fosc/128"]
+        "type": "select",
+        "values": ["fosc/4", "fosc/16", "fosc/64", "fosc/128"],
+        "defaultValue": "fosc/4",
+        "ui": {
+          "component": "Select",
+          "valueType": "string"
+        }
       }
     },
     "enableInterrupt": true,
@@ -116,18 +199,50 @@
   "I2C": {
     "id": "I2C",
     "name": "Two Wire Interface",
+    "requiresAllPins": true,
     "config": {
       "modes": {
         "name": "Режим",
-        "values": ["Master", "Slave"]
+        "type": "select",
+        "values": ["Master", "Slave"],
+        "defaultValue": "Master",
+        "ui": {
+          "component": "Select",
+          "valueType": "string"
+        }
       },
       "speeds": {
         "name": "Скорость",
-        "values": [100000, 400000]
+        "type": "select",
+        "values": [100000, 400000],
+        "defaultValue": 100000,
+        "appliesTo": {
+          "mode": "Master"
+        },
+        "ui": {
+          "component": "Select",
+          "valueType": "number"
+        }
       },
-      "slaveAddressRange": {
-        "name": "Диапазон адресов устройства",
-        "values": [8, 119]
+      "slaveAddress": {
+        "name": "Адрес устройства",
+        "type": "number",
+        "defaultValue": 8,
+        "appliesTo": {
+          "mode": "Slave"
+        },
+        "ui": {
+          "component": "TextField",
+          "valueType": "number",
+          "inputProps": {
+            "min": 8,
+            "max": 119
+          },
+          "helperText": "8-119"
+        },
+        "metadata": {
+          "range": [8, 119]
+        }
       }
     },
     "enableInterrupt": true,
@@ -154,11 +269,13 @@
           "FastPWM",
           "PhaseCorrectPWM",
           "PhaseFrequencyCorrectPWM"
-        ]
+        ],
+        "defaultValue": "FastPWM"
       },
       "prescalers": {
         "name": "Делитель частоты",
-        "values": [1, 8, 64, 256, 1024]
+        "values": [1, 8, 64, 256, 1024],
+        "defaultValue": 64
       }
     },
     "channels": ["OC0A", "OC0B"],
@@ -180,11 +297,13 @@
           "PhaseCorrectPWM",
           "PhaseFrequencyCorrectPWM",
           "InputCapture"
-        ]
+        ],
+        "defaultValue": "FastPWM"
       },
       "prescalers": {
         "name": "Делитель частоты",
-        "values": [1, 8, 64, 256, 1024]
+        "values": [1, 8, 64, 256, 1024],
+        "defaultValue": 64
       }
     },
     "channels": ["OC1A", "OC1B", "IC1"],
@@ -224,11 +343,13 @@
           "FastPWM",
           "PhaseCorrectPWM",
           "PhaseFrequencyCorrectPWM"
-        ]
+        ],
+        "defaultValue": "FastPWM"
       },
       "prescalers": {
         "name": "Делитель частоты",
-        "values": [1, 8, 32, 64, 128, 256, 1024]
+        "values": [1, 8, 32, 64, 128, 256, 1024],
+        "defaultValue": 64
       }
     },
     "channels": ["OC2A", "OC2B"],
@@ -257,19 +378,23 @@
     "config": {
       "channels": {
         "name": "Каналы",
-        "values": [0, 1, 2, 3, 4, 5]
+        "values": [0, 1, 2, 3, 4, 5],
+        "defaultValue": 0
       },
       "reference": {
         "name": "Опорное напряжение",
-        "values": ["AVcc", "AREF", "Internal1.1V"]
+        "values": ["AVcc", "AREF", "Internal1.1V"],
+        "defaultValue": "AVcc"
       },
       "prescalers": {
         "name": "Делитель частоты",
-        "values": [2, 4, 8, 16, 32, 64, 128]
+        "values": [2, 4, 8, 16, 32, 64, 128],
+        "defaultValue": 128
       },
       "modes": {
         "name": "Режим",
-        "values": ["Single", "FreeRunning"]
+        "values": ["Single", "FreeRunning"],
+        "defaultValue": "Single"
       }
     },
     "interrupts": {
@@ -293,11 +418,13 @@
     "config": {
       "interrupts": {
         "name": "Прерывания",
-        "values": ["INT0", "INT1"]
+        "values": ["INT0", "INT1"],
+        "defaultValue": "INT0"
       },
       "triggers": {
         "name": "Триггеры",
-        "values": ["LOW", "CHANGE", "RISING", "FALLING"]
+        "values": ["LOW", "CHANGE", "RISING", "FALLING"],
+        "defaultValue": "RISING"
       }
     },
     "interrupts": {
@@ -321,7 +448,8 @@
     "config": {
       "groups": {
         "name": "Группы",
-        "values": ["PCINT0-7", "PCINT8-14", "PCINT16-23"]
+        "values": ["PCINT0-7", "PCINT8-14", "PCINT16-23"],
+        "defaultValue": "PCINT0-7"
       }
     },
     "interrupts": {
@@ -350,7 +478,8 @@
     "config": {
       "modes": {
         "name": "Режим",
-        "values": ["Interrupt", "Timer1Capture"]
+        "values": ["Interrupt", "Timer1Capture"],
+        "defaultValue": "Interrupt"
       }
     },
     "interrupts": {
@@ -362,19 +491,6 @@
     "pinMapping": {
       "AIN0": ["PD6"],
       "AIN1": ["PD7"]
-    }
-  },
-  "WATCHDOG": {
-    "id": "WATCHDOG",
-    "name": "Watchdog Timer",
-    "config": {
-      "timeouts": {
-        "name": "Таймаут",
-        "values": [16, 32, 64, 125, 250, 500, 1000, 2000, 4000, 8000]
-      }
-    },
-    "pinMapping": {
-      "pins": []
     }
   }
 }

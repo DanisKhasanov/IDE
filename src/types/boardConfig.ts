@@ -36,6 +36,11 @@ export interface PinFunction {
   channelNumber?: number;
 }
 
+export interface InterruptInfo {
+  name: string;
+  description: string;
+}
+
 export interface PeripheralConfig {
   available?: boolean;
   pins?: string[];
@@ -59,6 +64,8 @@ export interface PeripheralConfig {
   // Дополнительные поля из peripheries.json
   name?: string; // Полное название периферии
   pinMapping?: Record<string, string[]>; // Структурированное отображение пинов (например, {TX: ["PD1"], RX: ["PD0"]})
+  interruptInfo?: Record<string, InterruptInfo>; // Информация о прерываниях с описаниями
+  requiresAllPins?: boolean; // Указывает, что периферия требует объединения всех пинов
 }
 
 export interface ConflictRule {

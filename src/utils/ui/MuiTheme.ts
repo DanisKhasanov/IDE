@@ -49,6 +49,7 @@ export const getMuiThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
       background: {
         default: isDark ? '#121212' : '#8a8a8a',
         paper: isDark ? '#1e1e1e' : '#e0e0e0',
+          
       },
       text: {
         primary: isDark ? '#ffffff' : '#000000',
@@ -145,6 +146,7 @@ export const getMuiThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
         letterSpacing: '0.08333em',
         textTransform: 'uppercase',
       },
+      
     },
  
     spacing: 8,
@@ -377,6 +379,22 @@ export const getMuiThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
           },
         },
       },
+      MuiTableCell: {
+        styleOverrides: {
+          head: {
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            padding: '4px 16px',
+            lineHeight: 1.5,
+          },
+          body: {
+            fontSize: '0.8rem',
+            padding: '4px 16px',
+            lineHeight: 1.5,
+          },
+        },
+      },
+      
     },
   };
 };
