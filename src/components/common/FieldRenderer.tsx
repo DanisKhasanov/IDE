@@ -18,7 +18,6 @@ import {
   getPeripheryMetadata,
   shouldShowConfigField,
 } from "@/utils/config/boardConfigHelpers";
-import type { PinSignal } from "@/types/boardConfig";
 
 interface FieldRendererProps {
   peripheryName: string;

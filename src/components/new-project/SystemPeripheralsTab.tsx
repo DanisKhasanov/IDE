@@ -7,20 +7,16 @@ import {
   ListItemButton,
   ListItemText,
   Button,
-  Checkbox,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import type { BoardConfig } from "@/types/boardConfig";
 import { PeripheryRenderer } from "@/components/common/PeripheryRenderer";
 import {
   getPeripheryDefaultSettings,
   getPeriphery,
-  systemPeripheriesJson,
 } from "@/utils/config/boardConfigHelpers";
 
 interface SystemPeripheralsTabProps {
   systemPeripherals: Record<string, any>;
-  boardConfig: BoardConfig | null;
   selectedPeripheral: string | null;
   onPeripheralSelect: (peripheralName: string | null) => void;
   onSystemPeripheralAdd?: (
@@ -34,7 +30,6 @@ interface SystemPeripheralsTabProps {
 
 export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
   systemPeripherals,
-  boardConfig,
   selectedPeripheral,
   onPeripheralSelect,
   onSystemPeripheralAdd,

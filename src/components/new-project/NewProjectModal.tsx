@@ -158,48 +158,44 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     // Проверяем каждый конфликт из конфигурации
     const conflicts = getConflicts();
     const pins = getPins();
+    
     conflicts.forEach((conflict: any) => {
-      const hasConflictTrigger = activeFunctions.some((func) => {
-        if (conflict.when === "UART" && func.functionType === "UART")
-          return true;
-        if (
-          conflict.when === "SPI_Master" &&
-          func.functionType === "SPI" &&
-          (func.settings.mode === "Master" || func.settings.mode === undefined)
-        )
-          return true;
-        if (
-          conflict.when === "SPI_Slave" &&
-          func.functionType === "SPI" &&
-          func.settings.mode === "Slave"
-        )
-          return true;
-        if (conflict.when === "I2C" && func.functionType === "I2C") return true;
-        return false;
+      // Проверяем, активна ли периферия, которая вызывает конфликт
+      const isConflictTriggerActive = activeFunctions.some((func) => {
+        // Проверяем тип периферии
+        if (func.functionType !== conflict.periphery) return false;
+        
+        // Если в конфликте указан режим, проверяем точное совпадение
+        if (conflict.mode !== null) {
+          return func.settings?.mode === conflict.mode;
+        }
+        
+        // Если режим не указан, просто проверяем наличие периферии
+        return true;
       });
 
-      if (hasConflictTrigger) {
-        const conflictingPins = activeFunctions.filter((func) => {
+      if (!isConflictTriggerActive) return;
+
+      // Если конфликт активен, проверяем, есть ли другие функции на зарезервированных пинах
+      conflict.pins.forEach((reservedPinId: string) => {
+        // Находим функции на этом пине
+        const functionsOnPin = activeFunctions.filter((func) => {
           const pin = pins.find(
             (p: PinConfig) => (p.id || p.pin) === func.pinName
           );
           const pinId = pin ? pin.id || pin.pin : "";
-          return pin && conflict.pins.includes(pinId);
+          return pinId === reservedPinId;
         });
 
-        if (conflictingPins.length > 0) {
-          // Проверяем, действительно ли есть конфликт
-          conflictingPins.forEach((func) => {
-            const pin = pins.find(
-              (p: PinConfig) => (p.id || p.pin) === func.pinName
-            );
-            if (pin && conflict.conflictsWith.includes(func.functionType)) {
-              const pinId = pin.id || pin.pin || "";
-              detectedConflicts.push(`${conflict.description}: пин ${pinId}`);
-            }
-          });
+        // Проверяем, есть ли на этом пине функции, отличные от той, которая резервирует пин
+        const conflictingFunctions = functionsOnPin.filter(
+          (func) => func.functionType !== conflict.periphery
+        );
+
+        if (conflictingFunctions.length > 0) {
+          detectedConflicts.push(`${conflict.description}: пин ${reservedPinId}`);
         }
-      }
+      });
     });
 
     setConflicts(detectedConflicts);
@@ -504,7 +500,6 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
               ) : (
                 <SystemPeripheralsTab
                   systemPeripherals={systemPeripherals}
-                  boardConfig={currentBoardConfig ?? null}
                   selectedPeripheral={selectedPeripheral}
                   onPeripheralSelect={selectPeripheral}
                   onSystemPeripheralAdd={addOrUpdateSystemPeripheral}

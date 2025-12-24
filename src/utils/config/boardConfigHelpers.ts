@@ -297,15 +297,20 @@ export const getPeripheryPinMapping = (
   return periphery?.pinMapping;
 };
 
+/**
+ * Получает список правил конфликтов из constraints.json
+ * @returns Массив объектов конфликтов с полной информацией о условиях активации
+ * @note Эта функция возвращает расширенную структуру с полями periphery и mode отдельно,
+ *       в отличие от старого формата ConflictRule, который использовал объединенное поле when
+ */
 export const getConflicts = () => {
   return constraintsJson.map((constraint: any) => ({
     description: constraint.description,
-    when: constraint.when?.periphery || constraint.when?.mode || "",
-    conflictsWith:
-      constraint.conflicts?.[0]?.type === "reservePins"
-        ? constraint.conflicts[0].pins
-        : [],
+    periphery: constraint.when?.periphery || "",
+    mode: constraint.when?.mode || null,
+    enabled: constraint.when?.enabled !== false, // По умолчанию true, если не указано
     pins: constraint.conflicts?.[0]?.pins || [],
+    conflictType: constraint.conflicts?.[0]?.type || "",
   }));
 };
 
