@@ -241,19 +241,22 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
   /**
    * Добавляет или обновляет системную периферию
    */
-  const addOrUpdateSystemPeripheral = useCallback((peripheralName: string, settings: Record<string, unknown>) => {
-    setConfiguration((prev) => ({
-      ...prev,
-      systemPeripherals: {
-        ...prev.systemPeripherals,
-        [peripheralName]: {
-          pinName: "",
-          functionType: peripheralName,
-          settings,
+  const addOrUpdateSystemPeripheral = useCallback(
+    (peripheralName: string, settings: Record<string, unknown>) => {
+      setConfiguration((prev) => ({
+        ...prev,
+        systemPeripherals: {
+          ...prev.systemPeripherals,
+          [peripheralName]: {
+            pinName: "",
+            functionType: peripheralName,
+            settings,
+          },
         },
-      },
-    }));
-  }, []);
+      }));
+    },
+    []
+  );
 
   /**
    * Удаляет системную периферию

@@ -76,6 +76,37 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
     ? boardConfig?.peripherals[selectedPeripheral]
     : null;
 
+  // Автоматически выбираем первый элемент при открытии таба
+  useEffect(() => {
+    // Если нет доступных периферий, ничего не делаем
+    if (availablePeripherals.length === 0) return;
+
+    // Если выбранная периферия не в списке доступных, сбрасываем выбор
+    if (selectedPeripheral && !availablePeripherals.includes(selectedPeripheral)) {
+      // Сначала ищем периферию, которая используется в пинах
+      const peripheralWithSettings = availablePeripherals.find(
+        (peripheralType) => isPeripheralUsedInPins(peripheralType)
+      );
+
+      // Выбираем периферию с настройками или первую доступную
+      const peripheralToSelect = peripheralWithSettings || availablePeripherals[0];
+      onPeripheralSelect(peripheralToSelect);
+      return;
+    }
+
+    // Если уже есть выбранная периферия из списка доступных, ничего не делаем
+    if (selectedPeripheral) return;
+
+    // Сначала ищем периферию, которая используется в пинах
+    const peripheralWithSettings = availablePeripherals.find(
+      (peripheralType) => isPeripheralUsedInPins(peripheralType)
+    );
+
+    // Выбираем периферию с настройками или первую доступную
+    const peripheralToSelect = peripheralWithSettings || availablePeripherals[0];
+    onPeripheralSelect(peripheralToSelect);
+  }, [availablePeripherals, selectedPeripheral, onPeripheralSelect, isPeripheralUsedInPins]);
+
   // Получаем список пинов для выбранной периферии
   const getPeripheralPins = (): PinRowData[] => {
     if (!selectedPeripheral || !boardConfig || !selectedPeripheralConfig) {

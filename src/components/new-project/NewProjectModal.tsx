@@ -20,11 +20,11 @@ import type {
 } from "@/types/boardConfig";
 import { BoardSelectionTab } from "./BoardSelectionTab";
 import { PeripheralsTab } from "./PeripheralsTab";
-import { TimersTab } from "./TimersTab";
 import { SystemPeripheralsTab } from "./SystemPeripheralsTab";
+import { TimersTab } from "./TimersTab";
 import { PinsListPanel } from "../common/PinsListPanel";
 import { useSnackbar } from "@/contexts/SnackbarContext";
-import { getBoardInfo, getPins, getConflicts, peripheriesJson, systemPeripheralsJson } from "@/utils/config/boardConfigHelpers";
+import { getBoardInfo, getPins, getConflicts, peripheriesJson, systemPeripheriesJson } from "@/utils/config/boardConfigHelpers";
 import { useProjectConfiguration } from "@/hooks/project/useProjectConfiguration";
 
 // Маппинг плат к конфигурациям микроконтроллеров
@@ -65,9 +65,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [selectedFrequency, setSelectedFrequency] = useState<string>("");
   const [conflicts, setConflicts] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<0 | 1 | 2 | 3>(0); // 0 - плата, 1 - периферии, 2 - таймеры, 3 - системные периферии
+  const [activeTab, setActiveTab] = useState<0 | 1 | 2 | 3>(0); // 0 - плата, 1 - периферии, 2 - системные периферии, 3 - таймеры
   const { showError, showWarning } = useSnackbar();
-  const peripheralsTabInitializedRef = useRef(false);
 
   const currentBoardConfig = BOARD_CONFIGS[selectedBoard]?.config;
   
@@ -97,7 +96,6 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   
   // Вычисляемые значения для управления вкладками
   const hasTimers = Object.keys(timers).length > 0;
-  const hasSystemPeripherals = Object.keys(systemPeripherals).length > 0;
   const isFolderSelected = !!parentPath && parentPath.trim() !== "";
   const isProjectNameEntered = !!projectName && projectName.trim() !== "";
   const isProjectInfoComplete = isFolderSelected && isProjectNameEntered;
@@ -109,25 +107,24 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     }
   }, [isProjectInfoComplete, activeTab]);
 
-  // Автоматически выбираем первую периферию только при первом открытии вкладки "Периферии"
+  // Сбрасываем выбранную периферию при переключении табов
   useEffect(() => {
-    if (activeTab === 1 && !peripheralsTabInitializedRef.current && !selectedPeripheral && currentBoardConfig) {
+    // При переключении на таб "Периферии" или "Системные периферии" сбрасываем выбор, если он не относится к этому табу
+    if (activeTab === 1 && currentBoardConfig) {
       const systemPeripherals = getSystemPeripherals();
-      if (systemPeripherals.length > 0) {
-        // Выбираем первую периферию, которая используется в пинах, или просто первую
-        const peripheralWithSettings = systemPeripherals.find(
-          (peripheralType) => isPeripheralUsedInPins(peripheralType)
-        );
-        const peripheralToSelect = peripheralWithSettings || systemPeripherals[0];
-        selectPeripheral(peripheralToSelect);
-        peripheralsTabInitializedRef.current = true;
+      if (selectedPeripheral && !systemPeripherals.includes(selectedPeripheral)) {
+        selectPeripheral(null);
       }
+    } else if (activeTab === 2 && currentBoardConfig) {
+      const systemPeripheralsList = getSystemPeripheralsList();
+      if (selectedPeripheral && !systemPeripheralsList.includes(selectedPeripheral)) {
+        selectPeripheral(null);
+      }
+    } else if (activeTab === 3) {
+      // При переключении на таб "Таймеры" сбрасываем выбор периферии
+      selectPeripheral(null);
     }
-    // Сбрасываем флаг при переключении на другую вкладку
-    if (activeTab !== 1) {
-      peripheralsTabInitializedRef.current = false;
-    }
-  }, [activeTab, currentBoardConfig, selectedPeripheral, selectPeripheral, isPeripheralUsedInPins]);
+  }, [activeTab, currentBoardConfig, selectedPeripheral, selectPeripheral]);
   
   // Функция для получения всех системных периферий из peripheries.json
   const getSystemPeripherals = (): string[] => {
@@ -142,6 +139,14 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     );
   };
 
+  // Функция для получения системных периферий из systemPeripheries.json (для таба "Системные периферии")
+  const getSystemPeripheralsList = (): string[] => {
+    if (!currentBoardConfig) return [];
+    
+    // Возвращаем все системные периферии из systemPeripheries.json
+    return Object.keys(systemPeripheriesJson);
+  };
+
   // Функция для получения доступных таймеров (TIMER0, TIMER1, TIMER2)
   const getAvailableTimers = (): string[] => {
     if (!currentBoardConfig) return [];
@@ -151,14 +156,6 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       // Проверяем, есть ли таймер в конфигурации
       return peripheriesJson[timerName as keyof typeof peripheriesJson] !== undefined;
     });
-  };
-
-  // Функция для получения доступных системных периферий
-  const getAvailableSystemPeripherals = (): string[] => {
-    if (!currentBoardConfig) return [];
-    
-    // Возвращаем все системные периферии из конфига
-    return Object.keys(systemPeripheralsJson);
   };
 
   // Проверка конфликтов при изменении выбранных функций
@@ -220,6 +217,29 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
 
     setConflicts(detectedConflicts);
   }, [selectedPinFunctions, currentBoardConfig]);
+
+  // Вывод в консоль данных по выбранным пинам, периферии и т.д.
+  useEffect(() => {
+    console.log("Конфигурация проекта:", {
+      selectedBoard,
+      selectedFrequency,
+      selectedPin,
+      selectedPeripheral,
+      selectedPinFunctions,
+      timers,
+      systemPeripherals,
+      conflicts,
+    });
+  }, [
+    selectedBoard,
+    selectedFrequency,
+    selectedPin,
+    selectedPeripheral,
+    selectedPinFunctions,
+    timers,
+    systemPeripherals,
+    conflicts,
+  ]);
 
  
   const handleSelectFolder = async () => {
@@ -304,7 +324,6 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     setSelectedFrequency("");
     resetAll();
     setConflicts([]);
-    peripheralsTabInitializedRef.current = false;
     onClose();
   };
 
@@ -420,11 +439,11 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
               <Tab label="Проект" />
               <Tab label="Периферии" disabled={!isProjectInfoComplete} />
               <Tab
-                label={`Таймеры${hasTimers ? ` (${Object.keys(timers).length})` : ""}`}
+                label="Системные периферии"
                 disabled={!isProjectInfoComplete}
               />
               <Tab
-                label={`Системные${hasSystemPeripherals ? ` (${Object.keys(systemPeripherals).length})` : ""}`}
+                label="Таймеры"
                 disabled={!isProjectInfoComplete}
               />
             </Tabs>
@@ -486,6 +505,19 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
                   isPeripheralUsedInPins={isPeripheralUsedInPins}
                 />
               ) : activeTab === 2 ? (
+                <SystemPeripheralsTab
+                  systemPeripherals={systemPeripherals}
+                  boardConfig={currentBoardConfig ?? null}
+                  selectedPeripheral={selectedPeripheral}
+                  onPeripheralSelect={selectPeripheral}
+                  onSystemPeripheralAdd={addOrUpdateSystemPeripheral}
+                  onSystemPeripheralRemove={removeSystemPeripheral}
+                  getSystemPeripherals={getSystemPeripheralsList}
+                  isSystemPeripheralUsed={(peripheralName) =>
+                    !!systemPeripherals[peripheralName]
+                  }
+                />
+              ) : (
                 <TimersTab
                   timers={timers}
                   boardConfig={currentBoardConfig ?? null}
@@ -493,15 +525,6 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
                   onTimerRemove={removeTimer}
                   onTimerSettingsUpdate={addOrUpdateTimer}
                   getAvailableTimers={getAvailableTimers}
-                />
-              ) : (
-                <SystemPeripheralsTab
-                  systemPeripherals={systemPeripherals}
-                  boardConfig={currentBoardConfig ?? null}
-                  onSystemPeripheralAdd={addOrUpdateSystemPeripheral}
-                  onSystemPeripheralRemove={removeSystemPeripheral}
-                  onSystemPeripheralSettingsUpdate={addOrUpdateSystemPeripheral}
-                  getAvailableSystemPeripherals={getAvailableSystemPeripherals}
                 />
               )}
             </Box>
@@ -544,7 +567,15 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
           Отмена
         </Button>
         <Button
-          onClick={activeTab === 0 ? () => setActiveTab(1) : activeTab === 1 ? () => setActiveTab(2) : activeTab === 2 ? () => setActiveTab(3) : handleCreate}
+          onClick={
+            activeTab === 0
+              ? () => setActiveTab(1)
+              : activeTab === 1
+              ? () => setActiveTab(2)
+              : activeTab === 2
+              ? () => setActiveTab(3)
+              : handleCreate
+          }
           variant="contained"
           disabled={
             activeTab === 0
@@ -552,7 +583,11 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
               : !selectedBoard || !parentPath || !projectName || !projectName.trim() || isCreating
           }
         >
-          {activeTab === 0 ? "Далее" : activeTab === 1 ? "Далее" : activeTab === 2 ? "Далее" : isCreating ? "Создание..." : "Создать проект"}
+          {activeTab === 0 || activeTab === 1 || activeTab === 2
+            ? "Далее"
+            : isCreating
+            ? "Создание..."
+            : "Создать проект"}
         </Button>
       </DialogActions>
     </Dialog>

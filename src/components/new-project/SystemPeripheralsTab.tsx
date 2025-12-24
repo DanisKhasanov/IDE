@@ -7,59 +7,73 @@ import {
   ListItemButton,
   ListItemText,
   Button,
+  Checkbox,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import type { BoardConfig, SelectedPinFunction } from "@/types/boardConfig";
-import { RenderSettings } from "@/components/common/RenderSettings";
-import { getPeripheryDefaultSettings } from "@/utils/config/boardConfigHelpers";
-import { systemPeripheralsJson } from "@/utils/config/boardConfigHelpers";
+import type { BoardConfig } from "@/types/boardConfig";
+import { PeripheryRenderer } from "@/components/common/PeripheryRenderer";
+import {
+  getPeripheryDefaultSettings,
+  getPeriphery,
+  systemPeripheriesJson,
+} from "@/utils/config/boardConfigHelpers";
 
 interface SystemPeripheralsTabProps {
-  systemPeripherals: Record<string, SelectedPinFunction>;
+  systemPeripherals: Record<string, any>;
   boardConfig: BoardConfig | null;
-  onSystemPeripheralAdd: (peripheralName: string, settings: Record<string, unknown>) => void;
-  onSystemPeripheralRemove: (peripheralName: string) => void;
-  onSystemPeripheralSettingsUpdate: (
+  selectedPeripheral: string | null;
+  onPeripheralSelect: (peripheralName: string | null) => void;
+  onSystemPeripheralAdd?: (
     peripheralName: string,
     settings: Record<string, unknown>
   ) => void;
-  getAvailableSystemPeripherals: () => string[];
+  onSystemPeripheralRemove?: (peripheralName: string) => void;
+  getSystemPeripherals: () => string[];
+  isSystemPeripheralUsed: (peripheralName: string) => boolean;
 }
 
 export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
   systemPeripherals,
   boardConfig,
+  selectedPeripheral,
+  onPeripheralSelect,
   onSystemPeripheralAdd,
   onSystemPeripheralRemove,
-  onSystemPeripheralSettingsUpdate,
-  getAvailableSystemPeripherals,
+  getSystemPeripherals,
+  isSystemPeripheralUsed,
 }) => {
-  const [selectedPeripheral, setSelectedPeripheral] = useState<string | null>(null);
-  const [localSettings, setLocalSettings] = useState<Record<string, unknown>>(
-    {}
-  );
+  const [localSettings, setLocalSettings] = useState<Record<string, unknown>>({});
 
-  // Функция для получения дефолтных настроек системной периферии из systemPeripherals.json
-  const getDefaultSystemPeripheralSettings = (peripheralName: string): Record<string, unknown> => {
-    const peripheralConfig = systemPeripheralsJson[peripheralName as keyof typeof systemPeripheralsJson];
-    if (!peripheralConfig?.config) return {};
-    
-    return getPeripheryDefaultSettings(peripheralName);
-  };
+  const availablePeripherals = getSystemPeripherals();
 
-  const availablePeripherals = getAvailableSystemPeripherals();
-  const selectedPeripheralData = selectedPeripheral ? systemPeripherals[selectedPeripheral] : null;
-
-  // Синхронизируем локальные настройки только при изменении выбранной периферии
-  const currentPeripheralSettings = selectedPeripheralData?.settings;
+  // Получаем информацию о выбранной периферии из конфига
+  const selectedPeripheralConfig = selectedPeripheral
+    ? getPeriphery(selectedPeripheral)
+    : null;
 
   // Автоматически выбираем первый элемент при открытии таба
+  // Проверяем, что выбранная периферия действительно есть в списке системных периферий
   useEffect(() => {
-    // Если уже есть выбранная периферия, ничего не делаем
-    if (selectedPeripheral) return;
-
     // Если нет доступных периферий, ничего не делаем
     if (availablePeripherals.length === 0) return;
+
+    // Если выбранная периферия не в списке доступных системных периферий, сбрасываем выбор
+    if (selectedPeripheral && !availablePeripherals.includes(selectedPeripheral)) {
+      // Сначала ищем периферию с примененными настройками
+      const peripheralWithSettings = availablePeripherals.find(
+        (peripheralName) =>
+          systemPeripherals[peripheralName]?.settings &&
+          Object.keys(systemPeripherals[peripheralName].settings).length > 0
+      );
+
+      // Выбираем периферию с настройками или первую доступную
+      const peripheralToSelect = peripheralWithSettings || availablePeripherals[0];
+      onPeripheralSelect(peripheralToSelect);
+      return;
+    }
+
+    // Если уже есть выбранная периферия из списка доступных, ничего не делаем
+    if (selectedPeripheral) return;
 
     // Сначала ищем периферию с примененными настройками
     const peripheralWithSettings = availablePeripherals.find(
@@ -70,32 +84,37 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
 
     // Выбираем периферию с настройками или первую доступную
     const peripheralToSelect = peripheralWithSettings || availablePeripherals[0];
-    setSelectedPeripheral(peripheralToSelect);
-  }, [availablePeripherals, systemPeripherals, selectedPeripheral]);
+    onPeripheralSelect(peripheralToSelect);
+  }, [availablePeripherals, systemPeripherals, selectedPeripheral, onPeripheralSelect]);
 
+  // Загружаем настройки выбранной периферии
   useEffect(() => {
     if (selectedPeripheral) {
-      if (currentPeripheralSettings) {
-        // Загружаем существующие настройки в локальное состояние
-        setLocalSettings({ ...currentPeripheralSettings });
+      const existingSettings = systemPeripherals[selectedPeripheral];
+      
+      if (existingSettings) {
+        // Объединяем существующие настройки с дефолтными
+        const defaultSettings = getPeripheryDefaultSettings(
+          selectedPeripheral,
+          existingSettings.settings
+        );
+        setLocalSettings({ ...defaultSettings, ...existingSettings.settings });
       } else {
-        // Если периферия еще не добавлена, используем дефолтные настройки
-        setLocalSettings(getDefaultSystemPeripheralSettings(selectedPeripheral));
+        // Дефолтные настройки для новой периферии
+        const defaultSettings = getPeripheryDefaultSettings(selectedPeripheral);
+        setLocalSettings(defaultSettings);
       }
     } else {
       setLocalSettings({});
     }
-  }, [selectedPeripheral, currentPeripheralSettings]);
+  }, [selectedPeripheral, systemPeripherals]);
 
-  const handlePeripheralClick = (peripheralName: string) => {
-    if (selectedPeripheral === peripheralName) {
-      return;
-    }
-    setSelectedPeripheral(peripheralName);
+  const handlePeripheralClick = (peripheralType: string) => {
+    onPeripheralSelect(peripheralType);
   };
 
   const handleApplySettings = () => {
-    if (!selectedPeripheral) return;
+    if (!selectedPeripheral || !onSystemPeripheralAdd) return;
 
     // Очищаем настройки от пустых значений
     const cleanedSettings = { ...localSettings };
@@ -109,44 +128,34 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
       }
     });
 
-    // Если периферия еще не добавлена, добавляем её с настройками
-    if (!selectedPeripheralData) {
-      onSystemPeripheralAdd(selectedPeripheral, cleanedSettings);
-    } else {
-      // Если периферия уже существует, обновляем её настройки
-      onSystemPeripheralSettingsUpdate(selectedPeripheral, cleanedSettings);
-    }
+    // Применяем настройки к системной периферии
+    onSystemPeripheralAdd(selectedPeripheral, cleanedSettings);
   };
 
   const handleClearSettings = () => {
     if (!selectedPeripheral) return;
 
-    // Удаляем периферию
-    onSystemPeripheralRemove(selectedPeripheral);
-    // Сбрасываем локальные настройки на дефолтные
-    setLocalSettings(getDefaultSystemPeripheralSettings(selectedPeripheral));
-  };
+    // Проверяем, есть ли примененные настройки для этой периферии
+    const hasAppliedSettings = !!systemPeripherals[selectedPeripheral];
 
-  // Проверяем, есть ли валидные настройки
-  const hasValidSettings = () => {
-    if (!localSettings || Object.keys(localSettings).length === 0) {
-      return false;
+    if (hasAppliedSettings && onSystemPeripheralRemove) {
+      onSystemPeripheralRemove(selectedPeripheral);
+      // Сбрасываем локальные настройки на дефолтные
+      const defaultSettings = getPeripheryDefaultSettings(selectedPeripheral);
+      setLocalSettings(defaultSettings);
+    } else {
+      // Если настройки не применены, просто сбрасываем локальные настройки
+      const defaultSettings = getPeripheryDefaultSettings(
+        selectedPeripheral,
+        localSettings
+      );
+      setLocalSettings(defaultSettings);
     }
-    // Проверяем, есть ли хотя бы одно непустое значение
-    return Object.values(localSettings).some(
-      (value) =>
-        value !== "" &&
-        value !== undefined &&
-        value !== null &&
-        value !== false
-    );
   };
 
-  // Получаем название периферии из конфига
-  const getPeripheralName = (peripheralId: string): string => {
-    const peripheralConfig = systemPeripheralsJson[peripheralId as keyof typeof systemPeripheralsJson];
-    return peripheralConfig?.name || peripheralId;
-  };
+  // Проверяем, применены ли настройки для выбранной периферии
+  const hasAppliedSettings =
+    selectedPeripheral && !!systemPeripherals[selectedPeripheral];
 
   return (
     <Box sx={{ display: "flex", height: "100%", flex: 1 }}>
@@ -169,29 +178,19 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
           }}
         >
           <Box>
-            {availablePeripherals.map((peripheralName) => {
-              const isActive = selectedPeripheral === peripheralName;
-              const hasSettings =
-                !!systemPeripherals[peripheralName]?.settings &&
-                Object.keys(systemPeripherals[peripheralName].settings).length > 0;
+            {availablePeripherals.map((peripheralType) => {
+              const isActive = selectedPeripheral === peripheralType;
+              const used = isSystemPeripheralUsed(peripheralType);
 
               return (
-                <React.Fragment key={peripheralName}>
+                <React.Fragment key={peripheralType}>
                   <ListItem disablePadding>
                     <ListItemButton
-                      onClick={() => handlePeripheralClick(peripheralName)}
+                      onClick={() => handlePeripheralClick(peripheralType)}
                       selected={isActive}
-                      sx={{
-                        "&.Mui-selected": {
-                          backgroundColor: "action.selected",
-                          "&:hover": {
-                            backgroundColor: "action.selected",
-                          },
-                        },
-                      }}
                     >
-                      <ListItemText primary={peripheralName} />
-                      {hasSettings && (
+                      <ListItemText primary={peripheralType} />
+                      {used && (
                         <CheckCircleIcon
                           sx={{
                             color: "success.main",
@@ -209,7 +208,7 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
         </Box>
       </Paper>
 
-      {/* Панель с настройками системной периферии */}
+      {/* Панель с настройками */}
       <Paper
         sx={{
           flex: 1,
@@ -217,68 +216,84 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          p: 1,
         }}
       >
-        <>
-          <Box sx={{ mb: 1, p: 1, borderBottom: 1, borderColor: "divider" }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-              {selectedPeripheral ? getPeripheralName(selectedPeripheral) : ""}
+        {/* Заголовок */}
+        {selectedPeripheral && (
+          <Box sx={{ p: 1, borderBottom: 1, borderColor: "divider" }}>
+            <Typography>
+              {selectedPeripheralConfig?.name || selectedPeripheral}
             </Typography>
           </Box>
-          <Box sx={{ overflow: "auto", flex: 1, p: 1 }}>
-            {selectedPeripheral && (
-              <RenderSettings
-                func={{
-                  type: selectedPeripheral,
-                }}
+        )}
+
+        {/* Настройки - скроллируемая область */}
+        {selectedPeripheral && (
+          <>
+            <Box sx={{ flex: 1, overflow: "auto", py: 2, px: 1 }}>
+              <PeripheryRenderer
+                peripheryName={selectedPeripheral}
                 settings={localSettings}
                 onSettingChange={(key: string, value: unknown) => {
-                  // Обновляем только локальное состояние
                   setLocalSettings((prev) => {
                     const newSettings = { ...prev };
-
-                    // Если значение пустая строка, удаляем ключ из настроек
                     if (value === "" || value === undefined || value === null) {
                       delete newSettings[key];
                     } else {
                       newSettings[key] = value;
                     }
-
                     return newSettings;
                   });
                 }}
-                boardConfig={boardConfig}
-                pinName={undefined}
               />
-            )}
-          </Box>
+            </Box>
+
+            {/* Кнопки - всегда внизу Paper */}
+            <Box
+              sx={{
+                py: 1,
+                borderTop: 1,
+                borderColor: "divider",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 1,
+                flexShrink: 0,
+              }}
+            >
+              <Button
+                variant="outlined"
+                onClick={handleClearSettings}
+                size="small"
+                disabled={!hasAppliedSettings}
+              >
+                Очистить
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleApplySettings}
+                size="small"
+              >
+                Применить
+              </Button>
+            </Box>
+          </>
+        )}
+
+        {!selectedPeripheral && (
           <Box
             sx={{
-              p: 1,
-              borderTop: 1,
-              borderColor: "divider",
+              p: 3,
+              textAlign: "center",
+              color: "text.secondary",
+              flex: 1,
               display: "flex",
-              justifyContent: "flex-end",
-              gap: 1,
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            {selectedPeripheralData &&
-              selectedPeripheralData.settings &&
-              Object.keys(selectedPeripheralData.settings).length > 0 && (
-                <Button variant="outlined" onClick={handleClearSettings}>
-                  Очистить
-                </Button>
-              )}
-            <Button
-              variant="contained"
-              onClick={handleApplySettings}
-              disabled={!hasValidSettings()}
-            >
-              Применить
-            </Button>
+            <Typography>Выберите системную периферию для настройки</Typography>
           </Box>
-        </>
+        )}
       </Paper>
     </Box>
   );

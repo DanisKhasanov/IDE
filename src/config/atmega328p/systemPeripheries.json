@@ -1,0 +1,44 @@
+{
+  "WATCHDOG": {
+    "id": "WATCHDOG",
+    "name": "Watchdog Timer",
+    "config": {
+      "timeouts": {
+        "name": "Таймаут",
+        "type": "select",
+        "values": [16, 32, 64, 125, 250, 500, 1000, 2000, 4000, 8000],
+        "defaultValue": 1000,
+        "ui": {
+          "component": "Select",
+          "valueType": "number",
+          "helperText": "Время срабатывания в миллисекундах"
+        }
+      },
+      "enableWDTInterrupt": {
+        "name": "Прерывание watchdog таймера",
+        "type": "checkbox",
+        "values": [true, false],
+        "defaultValue": false,
+        "ui": {
+          "component": "Checkbox",
+          "valueType": "boolean",
+          "helperText": "При включении будет использоваться режим \"Прерывание + сброс\", иначе только \"Сброс\""
+        }
+      }
+    },
+    "enableInterrupt": false,
+    "pinMapping": {
+      "pins": []
+    },
+    "ui": {
+      "alerts": [
+        {
+          "severity": "info",
+          "message": "Watchdog Timer используется для защиты от зависания программы. При срабатывании выполняется сброс микроконтроллера. При включении прерывания будет использоваться режим \"Прерывание + сброс\".",
+          "showWhen": "always"
+        }
+      ]
+    }
+  }
+}
+

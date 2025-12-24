@@ -2,7 +2,7 @@ import type { PinConfig } from "@/types/boardConfig";
 import boardJson from "@config/atmega328p/board.json";
 import pinsJson from "@config/atmega328p/pins.json";
 import peripheriesJson from "@config/atmega328p/peripheries.json";
-import systemPeripheralsJson from "@config/atmega328p/systemPeripherals.json";
+import systemPeripheriesJson from "@config/atmega328p/systemPeripheries.json";
 import constraintsJson from "@config/atmega328p/constraints.json";
 
 // Типы для исходной JSON структуры
@@ -64,12 +64,14 @@ export const getPins = (): PinConfig[] => {
 
 export const getPeriphery = (name: string): PeripheryConfig | undefined => {
   // Сначала проверяем обычные периферии
-  const periphery = peripheriesJson[name as keyof typeof peripheriesJson];
-  if (periphery) return periphery as PeripheryConfig;
-  
+  if (peripheriesJson[name as keyof typeof peripheriesJson]) {
+    return peripheriesJson[name as keyof typeof peripheriesJson] as PeripheryConfig;
+  }
   // Затем проверяем системные периферии
-  const systemPeriphery = systemPeripheralsJson[name as keyof typeof systemPeripheralsJson];
-  return systemPeriphery as PeripheryConfig | undefined;
+  if (systemPeripheriesJson[name as keyof typeof systemPeripheriesJson]) {
+    return systemPeripheriesJson[name as keyof typeof systemPeripheriesJson] as PeripheryConfig;
+  }
+  return undefined;
 };
 
 export const getPeripheryConfigValue = (
@@ -140,6 +142,7 @@ const CONFIG_KEY_MAPPING: Record<string, string> = {
   'speeds': 'speed',
   'slaveAddress': 'slaveAddress',
   'slaveAddressRange': 'slaveAddress', // для обратной совместимости
+  'enabled': 'enabled',
 };
 
 // Обратный маппинг: ключи settings -> ключи конфигурации
@@ -307,5 +310,5 @@ export const getConflicts = () => {
 };
 
 // Прямой доступ к JSON файлам
-export { boardJson, pinsJson, peripheriesJson, systemPeripheralsJson, constraintsJson };
+export { boardJson, pinsJson, peripheriesJson, systemPeripheriesJson, constraintsJson };
 

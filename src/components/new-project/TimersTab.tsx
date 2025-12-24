@@ -39,7 +39,9 @@ export const TimersTab: React.FC<TimersTabProps> = ({
   );
 
   // Функция для получения дефолтных настроек таймера из peripheries.json
-  const getDefaultTimerSettings = (timerName: string): Record<string, unknown> => {
+  const getDefaultTimerSettings = (
+    timerName: string
+  ): Record<string, unknown> => {
     return getPeripheryDefaultSettings(timerName);
   };
 
@@ -132,10 +134,7 @@ export const TimersTab: React.FC<TimersTabProps> = ({
     // Проверяем, есть ли хотя бы одно непустое значение
     return Object.values(localSettings).some(
       (value) =>
-        value !== "" &&
-        value !== undefined &&
-        value !== null &&
-        value !== false
+        value !== "" && value !== undefined && value !== null && value !== false
     );
   };
 
@@ -172,14 +171,6 @@ export const TimersTab: React.FC<TimersTabProps> = ({
                     <ListItemButton
                       onClick={() => handleTimerClick(timerName)}
                       selected={isActive}
-                      sx={{
-                        "&.Mui-selected": {
-                          backgroundColor: "action.selected",
-                          "&:hover": {
-                            backgroundColor: "action.selected",
-                          },
-                        },
-                      }}
                     >
                       <ListItemText primary={timerName} />
                       {hasSettings && (
