@@ -25,6 +25,18 @@
           "component": "Select",
           "valueType": "string"
         }
+      },
+      "enablePCINT": {
+        "name": "Включить Pin Change Interrupt",
+        "type": "boolean",
+        "defaultValue": false,
+        "appliesTo": {
+          "mode": ["INPUT", "INPUT_PULLUP"]
+        },
+        "ui": {
+          "component": "Checkbox",
+          "valueType": "boolean"
+        }
       }
     },
     "pinMapping": {
@@ -136,7 +148,7 @@
       "RX": ["PD0"]
     }
   },
-  "SPI": { 
+  "SPI": {
     "id": "SPI",
     "name": "Serial Peripheral Interface",
     "requiresAllPins": true,
@@ -257,119 +269,166 @@
       "SCL": ["PC5"]
     }
   },
-  "TIMER0": {
-    "id": "TIMER0",
-    "name": "Timer/Counter 0",
+  "TIMER0_PWM": {
+    "id": "TIMER0_PWM",
+    "name": "Timer/Counter 0 (ШИМ)",
     "config": {
       "modes": {
         "name": "Режим",
-        "values": [
-          "Normal",
-          "CTC",
-          "FastPWM",
-          "PhaseCorrectPWM",
-          "PhaseFrequencyCorrectPWM"
-        ],
-        "defaultValue": "FastPWM"
+        "type": "select",
+        "values": ["FastPWM", "PhaseCorrectPWM", "PhaseFrequencyCorrectPWM"],
+        "defaultValue": "FastPWM",
+        "ui": {
+          "component": "Select",
+          "valueType": "string"
+        }
       },
       "prescalers": {
         "name": "Делитель частоты",
+        "type": "select",
         "values": [1, 8, 64, 256, 1024],
-        "defaultValue": 64
+        "defaultValue": 64,
+        "ui": {
+          "component": "Select",
+          "valueType": "number"
+        }
+      },
+      "dutyCycle": {
+        "name": "Duty Cycle / OCR",
+        "type": "number",
+        "defaultValue": 128,
+        "ui": {
+          "component": "TextField",
+          "valueType": "number",
+          "inputProps": {
+            "min": 0,
+            "max": 255
+          },
+          "helperText": "0-255"
+        }
       }
     },
     "channels": ["OC0A", "OC0B"],
     "pinMapping": {
       "OC0A": ["PD6"],
       "OC0B": ["PD5"]
+    },
+    "ui": {
+      "alerts": [
+        {
+          "severity": "info",
+          "message": "Timer0 используется для генерации ШИМ-сигналов на пинах PD6 (OC0A) и PD5 (OC0B). Для системных задач (прерывания, задержки) используйте Timer0 в разделе \"Системные периферии\".",
+          "showWhen": "always"
+        }
+      ]
     }
   },
-  "TIMER1": {
-    "id": "TIMER1",
-    "name": "Timer/Counter 1",
+  "TIMER1_PWM": {
+    "id": "TIMER1_PWM",
+    "name": "Timer/Counter 1 (ШИМ)",
     "config": {
       "modes": {
         "name": "Режим",
-        "values": [
-          "Normal",
-          "CTC",
-          "FastPWM",
-          "PhaseCorrectPWM",
-          "PhaseFrequencyCorrectPWM",
-          "InputCapture"
-        ],
-        "defaultValue": "FastPWM"
+        "type": "select",
+        "values": ["FastPWM", "PhaseCorrectPWM", "PhaseFrequencyCorrectPWM"],
+        "defaultValue": "FastPWM",
+        "ui": {
+          "component": "Select",
+          "valueType": "string"
+        }
       },
       "prescalers": {
         "name": "Делитель частоты",
+        "type": "select",
         "values": [1, 8, 64, 256, 1024],
-        "defaultValue": 64
+        "defaultValue": 64,
+        "ui": {
+          "component": "Select",
+          "valueType": "number"
+        }
+      },
+      "dutyCycle": {
+        "name": "Duty Cycle / OCR",
+        "type": "number",
+        "defaultValue": 32768,
+        "ui": {
+          "component": "TextField",
+          "valueType": "number",
+          "inputProps": {
+            "min": 0,
+            "max": 65535
+          },
+          "helperText": "0-65535"
+        }
       }
     },
-    "channels": ["OC1A", "OC1B", "IC1"],
-    "interrupts": {
-      "OVF": {
-        "name": "TIMER1_OVF_vect",
-        "description": "Переполнение таймера 1"
-      },
-      "COMPA": {
-        "name": "TIMER1_COMPA_vect",
-        "description": "Совпадение канала A таймера 1"
-      },
-      "COMPB": {
-        "name": "TIMER1_COMPB_vect",
-        "description": "Совпадение канала B таймера 1"
-      },
-      "CAPT": {
-        "name": "TIMER1_CAPT_vect",
-        "description": "Захват таймера 1"
-      }
-    },
+    "channels": ["OC1A", "OC1B"],
     "pinMapping": {
       "OC1A": ["PB1"],
-      "OC1B": ["PB2"],
-      "IC1": ["PD0"]
+      "OC1B": ["PB2"]
+    },
+    "ui": {
+      "alerts": [
+        {
+          "severity": "info",
+          "message": "Timer1 используется для генерации ШИМ-сигналов на пинах PB1 (OC1A) и PB2 (OC1B). Для системных задач (прерывания, задержки, Input Capture) используйте Timer1 в разделе \"Системные периферии\".",
+          "showWhen": "always"
+        }
+      ]
     }
   },
-  "TIMER2": {
-    "id": "TIMER2",
-    "name": "Timer/Counter 2",
+  "TIMER2_PWM": {
+    "id": "TIMER2_PWM",
+    "name": "Timer/Counter 2 (ШИМ)",
     "config": {
       "modes": {
         "name": "Режим",
-        "values": [
-          "Normal",
-          "CTC",
-          "FastPWM",
-          "PhaseCorrectPWM",
-          "PhaseFrequencyCorrectPWM"
-        ],
-        "defaultValue": "FastPWM"
+        "type": "select",
+        "values": ["FastPWM", "PhaseCorrectPWM", "PhaseFrequencyCorrectPWM"],
+        "defaultValue": "FastPWM",
+        "ui": {
+          "component": "Select",
+          "valueType": "string"
+        }
       },
       "prescalers": {
         "name": "Делитель частоты",
+        "type": "select",
         "values": [1, 8, 32, 64, 128, 256, 1024],
-        "defaultValue": 64
+        "defaultValue": 64,
+        "ui": {
+          "component": "Select",
+          "valueType": "number"
+        }
+      },
+      "dutyCycle": {
+        "name": "Duty Cycle / OCR",
+        "type": "number",
+        "defaultValue": 128,
+        "ui": {
+          "component": "TextField",
+          "valueType": "number",
+          "inputProps": {
+            "min": 0,
+            "max": 255
+          },
+          "helperText": "0-255"
+        }
       }
     },
     "channels": ["OC2A", "OC2B"],
-    "interrupts": {
-      "OVF": {
-        "name": "TIMER2_OVF_vect",
-        "description": "Переполнение таймера 2"
-      },
-      "COMPA": {
-        "name": "TIMER2_COMPA_vect",
-        "description": "Совпадение канала A таймера 2"
-      },
-      "COMPB": {
-        "name": "TIMER2_COMPB_vect",
-        "description": "Совпадение канала B таймера 2"
-      }
-    },
     "pinMapping": {
       "OC2A": ["PB3"],
       "OC2B": ["PD3"]
+    },
+    "ui": {
+      "alerts": [
+        {
+          "severity": "info",
+          "message": "Timer2 используется для генерации ШИМ-сигналов на пинах PB3 (OC2A) и PD3 (OC2B). Для системных задач (прерывания, задержки) используйте Timer2 в разделе \"Системные периферии\".",
+          "showWhen": "always"
+        }
+      ]
     }
   },
   "ADC": {
@@ -440,36 +499,6 @@
     "pinMapping": {
       "INT0": ["PD2"],
       "INT1": ["PD3"]
-    }
-  },
-  "PCINT": {
-    "id": "PCINT",
-    "name": "Pin Change Interrupt",
-    "config": {
-      "groups": {
-        "name": "Группы",
-        "values": ["PCINT0-7", "PCINT8-14", "PCINT16-23"],
-        "defaultValue": "PCINT0-7"
-      }
-    },
-    "interrupts": {
-      "PCINT0": {
-        "name": "PCINT0_vect",
-        "description": "Прерывание изменения пина группы 0 (PB0-PB7)"
-      },
-      "PCINT1": {
-        "name": "PCINT1_vect",
-        "description": "Прерывание изменения пина группы 1 (PC0-PC6)"
-      },
-      "PCINT2": {
-        "name": "PCINT2_vect",
-        "description": "Прерывание изменения пина группы 2 (PD0-PD7)"
-      }
-    },
-    "pinMapping": {
-      "PCINT0-7": ["PB0", "PB1", "PB2", "PB3", "PB4", "PB5"],
-      "PCINT8-14": ["PC0", "PC1", "PC2", "PC3", "PC4", "PC5"],
-      "PCINT16-23": ["PD0", "PD1", "PD2", "PD3", "PD4", "PD5", "PD6", "PD7"]
     }
   },
   "ANALOG_COMPARATOR": {

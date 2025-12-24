@@ -127,9 +127,16 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
           
           const settings = funcForPeripheral?.settings || {};
           
+          // Для таймеров ШИМ канал хранится в settings.channel, а не в signal
+          const timerPWMTypes = ["TIMER0_PWM", "TIMER1_PWM", "TIMER2_PWM"];
+          const isTimerPWM = timerPWMTypes.includes(selectedPeripheral);
+          const displaySignal = isTimerPWM && settings.channel 
+            ? settings.channel as string 
+            : signal;
+          
           pins.push({
             pinName,
-            signal,
+            signal: displaySignal,
             gpioOutputLevel: settings.initialState as string,
             gpioMode: settings.mode as string,
             gpioPullUpDown: settings.pullMode as string,

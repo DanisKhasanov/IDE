@@ -50,7 +50,7 @@
         "metadata": {}
       },
       {
-        "type": "TIMER1",
+        "type": "TIMER1_PWM",
         "mode": "OC1A",
         "metadata": {
           "channel": "OC1A",
@@ -84,7 +84,7 @@
         "metadata": {}
       },
       {
-        "type": "TIMER1",
+        "type": "TIMER1_PWM",
         "mode": "OC1B",
         "metadata": {
           "channel": "OC1B",
@@ -126,7 +126,7 @@
         "metadata": {}
       },
       {
-        "type": "TIMER2",
+        "type": "TIMER2_PWM",
         "mode": "OC2A",
         "metadata": {
           "channel": "OC2A",
@@ -462,14 +462,6 @@
           "role": "RX",
           "alternateFunction": null
         }
-      },
-      {
-        "type": "TIMER1",
-        "mode": "IC1",
-        "metadata": {
-          "channel": "IC1",
-          "role": "INPUT_CAPTURE"
-        }
       }
     ]
   },
@@ -574,7 +566,7 @@
         }
       },
       {
-        "type": "TIMER2",
+        "type": "TIMER2_PWM",
         "mode": "OC2B",
         "metadata": {
           "channel": "OC2B",
@@ -634,7 +626,7 @@
         "metadata": {}
       },
       {
-        "type": "TIMER0",
+        "type": "TIMER0_PWM",
         "mode": "OC0B",
         "metadata": {
           "channel": "OC0B",
@@ -668,7 +660,7 @@
         "metadata": {}
       },
       {
-        "type": "TIMER0",
+        "type": "TIMER0_PWM",
         "mode": "OC0A",
         "metadata": {
           "channel": "OC0A",

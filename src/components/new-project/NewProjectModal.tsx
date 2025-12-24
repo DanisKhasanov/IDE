@@ -21,10 +21,15 @@ import type {
 import { BoardSelectionTab } from "./BoardSelectionTab";
 import { PeripheralsTab } from "./PeripheralsTab";
 import { SystemPeripheralsTab } from "./SystemPeripheralsTab";
-import { TimersTab } from "./TimersTab";
 import { PinsListPanel } from "../common/PinsListPanel";
 import { useSnackbar } from "@/contexts/SnackbarContext";
-import { getBoardInfo, getPins, getConflicts, peripheriesJson, systemPeripheriesJson } from "@/utils/config/boardConfigHelpers";
+import {
+  getBoardInfo,
+  getPins,
+  getConflicts,
+  peripheriesJson,
+  systemPeripheriesJson,
+} from "@/utils/config/boardConfigHelpers";
 import { useProjectConfiguration } from "@/hooks/project/useProjectConfiguration";
 
 // Маппинг плат к конфигурациям микроконтроллеров
@@ -65,11 +70,11 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [selectedFrequency, setSelectedFrequency] = useState<string>("");
   const [conflicts, setConflicts] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<0 | 1 | 2 | 3>(0); // 0 - плата, 1 - периферии, 2 - системные периферии, 3 - таймеры
+  const [activeTab, setActiveTab] = useState<0 | 1 | 2>(0); 
   const { showError, showWarning } = useSnackbar();
 
   const currentBoardConfig = BOARD_CONFIGS[selectedBoard]?.config;
-  
+
   // Используем единый hook для управления настройками
   const {
     configuration,
@@ -82,20 +87,16 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     removePinFunction,
     addPinFunctionWithAutoSelect,
     removePinFunctionWithAutoSelect,
-    addOrUpdateTimer,
-    removeTimer,
     addOrUpdateSystemPeripheral,
     removeSystemPeripheral,
-    getPeripheralPins,
     isPeripheralUsedInPins,
     resetAll,
   } = useProjectConfiguration(currentBoardConfig);
-  
+
   // Деструктурируем для удобства использования
-  const { selectedPinFunctions, timers, systemPeripherals } = configuration;
-  
+  const { selectedPinFunctions, systemPeripherals } = configuration;
+
   // Вычисляемые значения для управления вкладками
-  const hasTimers = Object.keys(timers).length > 0;
   const isFolderSelected = !!parentPath && parentPath.trim() !== "";
   const isProjectNameEntered = !!projectName && projectName.trim() !== "";
   const isProjectInfoComplete = isFolderSelected && isProjectNameEntered;
@@ -112,50 +113,38 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     // При переключении на таб "Периферии" или "Системные периферии" сбрасываем выбор, если он не относится к этому табу
     if (activeTab === 1 && currentBoardConfig) {
       const systemPeripherals = getSystemPeripherals();
-      if (selectedPeripheral && !systemPeripherals.includes(selectedPeripheral)) {
+      if (
+        selectedPeripheral &&
+        !systemPeripherals.includes(selectedPeripheral)
+      ) {
         selectPeripheral(null);
       }
     } else if (activeTab === 2 && currentBoardConfig) {
       const systemPeripheralsList = getSystemPeripheralsList();
-      if (selectedPeripheral && !systemPeripheralsList.includes(selectedPeripheral)) {
+      if (
+        selectedPeripheral &&
+        !systemPeripheralsList.includes(selectedPeripheral)
+      ) {
         selectPeripheral(null);
       }
-    } else if (activeTab === 3) {
-      // При переключении на таб "Таймеры" сбрасываем выбор периферии
-      selectPeripheral(null);
     }
   }, [activeTab, currentBoardConfig, selectedPeripheral, selectPeripheral]);
-  
-  // Функция для получения всех системных периферий из peripheries.json
+
+  // Функция для получения всех периферий с пинами из peripheries.json
   const getSystemPeripherals = (): string[] => {
     if (!currentBoardConfig) return [];
-    
-    // Возвращаем все периферии из конфига (кроме таймеров, которые обрабатываются отдельно)
+
+    // Возвращаем все периферии из конфига
     const peripheralsInConfig = Object.keys(peripheriesJson);
-    
-    // Исключаем таймеры, так как они обрабатываются в отдельном табе
-    return peripheralsInConfig.filter((peripheral) => 
-      !peripheral.startsWith("TIMER")
-    );
+
+    return peripheralsInConfig;
   };
 
   // Функция для получения системных периферий из systemPeripheries.json (для таба "Системные периферии")
   const getSystemPeripheralsList = (): string[] => {
     if (!currentBoardConfig) return [];
-    
-    // Возвращаем все системные периферии из systemPeripheries.json
-    return Object.keys(systemPeripheriesJson);
-  };
 
-  // Функция для получения доступных таймеров (TIMER0, TIMER1, TIMER2)
-  const getAvailableTimers = (): string[] => {
-    if (!currentBoardConfig) return [];
-    
-    const timerNames = ["TIMER0", "TIMER1", "TIMER2"];
-    return timerNames.filter((timerName) => {
-      // Проверяем, есть ли таймер в конфигурации
-      return peripheriesJson[timerName as keyof typeof peripheriesJson] !== undefined;
-    });
+    return Object.keys(systemPeripheriesJson);
   };
 
   // Проверка конфликтов при изменении выбранных функций
@@ -194,7 +183,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
           const pin = pins.find(
             (p: PinConfig) => (p.id || p.pin) === func.pinName
           );
-          const pinId = pin ? (pin.id || pin.pin) : "";
+          const pinId = pin ? pin.id || pin.pin : "";
           return pin && conflict.pins.includes(pinId);
         });
 
@@ -206,9 +195,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
             );
             if (pin && conflict.conflictsWith.includes(func.functionType)) {
               const pinId = pin.id || pin.pin || "";
-              detectedConflicts.push(
-                `${conflict.description}: пин ${pinId}`
-              );
+              detectedConflicts.push(`${conflict.description}: пин ${pinId}`);
             }
           });
         }
@@ -218,6 +205,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     setConflicts(detectedConflicts);
   }, [selectedPinFunctions, currentBoardConfig]);
 
+  //================
   // Вывод в консоль данных по выбранным пинам, периферии и т.д.
   useEffect(() => {
     console.log("Конфигурация проекта:", {
@@ -226,7 +214,6 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       selectedPin,
       selectedPeripheral,
       selectedPinFunctions,
-      timers,
       systemPeripherals,
       conflicts,
     });
@@ -236,12 +223,11 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     selectedPin,
     selectedPeripheral,
     selectedPinFunctions,
-    timers,
     systemPeripherals,
     conflicts,
   ]);
+  //================
 
- 
   const handleSelectFolder = async () => {
     try {
       if (!window.electronAPI || !window.electronAPI.selectParentFolder) {
@@ -272,22 +258,18 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       // Подготавливаем конфигурацию пинов для передачи
       // Преобразуем Record<string, SelectedPinFunction[]> в плоский массив
       const allSelectedPins = Object.values(selectedPinFunctions).flat();
-      // Добавляем независимые таймеры (используем виртуальный pinName "TIMER")
-      const timersArray = Object.entries(timers).map(([timerName, timer]) => ({
-        ...timer,
-        pinName: "TIMER", // Виртуальный pinName для независимых таймеров
-        functionType: timerName, // Используем имя таймера как functionType
-      }));
       // Добавляем системные периферии (используем виртуальный pinName "SYSTEM")
-      const systemPeripheralsArray = Object.entries(systemPeripherals).map(([peripheralName, peripheral]) => ({
-        ...peripheral,
-        pinName: "SYSTEM", // Виртуальный pinName для системных периферий
-        functionType: peripheralName, // Используем имя периферии как functionType
-      }));
+      const systemPeripheralsArray = Object.entries(systemPeripherals).map(
+        ([peripheralName, peripheral]) => ({
+          ...peripheral,
+          pinName: "SYSTEM", // Виртуальный pinName для системных периферий
+          functionType: peripheralName, // Используем имя периферии как functionType
+        })
+      );
       const pinConfig = {
         boardId: selectedBoard,
         fCpu: selectedFrequency,
-        selectedPins: [...allSelectedPins, ...timersArray, ...systemPeripheralsArray],
+        selectedPins: [...allSelectedPins, ...systemPeripheralsArray],
       };
 
       const project = await window.electronAPI.createNewProject(
@@ -349,7 +331,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     const functionExists = pinFunctions.some(
       (f) => f.functionType === functionType
     );
-    
+
     if (functionExists) {
       // Если функция уже существует, обновляем её настройки
       addOrUpdatePinFunction(pinName, functionType, settings);
@@ -357,7 +339,12 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       selectPinAndPeripheral(pinName, functionType);
     } else {
       // Если функции нет, добавляем её с автоматическим выбором связанных пинов
-      addPinFunctionWithAutoSelect(pinName, functionType, settings, showWarning);
+      addPinFunctionWithAutoSelect(
+        pinName,
+        functionType,
+        settings,
+        showWarning
+      );
     }
   };
 
@@ -365,12 +352,10 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     removePinFunctionWithAutoSelect(pinName, functionType);
   };
 
-
-
   return (
     <Dialog
       open={open}
-      onClose={handleClose} 
+      onClose={handleClose}
       fullWidth
       PaperProps={{
         sx: {
@@ -412,7 +397,10 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
             <Box>
               {conflicts.length > 0 && (
                 <Alert severity="warning" sx={{ mt: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: "bold", mb: 1 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ fontWeight: "bold", mb: 1 }}
+                  >
                     Обнаружены конфликты:
                   </Typography>
                   {conflicts.map((conflict, idx) => (
@@ -432,7 +420,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
                 if (!isProjectInfoComplete && newValue !== 0) {
                   return;
                 }
-                setActiveTab(newValue as 0 | 1 | 2 | 3);
+                setActiveTab(newValue as 0 | 1 | 2);
               }}
               sx={{ borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
             >
@@ -442,14 +430,18 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
                 label="Системные периферии"
                 disabled={!isProjectInfoComplete}
               />
-              <Tab
-                label="Таймеры"
-                disabled={!isProjectInfoComplete}
-              />
             </Tabs>
 
             {/* Контент вкладок */}
-            <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+            <Box
+              sx={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                minHeight: 0,
+              }}
+            >
               {activeTab === 0 ? (
                 <BoardSelectionTab
                   selectedBoard={selectedBoard}
@@ -490,13 +482,18 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
                     const functionExists = pinFunctions.some(
                       (f) => f.functionType === functionType
                     );
-                    
+
                     if (functionExists) {
                       // Если функция уже существует, обновляем её настройки
                       addOrUpdatePinFunction(pinName, functionType, settings);
                     } else {
                       // Если функции нет, добавляем её с автоматическим выбором связанных пинов
-                      addPinFunctionWithAutoSelect(pinName, functionType, settings, showWarning);
+                      addPinFunctionWithAutoSelect(
+                        pinName,
+                        functionType,
+                        settings,
+                        showWarning
+                      );
                     }
                   }}
                   onPinFunctionRemove={removePinFunctionWithAutoSelect}
@@ -504,7 +501,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
                   getSystemPeripherals={getSystemPeripherals}
                   isPeripheralUsedInPins={isPeripheralUsedInPins}
                 />
-              ) : activeTab === 2 ? (
+              ) : (
                 <SystemPeripheralsTab
                   systemPeripherals={systemPeripherals}
                   boardConfig={currentBoardConfig ?? null}
@@ -516,15 +513,6 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
                   isSystemPeripheralUsed={(peripheralName) =>
                     !!systemPeripherals[peripheralName]
                   }
-                />
-              ) : (
-                <TimersTab
-                  timers={timers}
-                  boardConfig={currentBoardConfig ?? null}
-                  onTimerAdd={addOrUpdateTimer}
-                  onTimerRemove={removeTimer}
-                  onTimerSettingsUpdate={addOrUpdateTimer}
-                  getAvailableTimers={getAvailableTimers}
                 />
               )}
             </Box>
@@ -543,7 +531,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
               }}
             >
               <Typography variant="h6" color="text.secondary">
-                Выберите плату 
+                Выберите плату
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 После чего Вы сможете настроить проект
@@ -571,23 +559,25 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
             activeTab === 0
               ? () => setActiveTab(1)
               : activeTab === 1
-              ? () => setActiveTab(2)
-              : activeTab === 2
-              ? () => setActiveTab(3)
-              : handleCreate
+                ? () => setActiveTab(2)
+                : handleCreate
           }
           variant="contained"
           disabled={
             activeTab === 0
               ? !isProjectInfoComplete || !selectedBoard
-              : !selectedBoard || !parentPath || !projectName || !projectName.trim() || isCreating
+              : !selectedBoard ||
+                !parentPath ||
+                !projectName ||
+                !projectName.trim() ||
+                isCreating
           }
         >
-          {activeTab === 0 || activeTab === 1 || activeTab === 2
+          {activeTab === 0 || activeTab === 1
             ? "Далее"
             : isCreating
-            ? "Создание..."
-            : "Создать проект"}
+              ? "Создание..."
+              : "Создать проект"}
         </Button>
       </DialogActions>
     </Dialog>

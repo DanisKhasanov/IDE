@@ -8,9 +8,7 @@ import { getPins } from "@/utils/config/boardConfigHelpers";
 export interface ProjectConfiguration {
   // Настройки пинов: ключ - имя пина, значение - массив функций
   selectedPinFunctions: Record<string, SelectedPinFunction[]>;
-  // Таймеры: ключ - имя таймера, значение - настройки
-  timers: Record<string, SelectedPinFunction>;
-  // Системные периферии: ключ - имя периферии, значение - настройки
+  // Системные периферии: ключ - имя периферии, значение - настройки (включая системные таймеры)
   systemPeripherals: Record<string, SelectedPinFunction>;
 }
 
@@ -29,7 +27,6 @@ export interface SelectionContext {
 export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
   const [configuration, setConfiguration] = useState<ProjectConfiguration>({
     selectedPinFunctions: {},
-    timers: {},
     systemPeripherals: {},
   });
   
@@ -207,38 +204,6 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
   );
 
   /**
-   * Добавляет или обновляет таймер
-   */
-  const addOrUpdateTimer = useCallback((timerName: string, settings: Record<string, unknown>) => {
-    setConfiguration((prev) => ({
-      ...prev,
-      timers: {
-        ...prev.timers,
-        [timerName]: {
-          pinName: "",
-          functionType: timerName,
-          settings,
-        },
-      },
-    }));
-  }, []);
-
-  /**
-   * Удаляет таймер
-   */
-  const removeTimer = useCallback((timerName: string) => {
-    setConfiguration((prev) => {
-      const newTimers = { ...prev.timers };
-      delete newTimers[timerName];
-
-      return {
-        ...prev,
-        timers: newTimers,
-      };
-    });
-  }, []);
-
-  /**
    * Добавляет или обновляет системную периферию
    */
   const addOrUpdateSystemPeripheral = useCallback(
@@ -279,7 +244,6 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
   const resetConfiguration = useCallback(() => {
     setConfiguration({
       selectedPinFunctions: {},
-      timers: {},
       systemPeripherals: {},
     });
   }, []);
@@ -358,7 +322,6 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
   const resetAll = useCallback(() => {
     setConfiguration({
       selectedPinFunctions: {},
-      timers: {},
       systemPeripherals: {},
     });
     setSelectionContext({
@@ -536,11 +499,7 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
     addPinFunctionWithAutoSelect,
     removePinFunctionWithAutoSelect,
     
-    // Операции с таймерами
-    addOrUpdateTimer,
-    removeTimer,
-    
-    // Операции с системными перифериями
+    // Операции с системными перифериями (включая системные таймеры)
     addOrUpdateSystemPeripheral,
     removeSystemPeripheral,
     

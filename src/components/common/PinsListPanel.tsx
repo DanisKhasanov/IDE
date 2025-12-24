@@ -49,13 +49,21 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
   // а mode в settings - это режим работы периферии (Master, Slave)
   const multiPinPeripherals = ["SPI", "UART", "I2C"];
   
+  // Таймеры с пинами (ШИМ) - для них mode в signal это канал (OC0A, OC1A и т.д.)
+  const timerPWMTypes = ["TIMER0_PWM", "TIMER1_PWM", "TIMER2_PWM"];
+  
   // Формируем ключи для проверки выбора
   // Для периферий с несколькими пинами проверяем только type
-  // Для остальных - type:mode (где mode - это режим из settings)
+  // Для таймеров ШИМ - type:mode из signal (канал)
+  // Для остальных - type:mode из settings
   const selectedFunctionKeys = selectedFunctions.map((f) => {
     if (multiPinPeripherals.includes(f.functionType)) {
       // Для SPI/UART/I2C проверяем только тип, так как они применяются ко всем пинам
       return f.functionType;
+    }
+    if (timerPWMTypes.includes(f.functionType)) {
+      // Для таймеров ШИМ используем type:mode из settings (канал передается через mode)
+      return `${f.functionType}:${f.settings?.mode || ""}`;
     }
     // Для других функций используем type:mode из settings
     return `${f.functionType}:${f.settings?.mode || ""}`;
@@ -95,7 +103,8 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
           signals.map((signal, idx) => {
             // Формируем ключ для проверки выбора
             // Для периферий с несколькими пинами проверяем только type
-            // Для остальных - type:mode из signal (где mode - это режим из signal)
+            // Для таймеров ШИМ - type:mode из signal (канал)
+            // Для остальных - type:mode из signal
             const signalKey = multiPinPeripherals.includes(signal.type)
               ? signal.type
               : `${signal.type}:${signal.mode}`;
@@ -146,11 +155,22 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
 
 // Функция для получения дефолтных настроек функции из сигнала
 const getDefaultSettings = (signal: PinSignal): Record<string, unknown> => {
+  // Таймеры ШИМ - для них mode в signal это канал (OC0A, OC1A и т.д.)
+  const timerPWMTypes = ["TIMER0_PWM", "TIMER1_PWM", "TIMER2_PWM"];
+  const isTimerPWM = timerPWMTypes.includes(signal.type);
+
   // Базовые настройки из сигнала
-  const signalSettings = {
-    mode: signal.mode,
+  let signalSettings: Record<string, unknown> = {
     ...signal.metadata,
   };
+
+  if (isTimerPWM) {
+    // Для таймеров ШИМ сохраняем канал отдельно, не в mode
+    signalSettings.channel = signal.mode;
+  } else {
+    // Для остальных периферий mode из сигнала - это режим работы
+    signalSettings.mode = signal.mode;
+  }
 
   // Получаем настройки по умолчанию из конфига периферии с учетом текущих настроек
   // Передаем signalSettings для проверки условных настроек (например, initialState только для OUTPUT)
