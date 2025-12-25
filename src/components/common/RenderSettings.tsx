@@ -1,4 +1,3 @@
-import React from "react";
 import type { PinFunction } from "@/types/boardConfig";
 import {
   getDependentFieldsToClean,
@@ -12,11 +11,11 @@ interface RenderSettingsProps {
   onSettingChange: (key: string, value: any) => void;
 }
 
-export const RenderSettings: React.FC<RenderSettingsProps> = ({
+export const RenderSettings = ({
   func,
   settings,
   onSettingChange,
-}) => {
+}: RenderSettingsProps) => {
   const handleSettingChange = (key: string, value: any) => {
     // Определяем, какие зависимые поля нужно очистить на основе конфига
     const configKey = settingsKeyToConfigKey(key);
@@ -50,6 +49,9 @@ export const RenderSettings: React.FC<RenderSettingsProps> = ({
     "TIMER0_PWM",
     "TIMER1_PWM",
     "TIMER2_PWM",
+    "TIMER0",
+    "TIMER1",
+    "TIMER2",
   ];
 
   // Для универсальных периферий используем универсальный рендерер

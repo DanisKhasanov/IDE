@@ -1,4 +1,3 @@
-import React from "react";
 import { Box, Alert, Typography } from "@mui/material";
 import { FieldRenderer } from "./FieldRenderer";
 import {
@@ -14,11 +13,11 @@ interface PeripheryRendererProps {
   onSettingChange: (key: string, value: any) => void;
 }
 
-export const PeripheryRenderer: React.FC<PeripheryRendererProps> = ({
+export const PeripheryRenderer = ({
   peripheryName,
   settings,
   onSettingChange,
-}) => {
+}: PeripheryRendererProps) => {
   const periphery = getPeriphery(peripheryName);
   if (!periphery?.config) return null;
 

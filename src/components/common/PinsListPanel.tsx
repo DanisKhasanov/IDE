@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Box, Typography, Chip, Menu, MenuItem, Divider } from "@mui/material";
 import type {
   PinConfig,
-  PinFunction,
   SelectedPinFunction,
   PinSignal,
 } from "@/types/boardConfig";
@@ -29,7 +28,7 @@ interface PinFunctionMenuProps {
   pinSide?: "left" | "right";
 }
 
-const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
+const PinFunctionMenu = ({
   pin,
   anchorEl,
   open,
@@ -38,7 +37,7 @@ const PinFunctionMenu: React.FC<PinFunctionMenuProps> = ({
   onFunctionRemove,
   selectedPinFunctions,
   pinSide = "right",
-}) => {
+}: PinFunctionMenuProps) => {
   // Показываем все сигналы как есть из конфига, без группировки
   const signals = pin.signals || [];
 

@@ -32,14 +32,8 @@ interface PeripheralsTabProps {
     functionType: string,
     settings: Record<string, unknown>
   ) => void;
-  onPinFunctionRemove?: (
-    pinName: string,
-    functionType?: string
-  ) => void;
-  onPinFunctionRemoveSimple?: (
-    pinName: string,
-    functionType?: string
-  ) => void;
+  onPinFunctionRemove?: (pinName: string, functionType?: string) => void;
+  onPinFunctionRemoveSimple?: (pinName: string, functionType?: string) => void;
   getSystemPeripherals: () => string[];
   isPeripheralUsedInPins: (functionType: string) => boolean;
 }
@@ -54,7 +48,7 @@ interface PinRowData {
   modified: boolean;
 }
 
-export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
+export const PeripheralsTab = ({
   selectedPinFunctions,
   boardConfig,
   selectedPin,
@@ -66,11 +60,13 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
   onPinFunctionRemoveSimple,
   getSystemPeripherals,
   isPeripheralUsedInPins,
-}) => {
-  const [localSettings, setLocalSettings] = useState<Record<string, unknown>>({});
+}: PeripheralsTabProps) => {
+  const [localSettings, setLocalSettings] = useState<Record<string, unknown>>(
+    {}
+  );
 
   const availablePeripherals = getSystemPeripherals();
-  
+
   // Получаем информацию о выбранной периферии из конфига
   const selectedPeripheralConfig = selectedPeripheral
     ? boardConfig?.peripherals[selectedPeripheral]
@@ -82,14 +78,18 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
     if (availablePeripherals.length === 0) return;
 
     // Если выбранная периферия не в списке доступных, сбрасываем выбор
-    if (selectedPeripheral && !availablePeripherals.includes(selectedPeripheral)) {
+    if (
+      selectedPeripheral &&
+      !availablePeripherals.includes(selectedPeripheral)
+    ) {
       // Сначала ищем периферию, которая используется в пинах
       const peripheralWithSettings = availablePeripherals.find(
         (peripheralType) => isPeripheralUsedInPins(peripheralType)
       );
 
       // Выбираем периферию с настройками или первую доступную
-      const peripheralToSelect = peripheralWithSettings || availablePeripherals[0];
+      const peripheralToSelect =
+        peripheralWithSettings || availablePeripherals[0];
       onPeripheralSelect(peripheralToSelect);
       return;
     }
@@ -98,14 +98,20 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
     if (selectedPeripheral) return;
 
     // Сначала ищем периферию, которая используется в пинах
-    const peripheralWithSettings = availablePeripherals.find(
-      (peripheralType) => isPeripheralUsedInPins(peripheralType)
+    const peripheralWithSettings = availablePeripherals.find((peripheralType) =>
+      isPeripheralUsedInPins(peripheralType)
     );
 
     // Выбираем периферию с настройками или первую доступную
-    const peripheralToSelect = peripheralWithSettings || availablePeripherals[0];
+    const peripheralToSelect =
+      peripheralWithSettings || availablePeripherals[0];
     onPeripheralSelect(peripheralToSelect);
-  }, [availablePeripherals, selectedPeripheral, onPeripheralSelect, isPeripheralUsedInPins]);
+  }, [
+    availablePeripherals,
+    selectedPeripheral,
+    onPeripheralSelect,
+    isPeripheralUsedInPins,
+  ]);
 
   // Получаем список пинов для выбранной периферии
   const getPeripheralPins = (): PinRowData[] => {
@@ -114,39 +120,42 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
     }
 
     const pins: PinRowData[] = [];
-    
+
     // Получаем все пины из pinMapping
     if (selectedPeripheralConfig.pinMapping) {
-      Object.entries(selectedPeripheralConfig.pinMapping).forEach(([signal, pinNames]) => {
-        pinNames.forEach((pinName) => {
-          // Проверяем, есть ли настройки для этого пина
-          const pinFunctions = selectedPinFunctions[pinName] || [];
-          const funcForPeripheral = pinFunctions.find(
-            (f) => f.functionType === selectedPeripheral
-          );
-          
-          const settings = funcForPeripheral?.settings || {};
-          
-          // Для таймеров ШИМ канал хранится в settings.channel, а не в signal
-          const timerPWMTypes = ["TIMER0_PWM", "TIMER1_PWM", "TIMER2_PWM"];
-          const isTimerPWM = timerPWMTypes.includes(selectedPeripheral);
-          const displaySignal = isTimerPWM && settings.channel 
-            ? settings.channel as string 
-            : signal;
-          
-          pins.push({
-            pinName,
-            signal: displaySignal,
-            gpioOutputLevel: settings.initialState as string,
-            gpioMode: settings.mode as string,
-            gpioPullUpDown: settings.pullMode as string,
-            maxOutputSpeed: settings.speed as string,
-            modified: !!funcForPeripheral,
+      Object.entries(selectedPeripheralConfig.pinMapping).forEach(
+        ([signal, pinNames]) => {
+          pinNames.forEach((pinName) => {
+            // Проверяем, есть ли настройки для этого пина
+            const pinFunctions = selectedPinFunctions[pinName] || [];
+            const funcForPeripheral = pinFunctions.find(
+              (f) => f.functionType === selectedPeripheral
+            );
+
+            const settings = funcForPeripheral?.settings || {};
+
+            // Для таймеров ШИМ канал хранится в settings.channel, а не в signal
+            const timerPWMTypes = ["TIMER0_PWM", "TIMER1_PWM", "TIMER2_PWM"];
+            const isTimerPWM = timerPWMTypes.includes(selectedPeripheral);
+            const displaySignal =
+              isTimerPWM && settings.channel
+                ? (settings.channel as string)
+                : signal;
+
+            pins.push({
+              pinName,
+              signal: displaySignal,
+              gpioOutputLevel: settings.initialState as string,
+              gpioMode: settings.mode as string,
+              gpioPullUpDown: settings.pullMode as string,
+              maxOutputSpeed: settings.speed as string,
+              modified: !!funcForPeripheral,
+            });
           });
-        });
-      });
+        }
+      );
     }
-    
+
     return pins;
   };
 
@@ -157,11 +166,14 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
       const funcForPeripheral = pinFunctions.find(
         (f) => f.functionType === selectedPeripheral
       );
-      
+
       if (funcForPeripheral) {
         // Объединяем существующие настройки с дефолтными, чтобы заполнить отсутствующие поля
         // Передаем текущие настройки для проверки условных настроек
-        const defaultSettings = getPeripheryDefaultSettings(selectedPeripheral, funcForPeripheral.settings);
+        const defaultSettings = getPeripheryDefaultSettings(
+          selectedPeripheral,
+          funcForPeripheral.settings
+        );
         setLocalSettings({ ...defaultSettings, ...funcForPeripheral.settings });
       } else {
         // Дефолтные настройки для нового пина из peripheries.json
@@ -199,7 +211,7 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
 
     // Применяем настройки к выбранному пину
     onPinFunctionAdd(selectedPin, selectedPeripheral, cleanedSettings);
-    
+
     // Не сбрасываем выбор пина, чтобы можно было видеть результат
   };
 
@@ -219,12 +231,15 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
       } else if (onPinFunctionRemove) {
         onPinFunctionRemove(selectedPin, selectedPeripheral);
       }
-      
+
       // Просто сбрасываем выбор пина, периферия остается выбранной
       onPinSelect(null);
     } else {
       // Если настройки не применены, просто сбрасываем локальные настройки
-      const defaultSettings = getPeripheryDefaultSettings(selectedPeripheral, localSettings);
+      const defaultSettings = getPeripheryDefaultSettings(
+        selectedPeripheral,
+        localSettings
+      );
       setLocalSettings(defaultSettings);
     }
   };
@@ -232,11 +247,12 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
   const peripheralPins = getPeripheralPins();
 
   // Проверяем, применены ли настройки для выбранного пина и периферии
-  const hasAppliedSettings = selectedPin && selectedPeripheral
-    ? (selectedPinFunctions[selectedPin] || []).some(
-        (f) => f.functionType === selectedPeripheral
-      )
-    : false;
+  const hasAppliedSettings =
+    selectedPin && selectedPeripheral
+      ? (selectedPinFunctions[selectedPin] || []).some(
+          (f) => f.functionType === selectedPeripheral
+        )
+      : false;
 
   return (
     <Box sx={{ display: "flex", height: "100%", flex: 1 }}>
@@ -270,9 +286,7 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
                       onClick={() => handlePeripheralClick(peripheralType)}
                       selected={isActive}
                     >
-                      <ListItemText 
-                        primary={peripheralType}
-                      />
+                      <ListItemText primary={peripheralType} />
                       {usedInPins && (
                         <CheckCircleIcon
                           sx={{
@@ -304,25 +318,31 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
         {/* Заголовок */}
         {selectedPeripheral && (
           <Box sx={{ p: 1, borderBottom: 1, borderColor: "divider" }}>
-            <Typography>
-              {selectedPeripheralConfig?.name}
-            </Typography>
+            <Typography>{selectedPeripheralConfig?.name}</Typography>
           </Box>
         )}
 
         {/* Таблица пинов */}
         {selectedPeripheral && (
-          <TableContainer sx={{ flex: "0 0 auto", height: "300px", overflow: "auto", borderBottom: 1, borderColor: "divider" }}>
+          <TableContainer
+            sx={{
+              flex: "0 0 auto",
+              height: "300px",
+              overflow: "auto",
+              borderBottom: 1,
+              borderColor: "divider",
+            }}
+          >
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ width: "70px" }}>Pin</TableCell>
                   <TableCell sx={{ width: "80px" }}>Signal</TableCell>
-                  <TableCell sx={{ width: "100px" }}>GPIO output</TableCell>
-                  <TableCell sx={{ width: "110px" }}>GPIO mode</TableCell>
-                  <TableCell sx={{ width: "140px" }}>GPIO Pull-up/Pull-down</TableCell>
-                  <TableCell sx={{ width: "110px" }}>Maximum speed</TableCell>
-                  <TableCell sx={{ width: "70px", textAlign: "center" }}>Modified</TableCell>
+                  <TableCell sx={{ width: "110px" }}>Mode</TableCell>
+
+                  <TableCell sx={{ width: "70px", textAlign: "center" }}>
+                    Modified
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -338,23 +358,26 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
                   >
                     <TableCell>{pin.pinName}</TableCell>
                     <TableCell>{pin.signal}</TableCell>
-                    <TableCell>{pin.gpioOutputLevel || "n/a"}</TableCell>
+
                     <TableCell>{pin.gpioMode || "n/a"}</TableCell>
-                    <TableCell>{pin.gpioPullUpDown || "No pull"}</TableCell>
-                    <TableCell>{pin.maxOutputSpeed || "Low"}</TableCell>
+
                     <TableCell align="center">
                       <Checkbox
                         checked={pin.modified}
                         size="small"
                         disabled
-                        sx={{ 
+                        sx={{
                           padding: 0,
-                          color: pin.modified ? "success.main" : "action.disabled",
+                          color: pin.modified
+                            ? "success.main"
+                            : "action.disabled",
                           "&.Mui-checked": {
                             color: "success.main",
                           },
                           "&.Mui-disabled": {
-                            color: pin.modified ? "success.main" : "action.disabled",
+                            color: pin.modified
+                              ? "success.main"
+                              : "action.disabled",
                           },
                         }}
                       />
@@ -363,7 +386,11 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
                 ))}
                 {peripheralPins.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 3, color: "text.secondary" }}>
+                    <TableCell
+                      colSpan={7}
+                      align="center"
+                      sx={{ py: 3, color: "text.secondary" }}
+                    >
                       Нет доступных пинов для этой периферии
                     </TableCell>
                   </TableRow>
@@ -379,12 +406,18 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
             {selectedPin ? (
               <>
                 {/* Заголовок конфигурации */}
-                <Box sx={{ p: 1, borderTop: 1, borderBottom: 1, borderColor: "divider", flexShrink: 0 }} >
-                  <Typography>
-                    {selectedPin} Configuration
-                  </Typography>
+                <Box
+                  sx={{
+                    p: 1,
+                    borderTop: 1,
+                    borderBottom: 1,
+                    borderColor: "divider",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Typography>{selectedPin} Configuration</Typography>
                 </Box>
-                
+
                 {/* Настройки - скроллируемая область */}
                 <Box sx={{ flex: 1, overflow: "auto", py: 2, px: 1 }}>
                   <RenderSettings
@@ -395,7 +428,11 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
                     onSettingChange={(key: string, value: unknown) => {
                       setLocalSettings((prev) => {
                         const newSettings = { ...prev };
-                        if (value === "" || value === undefined || value === null) {
+                        if (
+                          value === "" ||
+                          value === undefined ||
+                          value === null
+                        ) {
                           delete newSettings[key];
                         } else {
                           newSettings[key] = value;
@@ -405,7 +442,7 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
                     }}
                   />
                 </Box>
-                
+
                 {/* Кнопки - всегда внизу Paper */}
                 <Box
                   sx={{
@@ -418,9 +455,9 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
                     flexShrink: 0,
                   }}
                 >
-                  <Button 
-                    variant="outlined" 
-                    onClick={handleClearSettings} 
+                  <Button
+                    variant="outlined"
+                    onClick={handleClearSettings}
                     size="small"
                     disabled={!hasAppliedSettings}
                   >
@@ -436,10 +473,18 @@ export const PeripheralsTab: React.FC<PeripheralsTabProps> = ({
                 </Box>
               </>
             ) : peripheralPins.length > 0 ? (
-              <Box sx={{ p: 3, textAlign: "center", color: "text.secondary", flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Typography>
-                  Выберите пин для настройки
-                </Typography>
+              <Box
+                sx={{
+                  p: 3,
+                  textAlign: "center",
+                  color: "text.secondary",
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Typography>Выберите пин для настройки</Typography>
               </Box>
             ) : null}
           </>
