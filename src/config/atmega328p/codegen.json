@@ -9,18 +9,24 @@
         "{{pin.ddr}} &= ~(1 << {{pin.bit}}); // {{pin.name}} как INPUT",
         "{{pin.port}} |= (1 << {{pin.bit}}); // Включить подтяжку"
       ],
-      "OUTPUT_LOW": [
-        "{{pin.ddr}} |= (1 << {{pin.bit}}); // {{pin.name}} как OUTPUT",
-        "{{pin.port}} &= ~(1 << {{pin.bit}}); // LOW"
-      ],
-      "OUTPUT_HIGH": [
-        "{{pin.ddr}} |= (1 << {{pin.bit}}); // {{pin.name}} как OUTPUT",
-        "{{pin.port}} |= (1 << {{pin.bit}}); // HIGH"
-      ]
+      "OUTPUT": {
+        "LOW": [
+          "{{pin.ddr}} |= (1 << {{pin.bit}}); // {{pin.name}} как OUTPUT",
+          "{{pin.port}} &= ~(1 << {{pin.bit}}); // LOW"
+        ],
+        "HIGH": [
+          "{{pin.ddr}} |= (1 << {{pin.bit}}); // {{pin.name}} как OUTPUT",
+          "{{pin.port}} |= (1 << {{pin.bit}}); // HIGH"
+        ]
+      }
     }
   },
 
   "uart": {
+    "modeMapping": {
+      "Asynchronous": "async",
+      "Synchronous": "sync"
+    },
     "init": {
       "async": [
         "UBRR0H = (F_CPU / 16 / {{baud}} - 1) >> 8;",
@@ -108,6 +114,11 @@
   },
 
   "timer0": {
+    "modeMapping": {
+      "FastPWM": "fast_pwm",
+      "PhaseCorrectPWM": "phase_correct_pwm",
+      "PhaseFrequencyCorrectPWM": "phase_frequency_correct_pwm"
+    },
     "init": {
       "normal": [
         "TCCR0A = 0;",
@@ -158,6 +169,12 @@
   },
 
   "timer1": {
+    "modeMapping": {
+      "FastPWM": "fast_pwm",
+      "PhaseCorrectPWM": "phase_correct_pwm",
+      "PhaseFrequencyCorrectPWM": "phase_frequency_correct_pwm",
+      "InputCapture": "input_capture"
+    },
     "init": {
       "normal": [
         "TCCR1A = 0;",
@@ -220,6 +237,11 @@
   },
 
   "timer2": {
+    "modeMapping": {
+      "FastPWM": "fast_pwm",
+      "PhaseCorrectPWM": "phase_correct_pwm",
+      "PhaseFrequencyCorrectPWM": "phase_frequency_correct_pwm"
+    },
     "init": {
       "normal": [
         "TCCR2A = 0;",
@@ -270,6 +292,10 @@
   },
 
   "adc": {
+    "modeMapping": {
+      "Single": "single",
+      "FreeRunning": "freerunning"
+    },
     "init_single_channel": [
       "void adc_init_single_channel(uint8_t channel) {",
       "    if (channel > 7) return; // Только каналы 0–7 для ATmega328P",

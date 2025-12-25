@@ -251,21 +251,13 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
         return;
       }
 
-      // Подготавливаем конфигурацию пинов для передачи
-      // Преобразуем Record<string, SelectedPinFunction[]> в плоский массив
-      const allSelectedPins = Object.values(selectedPinFunctions).flat();
-      // Добавляем системные периферии (используем виртуальный pinName "SYSTEM")
-      const systemPeripheralsArray = Object.entries(systemPeripherals).map(
-        ([peripheralName, peripheral]) => ({
-          ...peripheral,
-          pinName: "SYSTEM", // Виртуальный pinName для системных периферий
-          functionType: peripheralName, // Используем имя периферии как functionType
-        })
-      );
+      // Подготавливаем конфигурацию пинов для передачи в новом формате
       const pinConfig = {
         boardId: selectedBoard,
         fCpu: selectedFrequency,
-        selectedPins: [...allSelectedPins, ...systemPeripheralsArray],
+        // Передаем в новом формате
+        selectedPinFunctions: selectedPinFunctions,
+        systemPeripherals: systemPeripherals,
       };
 
       const project = await window.electronAPI.createNewProject(

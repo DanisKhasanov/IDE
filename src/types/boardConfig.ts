@@ -96,7 +96,8 @@ export interface SelectedPinFunction {
 export interface ProjectPinConfig {
   boardId: string;
   fCpu: string;
-  selectedPins: SelectedPinFunction[];
+  selectedPinFunctions: Record<string, SelectedPinFunction[]>;
+  systemPeripherals: Record<string, SelectedPinFunction>;
 }
 
 
