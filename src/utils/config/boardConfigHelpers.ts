@@ -1,9 +1,5 @@
 import type { PinConfig } from "@/types/boardConfig";
-import boardJson from "@config/atmega328p/board.json";
-import pinsJson from "@config/atmega328p/pins.json";
-import peripheriesJson from "@config/atmega328p/peripheries.json";
-import systemPeripheriesJson from "@config/atmega328p/systemPeripheries.json";
-import constraintsJson from "@config/atmega328p/constraints.json";
+import atmega328Config from "@config/test/atmega328.json";
 
 // Типы для исходной JSON структуры
 export type FieldUIConfig = {
@@ -29,47 +25,64 @@ export type FieldConfig = {
 
 export type PeripheryConfig = {
   id: string;
-  name: string;
-  config?: Record<string, FieldConfig>;
-  interrupts?: Record<string, { name: string; description: string; appliesTo?: Record<string, any> }>;
+  kind: "pin" | "global";
   pinMapping?: Record<string, string[]>;
-  enableInterrupt?: boolean;
-  requiresAllPins?: boolean;
-  metadata?: Record<string, any>;
-  ui?: {
+  ui: {
+    name: string;
+    requiresAllPins?: boolean;
     alerts?: Array<{
       severity?: "info" | "warning" | "error";
       message: string;
       showWhen?: "always" | string;
     }>;
+    config?: Record<string, FieldConfig>;
+    interrupts?: Record<string, { 
+      name: string; 
+      description: string; 
+      defaultEnabled?: boolean;
+      appliesTo?: Record<string, any> 
+    }>;
+    conflicts?: Array<{
+      pins: string[];
+      peripherals: string[];
+      message: string;
+    }>;
   };
+  codeGenerator?: any;
 };
 
 export type PeripheriesJson = Record<string, PeripheryConfig>;
 
 // Хелперы для доступа к данным из JSON
-export const getBoardInfo = () => ({
-  id: boardJson.main.id,
-  name: boardJson.main.name,
-  frequency: boardJson.main.frequency.toString(),
-  image: boardJson.image,
-});
+export const getBoardInfo = () => {
+  const config = atmega328Config as any;
+  const meta = config.meta || {};
+  // Используем путь по умолчанию для изображения
+  const imagePath = config.image || "/src/config/atmega328p/image.png";
+  
+  return {
+    id: meta.board || "arduino_uno",
+    name: meta.board || "Arduino Uno",
+    frequency: (meta.defaultFcpu || 16000000).toString(),
+    image: imagePath,
+  };
+};
 
 export const getPins = (): PinConfig[] => {
-  return pinsJson.map((pinData: any) => ({
+  const config = atmega328Config as any;
+  const uiPins = config.UI_PIN || [];
+  return uiPins.map((pinData: any) => ({
     ...pinData,
     pin: pinData.id, // Для обратной совместимости
   }));
 };
 
 export const getPeriphery = (name: string): PeripheryConfig | undefined => {
-  // Сначала проверяем обычные периферии
-  if (peripheriesJson[name as keyof typeof peripheriesJson]) {
-    return peripheriesJson[name as keyof typeof peripheriesJson] as PeripheryConfig;
-  }
-  // Затем проверяем системные периферии
-  if (systemPeripheriesJson[name as keyof typeof systemPeripheriesJson]) {
-    return systemPeripheriesJson[name as keyof typeof systemPeripheriesJson] as PeripheryConfig;
+  // В новом формате периферии находятся в корне JSON
+  const config = atmega328Config as any;
+  const periphery = config[name];
+  if (periphery && typeof periphery === 'object' && 'id' in periphery) {
+    return periphery as PeripheryConfig;
   }
   return undefined;
 };
@@ -79,7 +92,7 @@ export const getPeripheryConfigValue = (
   configKey: string
 ): any[] => {
   const periphery = getPeriphery(peripheryName);
-  const fieldConfig = periphery?.config?.[configKey] as FieldConfig | undefined;
+  const fieldConfig = periphery?.ui?.config?.[configKey] as FieldConfig | undefined;
   return fieldConfig?.values || [];
 };
 
@@ -91,7 +104,7 @@ export const getPeripheryFieldUIConfig = (
   configKey: string
 ): FieldUIConfig | undefined => {
   const periphery = getPeriphery(peripheryName);
-  const fieldConfig = periphery?.config?.[configKey] as FieldConfig | undefined;
+  const fieldConfig = periphery?.ui?.config?.[configKey] as FieldConfig | undefined;
   return fieldConfig?.ui;
 };
 
@@ -103,17 +116,18 @@ export const getPeripheryFieldConfig = (
   configKey: string
 ): FieldConfig | undefined => {
   const periphery = getPeriphery(peripheryName);
-  return periphery?.config?.[configKey] as FieldConfig | undefined;
+  return periphery?.ui?.config?.[configKey] as FieldConfig | undefined;
 };
 
 /**
  * Получает метаданные периферии
+ * В новом формате метаданные не используются, возвращаем undefined
  */
 export const getPeripheryMetadata = (
   peripheryName: string
 ): Record<string, any> | undefined => {
-  const periphery = getPeriphery(peripheryName);
-  return periphery?.metadata;
+  // В новом формате метаданные не используются
+  return undefined;
 };
 
 export const getPeripheryConfigDefault = (
@@ -121,7 +135,7 @@ export const getPeripheryConfigDefault = (
   configKey: string
 ): any => {
   const periphery = getPeriphery(peripheryName);
-  return periphery?.config?.[configKey]?.defaultValue;
+  return periphery?.ui?.config?.[configKey]?.defaultValue;
 };
 
 export const getPeripheryConfigName = (
@@ -129,39 +143,8 @@ export const getPeripheryConfigName = (
   configKey: string
 ): string => {
   const periphery = getPeriphery(peripheryName);
-  return periphery?.config?.[configKey]?.name || configKey;
-};
-
-// Маппинг ключей конфигурации на ключи settings
-const CONFIG_KEY_MAPPING: Record<string, string> = {
-  'baudRates': 'baud',
-  'modes': 'mode',
-  'prescalers': 'prescaler',
-  'timeouts': 'timeout',
-  'triggers': 'trigger',
-  'speeds': 'speed',
-  'slaveAddress': 'slaveAddress',
-  'slaveAddressRange': 'slaveAddress', // для обратной совместимости
-  'enabled': 'enabled',
-};
-
-// Обратный маппинг: ключи settings -> ключи конфигурации
-const REVERSE_KEY_MAPPING: Record<string, string> = Object.fromEntries(
-  Object.entries(CONFIG_KEY_MAPPING).map(([configKey, settingsKey]) => [settingsKey, configKey])
-);
-
-/**
- * Преобразует ключ settings в ключ конфигурации
- */
-export const settingsKeyToConfigKey = (settingsKey: string): string => {
-  return REVERSE_KEY_MAPPING[settingsKey] || settingsKey;
-};
-
-/**
- * Преобразует ключ конфигурации в ключ settings
- */
-export const configKeyToSettingsKey = (configKey: string): string => {
-  return CONFIG_KEY_MAPPING[configKey] || configKey;
+  const fieldConfig = periphery?.ui?.config?.[configKey] as FieldConfig | undefined;
+  return fieldConfig?.name || configKey;
 };
 
 /**
@@ -172,7 +155,7 @@ export const getPeripheryConfigAppliesTo = (
   configKey: string
 ): Record<string, any> | undefined => {
   const periphery = getPeriphery(peripheryName);
-  const configValue = periphery?.config?.[configKey];
+  const configValue = periphery?.ui?.config?.[configKey];
   return (configValue as any)?.appliesTo;
 };
 
@@ -192,8 +175,7 @@ export const shouldShowConfigField = (
   
   // Проверяем все условия в appliesTo
   for (const [conditionKey, conditionValue] of Object.entries(appliesTo)) {
-    const settingsKey = CONFIG_KEY_MAPPING[conditionKey] || conditionKey;
-    const currentValue = currentSettings[settingsKey];
+    const currentValue = currentSettings[conditionKey];
     
     // Поддержка массивов значений (например, mode: ["FastPWM", "PhaseCorrectPWM"])
     if (Array.isArray(conditionValue)) {
@@ -219,30 +201,25 @@ export const getDependentFieldsToClean = (
   currentSettings: Record<string, any>
 ): string[] => {
   const periphery = getPeriphery(peripheryName);
-  if (!periphery?.config) return [];
+  const config = periphery?.ui?.config;
+  if (!config) return [];
   
-  // Преобразуем config key в settings key
-  const changedSettingsKey = CONFIG_KEY_MAPPING[changedConfigKey] || changedConfigKey;
   const fieldsToClean: string[] = [];
   
   // Проходим по всем полям конфигурации
-  Object.entries(periphery.config).forEach(([configKey, configValue]) => {
+  Object.entries(config).forEach(([configKey, configValue]) => {
     const appliesTo = (configValue as any)?.appliesTo;
     if (!appliesTo) return;
     
-    // В appliesTo используются settings keys (например, "mode", а не "modes")
     // Проверяем, зависит ли это поле от изменяемого поля
-    // Сначала проверяем по settings key, затем по config key (для обратной совместимости)
-    const dependsOnChangedField = 
-      appliesTo[changedSettingsKey] !== undefined || 
-      appliesTo[changedConfigKey] !== undefined;
+    const dependsOnChangedField = appliesTo[changedConfigKey] !== undefined;
     
     if (!dependsOnChangedField) return;
     
     // Создаем новую настройку с измененным значением для проверки
     const newSettings = {
       ...currentSettings,
-      [changedSettingsKey]: newValue,
+      [changedConfigKey]: newValue,
     };
     
     // Проверяем, выполняется ли условие appliesTo с новым значением
@@ -250,8 +227,7 @@ export const getDependentFieldsToClean = (
     
     // Если условие не выполняется, поле нужно очистить
     if (!shouldStillShow) {
-      const settingsKey = CONFIG_KEY_MAPPING[configKey] || configKey;
-      fieldsToClean.push(settingsKey);
+      fieldsToClean.push(configKey);
     }
   });
   
@@ -263,10 +239,11 @@ export const getPeripheryDefaultSettings = (
   currentSettings?: Record<string, any>
 ): Record<string, any> => {
   const periphery = getPeriphery(peripheryName);
-  if (!periphery?.config) return {};
+  const config = periphery?.ui?.config;
+  if (!config) return {};
   
   return Object.fromEntries(
-    Object.entries(periphery.config)
+    Object.entries(config)
       .filter(([configKey, value]) => {
         if (!value || typeof value !== 'object' || !('defaultValue' in value)) {
           return false;
@@ -279,41 +256,76 @@ export const getPeripheryDefaultSettings = (
         
         return true;
       })
-      .map(([key, value]) => [CONFIG_KEY_MAPPING[key] || key, (value as any).defaultValue])
+      .map(([key, value]) => [key, (value as any).defaultValue])
   );
 };
 
 export const getPeripheryInterrupts = (
   peripheryName: string
-): Record<string, { name: string; description: string }> | undefined => {
+): Record<string, { name: string; description: string; defaultEnabled?: boolean }> | undefined => {
   const periphery = getPeriphery(peripheryName);
-  return periphery?.interrupts;
+  return periphery?.ui?.interrupts;
 };
 
 export const getPeripheryPinMapping = (
   peripheryName: string
 ): Record<string, string[]> | undefined => {
   const periphery = getPeriphery(peripheryName);
+  // В новом формате pinMapping находится в корне периферии
   return periphery?.pinMapping;
 };
 
 /**
- * Получает список правил конфликтов из constraints.json
+ * Получает список правил конфликтов из конфига
  * @returns Массив объектов конфликтов с полной информацией о условиях активации
- * @note Эта функция возвращает расширенную структуру с полями periphery и mode отдельно,
- *       в отличие от старого формата ConflictRule, который использовал объединенное поле when
+ * @note В новом формате конфликты находятся внутри каждой периферии в поле ui.conflicts
  */
 export const getConflicts = () => {
-  return constraintsJson.map((constraint: any) => ({
-    description: constraint.description,
-    periphery: constraint.when?.periphery || "",
-    mode: constraint.when?.mode || null,
-    enabled: constraint.when?.enabled !== false, // По умолчанию true, если не указано
-    pins: constraint.conflicts?.[0]?.pins || [],
-    conflictType: constraint.conflicts?.[0]?.type || "",
-  }));
+  const conflicts: any[] = [];
+  const config = atmega328Config as any;
+  
+  // Проходим по всем перифериям и собираем конфликты
+  Object.keys(config).forEach((key) => {
+    if (key === 'meta' || key === 'UI_PIN') return;
+    
+    const periphery = config[key];
+    if (periphery?.ui?.conflicts) {
+      periphery.ui.conflicts.forEach((conflict: any) => {
+        conflicts.push({
+          description: conflict.message || '',
+          periphery: key,
+          mode: null, // В новом формате режим не указан в конфликтах
+          enabled: true,
+          pins: conflict.pins || [],
+          conflictType: 'reservePins',
+        });
+      });
+    }
+  });
+  
+  return conflicts;
 };
 
-// Прямой доступ к JSON файлам
-export { boardJson, pinsJson, peripheriesJson, systemPeripheriesJson, constraintsJson };
+// Получаем все периферии с пинами (kind === "pin")
+export const getPinPeripheries = (): string[] => {
+  const config = atmega328Config as any;
+  return Object.keys(config).filter((key) => {
+    if (key === 'meta' || key === 'UI_PIN') return false;
+    const periphery = config[key];
+    return periphery?.kind === 'pin';
+  });
+};
+
+// Получаем все системные периферии (kind === "global")
+export const getSystemPeripheries = (): string[] => {
+  const config = atmega328Config as any;
+  return Object.keys(config).filter((key) => {
+    if (key === 'meta' || key === 'UI_PIN') return false;
+    const periphery = config[key];
+    return periphery?.kind === 'global';
+  });
+};
+
+// Прямой доступ к конфигу
+export const getAtmega328Config = () => atmega328Config;
 

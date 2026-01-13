@@ -19,16 +19,18 @@ export const PeripheryRenderer = ({
   onSettingChange,
 }: PeripheryRendererProps) => {
   const periphery = getPeriphery(peripheryName);
-  if (!periphery?.config) return null;
+  const config = periphery?.ui?.config;
+  if (!config) return null;
 
   const interrupts = getPeripheryInterrupts(peripheryName);
-  const enableInterrupt = periphery.enableInterrupt;
+  // enableInterrupt определяется наличием одного прерывания в ui.interrupts
+  const enableInterrupt = interrupts && Object.keys(interrupts).length === 1;
 
   // Получаем все поля конфигурации
-  const configFields = Object.keys(periphery.config);
+  const configFields = Object.keys(config);
 
   // Рендерим информационные сообщения
-  const alerts = periphery.ui?.alerts;
+  const alerts = periphery?.ui?.alerts;
 
   return (
     <>
@@ -82,12 +84,14 @@ export const PeripheryRenderer = ({
               }
 
               const settingKey = `enable${key}Interrupt`;
+              // В новом формате может быть defaultEnabled
+              const defaultEnabled = (info as any).defaultEnabled || false;
               return (
                 <FormControlLabel
                   key={key}
                   control={
                     <Checkbox
-                      checked={settings[settingKey] || false}
+                      checked={settings[settingKey] ?? defaultEnabled}
                       onChange={(e) =>
                         onSettingChange(settingKey, e.target.checked)
                       }
@@ -126,12 +130,14 @@ export const PeripheryRenderer = ({
               }
 
               const settingKey = `enable${key}Interrupt`;
+              // В новом формате может быть defaultEnabled
+              const defaultEnabled = (info as any).defaultEnabled || false;
               return (
                 <FormControlLabel
                   key={key}
                   control={
                     <Checkbox
-                      checked={settings[settingKey] || false}
+                      checked={settings[settingKey] ?? defaultEnabled}
                       onChange={(e) =>
                         onSettingChange(settingKey, e.target.checked)
                       }

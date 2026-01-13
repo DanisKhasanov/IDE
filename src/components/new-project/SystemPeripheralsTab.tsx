@@ -217,7 +217,7 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
         {selectedPeripheral && (
           <Box sx={{ p: 1, borderBottom: 1, borderColor: "divider" }}>
             <Typography>
-              {selectedPeripheralConfig?.name || selectedPeripheral}
+              {selectedPeripheralConfig?.ui?.name || selectedPeripheral}
             </Typography>
           </Box>
         )}

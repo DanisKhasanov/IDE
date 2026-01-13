@@ -27,8 +27,8 @@ import {
   getBoardInfo,
   getPins,
   getConflicts,
-  peripheriesJson,
-  systemPeripheriesJson,
+  getPinPeripheries,
+  getSystemPeripheries,
 } from "@/utils/config/boardConfigHelpers";
 import { useProjectConfiguration } from "@/hooks/project/useProjectConfiguration";
 
@@ -47,7 +47,7 @@ const BOARD_CONFIGS: Record<
       frequency: BOARD_INFO.frequency,
       image: BOARD_INFO.image,
       pins: getPins(),
-      peripherals: peripheriesJson,
+      peripherals: {}, // Периферии теперь получаются динамически через getPinPeripheries/getSystemPeripheries
       conflicts: getConflicts(),
     },
   },
@@ -130,21 +130,19 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     }
   }, [activeTab, currentBoardConfig, selectedPeripheral, selectPeripheral]);
 
-  // Функция для получения всех периферий с пинами из peripheries.json
+  // Функция для получения всех периферий с пинами (kind === "pin")
   const getSystemPeripherals = (): string[] => {
     if (!currentBoardConfig) return [];
 
-    // Возвращаем все периферии из конфига
-    const peripheralsInConfig = Object.keys(peripheriesJson);
-
-    return peripheralsInConfig;
+    // Возвращаем все периферии с пинами из нового конфига
+    return getPinPeripheries();
   };
 
-  // Функция для получения системных периферий из systemPeripheries.json (для таба "Системные периферии")
+  // Функция для получения системных периферий (kind === "global") для таба "Системные периферии"
   const getSystemPeripheralsList = (): string[] => {
     if (!currentBoardConfig) return [];
 
-    return Object.keys(systemPeripheriesJson);
+    return getSystemPeripheries();
   };
 
   // Проверка конфликтов при изменении выбранных функций

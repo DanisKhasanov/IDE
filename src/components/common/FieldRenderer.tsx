@@ -14,7 +14,6 @@ import {
 import {
   getPeripheryFieldUIConfig,
   getPeripheryFieldConfig,
-  configKeyToSettingsKey,
   getPeripheryMetadata,
   shouldShowConfigField,
 } from "@/utils/config/boardConfigHelpers";
@@ -44,11 +43,10 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     return null;
   }
 
-  const settingsKey = configKeyToSettingsKey(configKey);
   const componentType = uiConfig?.component || "Select";
   const valueType = uiConfig?.valueType || "string";
   const defaultValue = fieldConfig.defaultValue;
-  const currentValue = settings[settingsKey] ?? defaultValue;
+  const currentValue = settings[configKey] ?? defaultValue;
 
   // Получаем значения из конфигурации периферии
   const fieldValues = fieldConfig.values || [];
@@ -61,7 +59,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
     } else if (valueType === "boolean") {
       processedValue = Boolean(value);
     }
-    onSettingChange(settingsKey, processedValue);
+    onSettingChange(configKey, processedValue);
   };
 
   // Рендерим поле в зависимости от типа компонента

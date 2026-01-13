@@ -18,7 +18,7 @@ import {
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import type { BoardConfig, SelectedPinFunction } from "@/types/boardConfig";
 import { RenderSettings } from "@/components/common/RenderSettings";
-import { getPeripheryDefaultSettings } from "@/utils/config/boardConfigHelpers";
+import { getPeripheryDefaultSettings, getPeriphery } from "@/utils/config/boardConfigHelpers";
 
 interface PeripheralsTabProps {
   selectedPinFunctions: Record<string, SelectedPinFunction[]>;
@@ -69,7 +69,7 @@ export const PeripheralsTab = ({
 
   // Получаем информацию о выбранной периферии из конфига
   const selectedPeripheralConfig = selectedPeripheral
-    ? boardConfig?.peripherals[selectedPeripheral]
+    ? getPeriphery(selectedPeripheral)
     : null;
 
   // Автоматически выбираем первый элемент при открытии таба
@@ -318,7 +318,7 @@ export const PeripheralsTab = ({
         {/* Заголовок */}
         {selectedPeripheral && (
           <Box sx={{ p: 1, borderBottom: 1, borderColor: "divider" }}>
-            <Typography>{selectedPeripheralConfig?.name}</Typography>
+            <Typography>{selectedPeripheralConfig?.ui?.name || selectedPeripheral}</Typography>
           </Box>
         )}
 

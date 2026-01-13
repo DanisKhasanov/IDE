@@ -5,7 +5,7 @@ import { PinsListPanel } from "@/components/common/PinsListPanel";
 import type {
   SelectedPinFunction,
 } from "@/types/boardConfig";
-import { getBoardInfo, getPins, getConflicts, peripheriesJson } from "@/utils/config/boardConfigHelpers";
+import { getBoardInfo, getPins, getConflicts } from "@/utils/config/boardConfigHelpers";
 
 const boardConfig = {
   id: getBoardInfo().id,
@@ -13,7 +13,7 @@ const boardConfig = {
   frequency: getBoardInfo().frequency,
   image: getBoardInfo().image,
   pins: getPins(),
-  peripherals: peripheriesJson,
+  peripherals: {}, // Периферии теперь получаются динамически
   conflicts: getConflicts(),
 };
 

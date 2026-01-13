@@ -1,7 +1,6 @@
 import type { PinFunction } from "@/types/boardConfig";
 import {
   getDependentFieldsToClean,
-  settingsKeyToConfigKey,
 } from "@/utils/config/boardConfigHelpers";
 import { PeripheryRenderer } from "./PeripheryRenderer";
 
@@ -18,10 +17,9 @@ export const RenderSettings = ({
 }: RenderSettingsProps) => {
   const handleSettingChange = (key: string, value: any) => {
     // Определяем, какие зависимые поля нужно очистить на основе конфига
-    const configKey = settingsKeyToConfigKey(key);
     const dependentFields = getDependentFieldsToClean(
       func.type,
-      configKey,
+      key,
       value,
       settings
     );
