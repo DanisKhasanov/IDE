@@ -4,6 +4,7 @@ import {
   getPeriphery,
   getPeripheryInterrupts,
   shouldShowConfigField,
+  getDependentFieldsToClean,
 } from "@/utils/config/boardConfigHelpers";
 import { FormControlLabel, Checkbox } from "@mui/material";
 
@@ -21,6 +22,25 @@ export const PeripheryRenderer = ({
   const periphery = getPeriphery(peripheryName);
   const config = periphery?.ui?.config;
   if (!config) return null;
+
+  // Обработчик изменения настроек с очисткой зависимых полей
+  const handleSettingChange = (key: string, value: any) => {
+    // Определяем, какие зависимые поля нужно очистить на основе конфига
+    const dependentFields = getDependentFieldsToClean(
+      peripheryName,
+      key,
+      value,
+      settings
+    );
+
+    // Очищаем зависимые поля перед обновлением текущего поля
+    dependentFields.forEach((fieldKey) => {
+      onSettingChange(fieldKey, undefined);
+    });
+
+    // Обновляем текущее поле
+    onSettingChange(key, value);
+  };
 
   const interrupts = getPeripheryInterrupts(peripheryName);
   // enableInterrupt определяется наличием одного прерывания в ui.interrupts
@@ -58,7 +78,7 @@ export const PeripheryRenderer = ({
             peripheryName={peripheryName}
             configKey={configKey}
             settings={settings}
-            onSettingChange={onSettingChange}
+            onSettingChange={handleSettingChange}
           />
         ))}
       </Box>
@@ -93,7 +113,7 @@ export const PeripheryRenderer = ({
                     <Checkbox
                       checked={settings[settingKey] ?? defaultEnabled}
                       onChange={(e) =>
-                        onSettingChange(settingKey, e.target.checked)
+                        handleSettingChange(settingKey, e.target.checked)
                       }
                     />
                   }
@@ -139,7 +159,7 @@ export const PeripheryRenderer = ({
                     <Checkbox
                       checked={settings[settingKey] ?? defaultEnabled}
                       onChange={(e) =>
-                        onSettingChange(settingKey, e.target.checked)
+                        handleSettingChange(settingKey, e.target.checked)
                       }
                     />
                   }

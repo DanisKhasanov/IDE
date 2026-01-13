@@ -16,12 +16,13 @@ import {
   Checkbox,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import type { BoardConfig, SelectedPinFunction } from "@/types/boardConfig";
-import { RenderSettings } from "@/components/common/RenderSettings";
+import type { BoardConfig } from "@/types/boardConfig";
+import { PeripheryRenderer } from "@/components/common/PeripheryRenderer";
 import { getPeripheryDefaultSettings, getPeriphery } from "@/utils/config/boardConfigHelpers";
+import type { ProjectConfiguration } from "@/hooks/project/useProjectConfiguration";
 
 interface PeripheralsTabProps {
-  selectedPinFunctions: Record<string, SelectedPinFunction[]>;
+  peripherals: ProjectConfiguration["peripherals"];
   boardConfig: BoardConfig | null;
   selectedPin: string | null;
   selectedPeripheral: string | null;
@@ -49,7 +50,7 @@ interface PinRowData {
 }
 
 export const PeripheralsTab = ({
-  selectedPinFunctions,
+  peripherals,
   boardConfig,
   selectedPin,
   selectedPeripheral,
@@ -123,16 +124,13 @@ export const PeripheralsTab = ({
 
     // Получаем все пины из pinMapping
     if (selectedPeripheralConfig.pinMapping) {
+      const peripheral = peripherals[selectedPeripheral];
+      
       Object.entries(selectedPeripheralConfig.pinMapping).forEach(
         ([signal, pinNames]) => {
           pinNames.forEach((pinName) => {
             // Проверяем, есть ли настройки для этого пина
-            const pinFunctions = selectedPinFunctions[pinName] || [];
-            const funcForPeripheral = pinFunctions.find(
-              (f) => f.functionType === selectedPeripheral
-            );
-
-            const settings = funcForPeripheral?.settings || {};
+            const settings = (peripheral && 'pins' in peripheral && peripheral.pins?.[pinName]) || {};
 
             // Для таймеров ШИМ канал хранится в settings.channel, а не в signal
             const timerPWMTypes = ["TIMER0_PWM", "TIMER1_PWM", "TIMER2_PWM"];
@@ -149,7 +147,7 @@ export const PeripheralsTab = ({
               gpioMode: settings.mode as string,
               gpioPullUpDown: settings.pullMode as string,
               maxOutputSpeed: settings.speed as string,
-              modified: !!funcForPeripheral,
+              modified: !!settings && Object.keys(settings).length > 0,
             });
           });
         }
@@ -162,19 +160,17 @@ export const PeripheralsTab = ({
   // Загружаем настройки выбранного пина
   useEffect(() => {
     if (selectedPin && selectedPeripheral) {
-      const pinFunctions = selectedPinFunctions[selectedPin] || [];
-      const funcForPeripheral = pinFunctions.find(
-        (f) => f.functionType === selectedPeripheral
-      );
+      const peripheral = peripherals[selectedPeripheral];
+      const existingSettings = (peripheral && 'pins' in peripheral && peripheral.pins?.[selectedPin]) || null;
 
-      if (funcForPeripheral) {
+      if (existingSettings) {
         // Объединяем существующие настройки с дефолтными, чтобы заполнить отсутствующие поля
         // Передаем текущие настройки для проверки условных настроек
         const defaultSettings = getPeripheryDefaultSettings(
           selectedPeripheral,
-          funcForPeripheral.settings
+          existingSettings
         );
-        setLocalSettings({ ...defaultSettings, ...funcForPeripheral.settings });
+        setLocalSettings({ ...defaultSettings, ...existingSettings });
       } else {
         // Дефолтные настройки для нового пина из peripheries.json
         const defaultSettings = getPeripheryDefaultSettings(selectedPeripheral);
@@ -183,7 +179,7 @@ export const PeripheralsTab = ({
     } else {
       setLocalSettings({});
     }
-  }, [selectedPin, selectedPeripheral, selectedPinFunctions]);
+  }, [selectedPin, selectedPeripheral, peripherals]);
 
   const handlePeripheralClick = (peripheralType: string) => {
     onPeripheralSelect(peripheralType);
@@ -219,12 +215,10 @@ export const PeripheralsTab = ({
     if (!selectedPin || !selectedPeripheral) return;
 
     // Проверяем, есть ли примененные настройки для этого пина и периферии
-    const pinFunctions = selectedPinFunctions[selectedPin] || [];
-    const funcForPeripheral = pinFunctions.find(
-      (f) => f.functionType === selectedPeripheral
-    );
+    const peripheral = peripherals[selectedPeripheral];
+    const hasSettings = peripheral && 'pins' in peripheral && peripheral.pins?.[selectedPin];
 
-    if (funcForPeripheral) {
+    if (hasSettings) {
       // Используем простую функцию удаления, которая не сбрасывает выбор периферии
       if (onPinFunctionRemoveSimple) {
         onPinFunctionRemoveSimple(selectedPin, selectedPeripheral);
@@ -249,9 +243,10 @@ export const PeripheralsTab = ({
   // Проверяем, применены ли настройки для выбранного пина и периферии
   const hasAppliedSettings =
     selectedPin && selectedPeripheral
-      ? (selectedPinFunctions[selectedPin] || []).some(
-          (f) => f.functionType === selectedPeripheral
-        )
+      ? (() => {
+          const peripheral = peripherals[selectedPeripheral];
+          return peripheral && 'pins' in peripheral && !!peripheral.pins?.[selectedPin];
+        })()
       : false;
 
   return (
@@ -420,10 +415,8 @@ export const PeripheralsTab = ({
 
                 {/* Настройки - скроллируемая область */}
                 <Box sx={{ flex: 1, overflow: "auto", py: 2, px: 1 }}>
-                  <RenderSettings
-                    func={{
-                      type: selectedPeripheral,
-                    }}
+                  <PeripheryRenderer
+                    peripheryName={selectedPeripheral}
                     settings={localSettings}
                     onSettingChange={(key: string, value: unknown) => {
                       setLocalSettings((prev) => {

@@ -30,7 +30,7 @@ interface BoardSelectionTabProps {
   onSelectFolder: () => void;
 }
 
-export const BoardSelectionTab: React.FC<BoardSelectionTabProps> = ({
+export const BoardSelectionTab = ({
   selectedBoard,
   boardConfigs,
   currentBoardConfig,
@@ -42,7 +42,7 @@ export const BoardSelectionTab: React.FC<BoardSelectionTabProps> = ({
   onParentPathChange,
   onFrequencyChange,
   onSelectFolder,
-}) => {
+}: BoardSelectionTabProps) => {
   const projectNameInputRef = useRef<HTMLInputElement>(null);
   const prevParentPathRef = useRef<string>(parentPath);
 

@@ -94,7 +94,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   } = useProjectConfiguration(currentBoardConfig);
 
   // Деструктурируем для удобства использования
-  const { selectedPinFunctions, systemPeripherals } = configuration;
+  const { peripherals } = configuration;
 
   // Вычисляемые значения для управления вкладками
   const isFolderSelected = !!parentPath && parentPath.trim() !== "";
@@ -150,8 +150,20 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     if (!currentBoardConfig) return;
 
     const detectedConflicts: string[] = [];
-    // Преобразуем Record<string, SelectedPinFunction[]> в плоский массив
-    const activeFunctions = Object.values(selectedPinFunctions).flat();
+    // Получаем все активные функции из новой структуры
+    const activeFunctions: SelectedPinFunction[] = [];
+    Object.entries(peripherals).forEach(([peripheralName, peripheral]) => {
+      if ('pins' in peripheral && peripheral.pins) {
+        // Периферии с пинами
+        Object.entries(peripheral.pins).forEach(([pinName, settings]) => {
+          activeFunctions.push({
+            pinName,
+            functionType: peripheralName,
+            settings,
+          });
+        });
+      }
+    });
 
     // Проверяем каждый конфликт из конфигурации
     const conflicts = getConflicts();
@@ -197,7 +209,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     });
 
     setConflicts(detectedConflicts);
-  }, [selectedPinFunctions, currentBoardConfig]);
+  }, [peripherals, currentBoardConfig]);
 
   //================
   // Вывод в консоль данных по выбранным пинам, периферии и т.д.
@@ -207,8 +219,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
       selectedFrequency,
       selectedPin,
       selectedPeripheral,
-      selectedPinFunctions,
-      systemPeripherals,
+      peripherals,
       conflicts,
     });
   }, [
@@ -216,8 +227,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     selectedFrequency,
     selectedPin,
     selectedPeripheral,
-    selectedPinFunctions,
-    systemPeripherals,
+    peripherals,
     conflicts,
   ]);
   //================
@@ -249,21 +259,12 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
         return;
       }
 
-      // Подготавливаем конфигурацию пинов для передачи
-      // Преобразуем Record<string, SelectedPinFunction[]> в плоский массив
-      const allSelectedPins = Object.values(selectedPinFunctions).flat();
-      // Добавляем системные периферии (используем виртуальный pinName "SYSTEM")
-      const systemPeripheralsArray = Object.entries(systemPeripherals).map(
-        ([peripheralName, peripheral]) => ({
-          ...peripheral,
-          pinName: "SYSTEM", // Виртуальный pinName для системных периферий
-          functionType: peripheralName, // Используем имя периферии как functionType
-        })
-      );
+      // Подготавливаем конфигурацию для передачи
+      // Новая структура уже в нужном формате
       const pinConfig = {
         boardId: selectedBoard,
         fCpu: selectedFrequency,
-        selectedPins: [...allSelectedPins, ...systemPeripheralsArray],
+        peripherals: peripherals,
       };
 
       const project = await window.electronAPI.createNewProject(
@@ -305,14 +306,15 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
 
   const handlePinClick = (pinName: string) => {
     // При клике на пин определяем периферию, которую он использует
-    const pinFunctions = selectedPinFunctions[pinName] || [];
-    if (pinFunctions.length > 0) {
-      // Выбираем первую функцию как активную периферию
-      selectPinAndPeripheral(pinName, pinFunctions[0].functionType);
-    } else {
-      // Если функций нет, просто выбираем пин
-      selectPin(pinName);
+    // Ищем первую периферию с этим пином
+    for (const [peripheralName, peripheral] of Object.entries(peripherals)) {
+      if ('pins' in peripheral && peripheral.pins?.[pinName]) {
+        selectPinAndPeripheral(pinName, peripheralName);
+        return;
+      }
     }
+    // Если функций нет, просто выбираем пин
+    selectPin(pinName);
   };
 
   const handleFunctionSelect = (
@@ -321,10 +323,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     settings: Record<string, unknown>
   ) => {
     // Проверяем, существует ли уже функция для этого пина
-    const pinFunctions = selectedPinFunctions[pinName] || [];
-    const functionExists = pinFunctions.some(
-      (f) => f.functionType === functionType
-    );
+    const peripheral = peripherals[functionType];
+    const functionExists = peripheral && 'pins' in peripheral && peripheral.pins?.[pinName];
 
     if (functionExists) {
       // Если функция уже существует, обновляем её настройки
@@ -464,7 +464,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
                 />
               ) : activeTab === 1 ? (
                 <PeripheralsTab
-                  selectedPinFunctions={selectedPinFunctions}
+                  peripherals={peripherals}
                   boardConfig={currentBoardConfig ?? null}
                   selectedPin={selectedPin}
                   selectedPeripheral={selectedPeripheral}
@@ -472,10 +472,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
                   onPeripheralSelect={selectPeripheral}
                   onPinFunctionAdd={(pinName, functionType, settings) => {
                     // Проверяем, существует ли уже функция для этого пина
-                    const pinFunctions = selectedPinFunctions[pinName] || [];
-                    const functionExists = pinFunctions.some(
-                      (f) => f.functionType === functionType
-                    );
+                    const peripheral = peripherals[functionType];
+                    const functionExists = peripheral && 'pins' in peripheral && peripheral.pins?.[pinName];
 
                     if (functionExists) {
                       // Если функция уже существует, обновляем её настройки
@@ -497,15 +495,15 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
                 />
               ) : (
                 <SystemPeripheralsTab
-                  systemPeripherals={systemPeripherals}
+                  peripherals={peripherals}
                   selectedPeripheral={selectedPeripheral}
                   onPeripheralSelect={selectPeripheral}
                   onSystemPeripheralAdd={addOrUpdateSystemPeripheral}
                   onSystemPeripheralRemove={removeSystemPeripheral}
                   getSystemPeripherals={getSystemPeripheralsList}
-                  isSystemPeripheralUsed={(peripheralName) =>
-                    !!systemPeripherals[peripheralName]
-                  }
+                  isSystemPeripheralUsed={(peripheralName) => {
+                    return !!peripherals[peripheralName];
+                  }}
                 />
               )}
             </Box>
@@ -534,7 +532,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
             <PinsListPanel
               boardConfig={currentBoardConfig ?? null}
               selectedPin={selectedPin}
-              selectedPinFunctions={selectedPinFunctions}
+              peripherals={peripherals || {}}
               onPinClick={handlePinClick}
               onFunctionSelect={handleFunctionSelect}
               onFunctionRemove={handleFunctionRemove}

@@ -6,6 +6,7 @@ import type {
   PinSignal,
 } from "@/types/boardConfig";
 import { getBoardInfo, getPins, getPeripheryDefaultSettings } from "@/utils/config/boardConfigHelpers";
+import type { ProjectConfiguration } from "@/hooks/project/useProjectConfiguration";
 
 
 // Размер области пина (в процентах)
@@ -195,7 +196,7 @@ const getDefaultSettings = (signal: PinSignal): Record<string, unknown> => {
 interface PinsListPanelProps {
   boardConfig?: any; // Оставляем для обратной совместимости, но не используем напрямую
   selectedPin: string | null;
-  selectedPinFunctions: Record<string, SelectedPinFunction[]>;
+  peripherals: ProjectConfiguration["peripherals"];
   onPinClick: (pinName: string) => void;
   onFunctionSelect: (
     pinName: string,
@@ -209,15 +210,54 @@ interface PinsListPanelProps {
   size?: "small" | "medium";
 }
 
+/**
+ * Преобразует новую структуру peripherals в старый формат для совместимости
+ */
+const convertPeripheralsToSelectedPinFunctions = (
+  peripherals: ProjectConfiguration["peripherals"]
+): Record<string, SelectedPinFunction[]> => {
+  const result: Record<string, SelectedPinFunction[]> = {};
+  
+  // Проверяем, что peripherals существует и является объектом
+  if (!peripherals || typeof peripherals !== 'object') {
+    return result;
+  }
+  
+  Object.entries(peripherals).forEach(([peripheralName, peripheral]) => {
+    if (!peripheral || typeof peripheral !== 'object') {
+      return;
+    }
+    
+    if ('pins' in peripheral && peripheral.pins && typeof peripheral.pins === 'object') {
+      Object.entries(peripheral.pins).forEach(([pinName, settings]) => {
+        if (!result[pinName]) {
+          result[pinName] = [];
+        }
+        // Находим оригинальное имя периферии (обратное преобразование)
+        // Пока используем normalizedName, так как обратное преобразование сложнее
+        result[pinName].push({
+          pinName,
+          functionType: peripheralName,
+          settings: settings || {},
+        });
+      });
+    }
+  });
+  
+  return result;
+};
+
 export const PinsListPanel: React.FC<PinsListPanelProps> = ({
   boardConfig,
   selectedPin,
-  selectedPinFunctions,
+  peripherals,
   onPinClick,
   onFunctionSelect,
   onFunctionRemove,
   size = "medium",
 }) => {
+  // Преобразуем новую структуру в старый формат для совместимости
+  const selectedPinFunctions = convertPeripheralsToSelectedPinFunctions(peripherals);
   const imageRef = useRef<HTMLImageElement>(null);
   const pinRefs = useRef<Record<string, HTMLElement | null>>({});
   const [imageLoaded, setImageLoaded] = useState(false);

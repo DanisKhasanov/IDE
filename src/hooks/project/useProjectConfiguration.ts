@@ -1,15 +1,45 @@
 import { useState, useCallback, useMemo } from "react";
 import type { SelectedPinFunction, BoardConfig, PinConfig } from "@/types/boardConfig";
-import { getPins } from "@/utils/config/boardConfigHelpers";
+import { getPins, getPeriphery } from "@/utils/config/boardConfigHelpers";
+
+/**
+ * Настройки пина для периферии с пинами
+ */
+export interface PinSettings {
+  [pinName: string]: Record<string, any>;
+}
+
+/**
+ * Настройки прерываний
+ */
+export interface InterruptSettings {
+  [interruptName: string]: {
+    enabled: boolean;
+  };
+}
+
+/**
+ * Конфигурация периферии с пинами (GPIO, SPI, UART, I2C и т.д.)
+ */
+export interface PinPeripheralConfig {
+  pins?: PinSettings;
+  interrupts?: InterruptSettings;
+}
+
+/**
+ * Конфигурация системной периферии (TIMER, WATCHDOG и т.д.)
+ */
+export interface SystemPeripheralConfig {
+  enabled?: boolean;
+  [key: string]: any; // Настройки периферии
+  interrupts?: InterruptSettings;
+}
 
 /**
  * Единый объект с настройками проекта
  */
 export interface ProjectConfiguration {
-  // Настройки пинов: ключ - имя пина, значение - массив функций
-  selectedPinFunctions: Record<string, SelectedPinFunction[]>;
-  // Системные периферии: ключ - имя периферии, значение - настройки (включая системные таймеры)
-  systemPeripherals: Record<string, SelectedPinFunction>;
+  peripherals: Record<string, PinPeripheralConfig | SystemPeripheralConfig>;
 }
 
 /**
@@ -20,14 +50,22 @@ export interface SelectionContext {
   selectedPeripheral: string | null;
 }
 
+
+/**
+ * Проверяет, является ли периферия периферией с пинами
+ */
+const isPinPeripheral = (peripheralName: string): boolean => {
+  const periphery = getPeriphery(peripheralName);
+  return periphery?.kind === "pin";
+};
+
 /**
  * Hook для управления единым объектом настроек проекта
  * Обеспечивает синхронизацию между пинами и системными перифериями
  */
 export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
   const [configuration, setConfiguration] = useState<ProjectConfiguration>({
-    selectedPinFunctions: {},
-    systemPeripherals: {},
+    peripherals: {},
   });
   
   const [selectionContext, setSelectionContext] = useState<SelectionContext>({
@@ -57,11 +95,20 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
    */
   const isPeripheralUsedInPins = useCallback(
     (functionType: string): boolean => {
-      return Object.values(configuration.selectedPinFunctions)
-        .flat()
-        .some((func) => func.functionType === functionType);
+      const peripheral = configuration.peripherals[functionType];
+      
+      if (!peripheral) return false;
+      
+      // Для периферий с пинами проверяем наличие пинов
+      if (isPinPeripheral(functionType)) {
+        const pinPeripheral = peripheral as PinPeripheralConfig;
+        return pinPeripheral.pins && Object.keys(pinPeripheral.pins).length > 0;
+      }
+      
+      // Для системных периферий проверяем наличие настроек
+      return true;
     },
-    [configuration.selectedPinFunctions]
+    [configuration.peripherals]
   );
 
   /**
@@ -70,16 +117,25 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
    */
   const getPeripheralSettingsFromPins = useCallback(
     (functionType: string): Record<string, unknown> | null => {
-      // Ищем первую функцию с этим типом среди всех пинов
-      for (const functions of Object.values(configuration.selectedPinFunctions)) {
-        const func = functions.find((f) => f.functionType === functionType);
-        if (func) {
-          return func.settings;
+      const peripheral = configuration.peripherals[functionType];
+      
+      if (!peripheral) return null;
+      
+      // Для периферий с пинами берем настройки первого пина
+      if (isPinPeripheral(functionType)) {
+        const pinPeripheral = peripheral as PinPeripheralConfig;
+        if (pinPeripheral.pins) {
+          const firstPin = Object.values(pinPeripheral.pins)[0];
+          return firstPin || null;
         }
       }
-      return null;
+      
+      // Для системных периферий возвращаем настройки напрямую
+      const systemPeripheral = peripheral as SystemPeripheralConfig;
+      const { interrupts, ...settings } = systemPeripheral;
+      return settings;
     },
-    [configuration.selectedPinFunctions]
+    [configuration.peripherals]
   );
 
   /**
@@ -87,15 +143,16 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
    */
   const getSelectedPinsForPeripheral = useCallback(
     (functionType: string): string[] => {
-      const result: string[] = [];
-      for (const [pinName, functions] of Object.entries(configuration.selectedPinFunctions)) {
-        if (functions.some((f) => f.functionType === functionType)) {
-          result.push(pinName);
-        }
+      const peripheral = configuration.peripherals[functionType];
+      
+      if (!peripheral || !isPinPeripheral(functionType)) {
+        return [];
       }
-      return result;
+      
+      const pinPeripheral = peripheral as PinPeripheralConfig;
+      return pinPeripheral.pins ? Object.keys(pinPeripheral.pins) : [];
     },
-    [configuration.selectedPinFunctions]
+    [configuration.peripherals]
   );
 
   /**
@@ -104,37 +161,31 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
   const addOrUpdatePinFunction = useCallback(
     (pinName: string, functionType: string, settings: Record<string, unknown>) => {
       setConfiguration((prev) => {
-        const newConfig = { ...prev };
-        const existingFunctions = prev.selectedPinFunctions[pinName] || [];
-        const functionIndex = existingFunctions.findIndex((f) => f.functionType === functionType);
-
-        if (functionIndex !== -1) {
-          // Обновляем существующую функцию
-          const updatedFunctions = [...existingFunctions];
-          updatedFunctions[functionIndex] = {
-            ...updatedFunctions[functionIndex],
-            settings,
-          };
-          newConfig.selectedPinFunctions = {
-            ...prev.selectedPinFunctions,
-            [pinName]: updatedFunctions,
-          };
-        } else {
-          // Добавляем новую функцию
-          newConfig.selectedPinFunctions = {
-            ...prev.selectedPinFunctions,
-            [pinName]: [
-              ...existingFunctions,
-              {
-                pinName,
-                functionType,
-                settings,
-              },
-            ],
-          };
+        const newPeripherals = { ...prev.peripherals };
+        
+        // Получаем или создаем конфигурацию периферии
+        let peripheral = newPeripherals[functionType];
+        if (!peripheral) {
+          peripheral = isPinPeripheral(functionType) 
+            ? { pins: {}, interrupts: {} }
+            : { enabled: true, interrupts: {} };
+          newPeripherals[functionType] = peripheral;
         }
-
-        return newConfig;
+        
+        // Для периферий с пинами обновляем настройки пина
+        if (isPinPeripheral(functionType)) {
+          const pinPeripheral = peripheral as PinPeripheralConfig;
+          if (!pinPeripheral.pins) {
+            pinPeripheral.pins = {};
+          }
+          pinPeripheral.pins[pinName] = { ...settings };
+        } else {
+          // Для системных периферий обновляем настройки напрямую
+          const systemPeripheral = peripheral as SystemPeripheralConfig;
+          Object.assign(systemPeripheral, settings);
+        }
+        
+        return { peripherals: newPeripherals };
       });
     },
     []
@@ -145,30 +196,42 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
    */
   const removePinFunction = useCallback((pinName: string, functionType?: string) => {
     setConfiguration((prev) => {
-      const newConfig = { ...prev };
-      const existingFunctions = prev.selectedPinFunctions[pinName] || [];
-
+      const newPeripherals = { ...prev.peripherals };
+      
       if (functionType) {
-        // Удаляем конкретную функцию
-        const filtered = existingFunctions.filter((f) => f.functionType !== functionType);
-        if (filtered.length === 0) {
-          const newPinFunctions = { ...prev.selectedPinFunctions };
-          delete newPinFunctions[pinName];
-          newConfig.selectedPinFunctions = newPinFunctions;
+        const peripheral = newPeripherals[functionType];
+        
+        if (!peripheral) return prev;
+        
+        // Для периферий с пинами удаляем пин
+        if (isPinPeripheral(functionType)) {
+          const pinPeripheral = peripheral as PinPeripheralConfig;
+          if (pinPeripheral.pins) {
+            delete pinPeripheral.pins[pinName];
+            // Если пинов не осталось, удаляем периферию
+            if (Object.keys(pinPeripheral.pins).length === 0) {
+              delete newPeripherals[functionType];
+            }
+          }
         } else {
-          newConfig.selectedPinFunctions = {
-            ...prev.selectedPinFunctions,
-            [pinName]: filtered,
-          };
+          // Для системных периферий удаляем всю периферию
+          delete newPeripherals[functionType];
         }
       } else {
-        // Удаляем все функции пина
-        const newPinFunctions = { ...prev.selectedPinFunctions };
-        delete newPinFunctions[pinName];
-        newConfig.selectedPinFunctions = newPinFunctions;
+        // Удаляем все функции пина (проходим по всем перифериям)
+        Object.keys(newPeripherals).forEach((peripheralName) => {
+          const peripheral = newPeripherals[peripheralName];
+          if (peripheral && 'pins' in peripheral && peripheral.pins) {
+            delete peripheral.pins[pinName];
+            // Если пинов не осталось, удаляем периферию
+            if (Object.keys(peripheral.pins).length === 0) {
+              delete newPeripherals[peripheralName];
+            }
+          }
+        });
       }
-
-      return newConfig;
+      
+      return { peripherals: newPeripherals };
     });
   }, []);
 
@@ -179,25 +242,26 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
   const updatePeripheralSettingsOnAllPins = useCallback(
     (functionType: string, settings: Record<string, unknown>) => {
       setConfiguration((prev) => {
-        const newPinFunctions = { ...prev.selectedPinFunctions };
-
-        // Обновляем настройки на всех пинах, использующих эту периферию
-        for (const [pinName, functions] of Object.entries(newPinFunctions)) {
-          const functionIndex = functions.findIndex((f) => f.functionType === functionType);
-          if (functionIndex !== -1) {
-            const updatedFunctions = [...functions];
-            updatedFunctions[functionIndex] = {
-              ...updatedFunctions[functionIndex],
-              settings,
-            };
-            newPinFunctions[pinName] = updatedFunctions;
+        const newPeripherals = { ...prev.peripherals };
+        const peripheral = newPeripherals[functionType];
+        
+        if (!peripheral) return prev;
+        
+        // Для периферий с пинами обновляем настройки всех пинов
+        if (isPinPeripheral(functionType)) {
+          const pinPeripheral = peripheral as PinPeripheralConfig;
+          if (pinPeripheral.pins) {
+            Object.keys(pinPeripheral.pins).forEach((pinName) => {
+              pinPeripheral.pins![pinName] = { ...settings };
+            });
           }
+        } else {
+          // Для системных периферий обновляем настройки напрямую
+          const systemPeripheral = peripheral as SystemPeripheralConfig;
+          Object.assign(systemPeripheral, settings);
         }
-
-        return {
-          ...prev,
-          selectedPinFunctions: newPinFunctions,
-        };
+        
+        return { peripherals: newPeripherals };
       });
     },
     []
@@ -208,17 +272,25 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
    */
   const addOrUpdateSystemPeripheral = useCallback(
     (peripheralName: string, settings: Record<string, unknown>) => {
-      setConfiguration((prev) => ({
-        ...prev,
-        systemPeripherals: {
-          ...prev.systemPeripherals,
-          [peripheralName]: {
-            pinName: "",
-            functionType: peripheralName,
-            settings,
-          },
-        },
-      }));
+      setConfiguration((prev) => {
+        const newPeripherals = { ...prev.peripherals };
+        
+        // Получаем или создаем конфигурацию системной периферии
+        let peripheral = newPeripherals[peripheralName] as SystemPeripheralConfig;
+        if (!peripheral) {
+          peripheral = { enabled: true, interrupts: {} };
+          newPeripherals[peripheralName] = peripheral;
+        }
+        
+        // Обновляем настройки, сохраняя interrupts если они есть
+        const { interrupts, ...otherSettings } = peripheral;
+        Object.assign(peripheral, { ...otherSettings, ...settings });
+        if (interrupts) {
+          peripheral.interrupts = interrupts;
+        }
+        
+        return { peripherals: newPeripherals };
+      });
     },
     []
   );
@@ -228,13 +300,10 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
    */
   const removeSystemPeripheral = useCallback((peripheralName: string) => {
     setConfiguration((prev) => {
-      const newSystemPeripherals = { ...prev.systemPeripherals };
-      delete newSystemPeripherals[peripheralName];
+      const newPeripherals = { ...prev.peripherals };
+      delete newPeripherals[peripheralName];
 
-      return {
-        ...prev,
-        systemPeripherals: newSystemPeripherals,
-      };
+      return { peripherals: newPeripherals };
     });
   }, []);
 
@@ -243,8 +312,7 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
    */
   const resetConfiguration = useCallback(() => {
     setConfiguration({
-      selectedPinFunctions: {},
-      systemPeripherals: {},
+      peripherals: {},
     });
   }, []);
 
@@ -298,12 +366,14 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
     (pinName: string | null, functionType: string | null): Record<string, unknown> | null => {
       if (!pinName || !functionType) return null;
 
-      const pinFunctions = configuration.selectedPinFunctions[pinName] || [];
-      const func = pinFunctions.find((f) => f.functionType === functionType);
+      const peripheral = configuration.peripherals[functionType];
       
-      return func ? func.settings : null;
+      if (!peripheral || !isPinPeripheral(functionType)) return null;
+      
+      const pinPeripheral = peripheral as PinPeripheralConfig;
+      return pinPeripheral.pins?.[pinName] || null;
     },
-    [configuration.selectedPinFunctions]
+    [configuration.peripherals]
   );
 
   /**
@@ -321,8 +391,7 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
    */
   const resetAll = useCallback(() => {
     setConfiguration({
-      selectedPinFunctions: {},
-      systemPeripherals: {},
+      peripherals: {},
     });
     setSelectionContext({
       selectedPin: null,
@@ -348,16 +417,14 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
     ): boolean => {
       const pins = getPins();
       const pin = pins.find((p: PinConfig) => (p.id || p.pin) === pinName);
-      const existingFunctions = configuration.selectedPinFunctions[pinName] || [];
-
-      // Проверяем, не выбрана ли уже эта функция
-      const alreadySelected = existingFunctions.some(
-        (f) => f.functionType === functionType
-      );
-
-      if (alreadySelected) {
-        // Если функция уже выбрана, ничего не делаем
-        return false;
+      const peripheral = configuration.peripherals[functionType];
+      
+      // Проверяем, не выбрана ли уже эта функция на этом пине
+      if (peripheral && isPinPeripheral(functionType)) {
+        const pinPeripheral = peripheral as PinPeripheralConfig;
+        if (pinPeripheral.pins?.[pinName]) {
+          return false; // Функция уже выбрана
+        }
       }
 
       // Проверяем, требует ли периферия объединения всех пинов
@@ -368,38 +435,27 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
         // Для периферий с requiresAllPins автоматически добавляем все пины с одинаковыми настройками
         const peripheralPins = getPeripheralPins(functionType);
         
-        // Получаем актуальное состояние для проверки всех пинов перед добавлением
         setConfiguration((prev) => {
-          const newConfig = { ...prev };
-          const newPinFunctions = { ...prev.selectedPinFunctions };
+          const newPeripherals = { ...prev.peripherals };
+          let peripheral = newPeripherals[functionType] as PinPeripheralConfig;
           
+          if (!peripheral) {
+            peripheral = { pins: {}, interrupts: {} };
+            newPeripherals[functionType] = peripheral;
+          }
+          
+          if (!peripheral.pins) {
+            peripheral.pins = {};
+          }
+          
+          // Добавляем все пины периферии
           peripheralPins.forEach((peripheralPinName) => {
-            const peripheralPin = pins.find((p: PinConfig) => (p.id || p.pin) === peripheralPinName);
-            if (!peripheralPin) return;
-            
-            const peripheralPinFunctions = newPinFunctions[peripheralPinName] || [];
-            
-            // Проверяем, не выбрана ли уже эта функция на этом пине
-            const functionAlreadySelected = peripheralPinFunctions.some(
-              (f) => f.functionType === functionType
-            );
-            
-            if (!functionAlreadySelected) {
-              // Добавляем функцию
-              const existingFuncs = newPinFunctions[peripheralPinName] || [];
-              newPinFunctions[peripheralPinName] = [
-                ...existingFuncs,
-                {
-                  pinName: peripheralPinName,
-                  functionType,
-                  settings,
-                },
-              ];
+            if (!peripheral.pins![peripheralPinName]) {
+              peripheral.pins![peripheralPinName] = { ...settings };
             }
           });
           
-          newConfig.selectedPinFunctions = newPinFunctions;
-          return newConfig;
+          return { peripherals: newPeripherals };
         });
         
         // Выбираем первый пин периферии для визуального выделения
@@ -415,7 +471,7 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
       selectPinAndPeripheral(pinName, functionType);
       return true;
     },
-    [boardConfig, getPeripheralPins, selectPinAndPeripheral, configuration.selectedPinFunctions, addOrUpdatePinFunction]
+    [boardConfig, getPeripheralPins, selectPinAndPeripheral, configuration.peripherals, addOrUpdatePinFunction]
   );
 
   /**
@@ -435,8 +491,10 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
           // Для периферий с requiresAllPins удаляем все пины одновременно
           const peripheralPins = getPeripheralPins(functionType);
           
-          peripheralPins.forEach((peripheralPinName) => {
-            removePinFunction(peripheralPinName, functionType);
+          setConfiguration((prev) => {
+            const newPeripherals = { ...prev.peripherals };
+            delete newPeripherals[functionType];
+            return { peripherals: newPeripherals };
           });
           
           // Если удаляется выбранный пин периферии, сбрасываем выбор
@@ -449,16 +507,11 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
       }
       
       // Для других функций удаляем только с указанного пина
-      const existingFunctions = configuration.selectedPinFunctions[pinName] || [];
-      
-      // Если указан тип функции, удаляем только её
       if (functionType) {
-        const filtered = existingFunctions.filter(
-          (f) => f.functionType !== functionType
-        );
+        const peripheral = configuration.peripherals[functionType];
         
-        // Если у пина не осталось функций или удаляется текущая выбранная функция, сбрасываем выбор
-        if (selectionContext.selectedPin === pinName && (filtered.length === 0 || selectionContext.selectedPeripheral === functionType)) {
+        // Если удаляется текущая выбранная функция, сбрасываем выбор
+        if (selectionContext.selectedPin === pinName && selectionContext.selectedPeripheral === functionType) {
           selectPinAndPeripheral(null, null);
         }
         
@@ -474,7 +527,7 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
         selectPinAndPeripheral(null, null);
       }
     },
-    [boardConfig, configuration.selectedPinFunctions, selectionContext, getPeripheralPins, removePinFunction, selectPinAndPeripheral]
+    [boardConfig, configuration.peripherals, selectionContext, getPeripheralPins, removePinFunction, selectPinAndPeripheral]
   );
 
   return {

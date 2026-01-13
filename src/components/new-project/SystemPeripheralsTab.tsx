@@ -14,9 +14,10 @@ import {
   getPeripheryDefaultSettings,
   getPeriphery,
 } from "@/utils/config/boardConfigHelpers";
+import type { ProjectConfiguration } from "@/hooks/project/useProjectConfiguration";
 
 interface SystemPeripheralsTabProps {
-  systemPeripherals: Record<string, any>;
+  peripherals: ProjectConfiguration["peripherals"];
   selectedPeripheral: string | null;
   onPeripheralSelect: (peripheralName: string | null) => void;
   onSystemPeripheralAdd?: (
@@ -29,7 +30,7 @@ interface SystemPeripheralsTabProps {
 }
 
 export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
-  systemPeripherals,
+  peripherals,
   selectedPeripheral,
   onPeripheralSelect,
   onSystemPeripheralAdd,
@@ -56,9 +57,10 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
     if (selectedPeripheral && !availablePeripherals.includes(selectedPeripheral)) {
       // Сначала ищем периферию с примененными настройками
       const peripheralWithSettings = availablePeripherals.find(
-        (peripheralName) =>
-          systemPeripherals[peripheralName]?.settings &&
-          Object.keys(systemPeripherals[peripheralName].settings).length > 0
+        (peripheralName) => {
+          const peripheral = peripherals[peripheralName];
+          return peripheral && Object.keys(peripheral).length > 0;
+        }
       );
 
       // Выбираем периферию с настройками или первую доступную
@@ -72,28 +74,32 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
 
     // Сначала ищем периферию с примененными настройками
     const peripheralWithSettings = availablePeripherals.find(
-      (peripheralName) =>
-        systemPeripherals[peripheralName]?.settings &&
-        Object.keys(systemPeripherals[peripheralName].settings).length > 0
+      (peripheralName) => {
+        const peripheral = peripherals[peripheralName];
+        return peripheral && Object.keys(peripheral).length > 0;
+      }
     );
 
     // Выбираем периферию с настройками или первую доступную
     const peripheralToSelect = peripheralWithSettings || availablePeripherals[0];
     onPeripheralSelect(peripheralToSelect);
-  }, [availablePeripherals, systemPeripherals, selectedPeripheral, onPeripheralSelect]);
+  }, [availablePeripherals, peripherals, selectedPeripheral, onPeripheralSelect]);
 
   // Загружаем настройки выбранной периферии
   useEffect(() => {
     if (selectedPeripheral) {
-      const existingSettings = systemPeripherals[selectedPeripheral];
+      const peripheral = peripherals[selectedPeripheral];
       
-      if (existingSettings) {
+      if (peripheral) {
+        // Извлекаем настройки, исключая interrupts
+        const { interrupts, ...existingSettings } = peripheral;
+        
         // Объединяем существующие настройки с дефолтными
         const defaultSettings = getPeripheryDefaultSettings(
           selectedPeripheral,
-          existingSettings.settings
+          existingSettings
         );
-        setLocalSettings({ ...defaultSettings, ...existingSettings.settings });
+        setLocalSettings({ ...defaultSettings, ...existingSettings });
       } else {
         // Дефолтные настройки для новой периферии
         const defaultSettings = getPeripheryDefaultSettings(selectedPeripheral);
@@ -102,7 +108,7 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
     } else {
       setLocalSettings({});
     }
-  }, [selectedPeripheral, systemPeripherals]);
+  }, [selectedPeripheral, peripherals]);
 
   const handlePeripheralClick = (peripheralType: string) => {
     onPeripheralSelect(peripheralType);
@@ -131,7 +137,7 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
     if (!selectedPeripheral) return;
 
     // Проверяем, есть ли примененные настройки для этой периферии
-    const hasAppliedSettings = !!systemPeripherals[selectedPeripheral];
+    const hasAppliedSettings = selectedPeripheral && !!peripherals[selectedPeripheral];
 
     if (hasAppliedSettings && onSystemPeripheralRemove) {
       onSystemPeripheralRemove(selectedPeripheral);
@@ -149,8 +155,7 @@ export const SystemPeripheralsTab: React.FC<SystemPeripheralsTabProps> = ({
   };
 
   // Проверяем, применены ли настройки для выбранной периферии
-  const hasAppliedSettings =
-    selectedPeripheral && !!systemPeripherals[selectedPeripheral];
+  const hasAppliedSettings = selectedPeripheral && !!peripherals[selectedPeripheral];
 
   return (
     <Box sx={{ display: "flex", height: "100%", flex: 1 }}>
