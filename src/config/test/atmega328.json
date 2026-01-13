@@ -1,0 +1,2117 @@
+{
+  "meta": {
+    "mcu": "ATmega328P",
+    "board": "arduino_uno",
+    "defaultFcpu": 16000000
+  },
+
+  "UI_PIN": [
+    {
+      "id": "PB0",
+      "position": {
+        "x": 99.2,
+        "y": 62.2
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "PB1",
+      "position": {
+        "x": 99.2,
+        "y": 58.8
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "TIMER1_PWM",
+          "mode": "OC1A",
+          "metadata": {
+            "channel": "OC1A",
+            "role": "OUTPUT_COMPARE"
+          }
+        }
+      ]
+    },
+    {
+      "id": "PB2",
+      "position": {
+        "x": 99.2,
+        "y": 55.5
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "TIMER1_PWM",
+          "mode": "OC1B",
+          "metadata": {
+            "channel": "OC1B",
+            "role": "OUTPUT_COMPARE"
+          }
+        },
+        {
+          "type": "SPI",
+          "mode": "SS",
+          "metadata": {
+            "role": "SS",
+            "alternateFunction": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PB3",
+      "position": {
+        "x": 99.2,
+        "y": 52.3
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "TIMER2_PWM",
+          "mode": "OC2A",
+          "metadata": {
+            "channel": "OC2A",
+            "role": "OUTPUT_COMPARE"
+          }
+        },
+        {
+          "type": "SPI",
+          "mode": "MOSI",
+          "metadata": {
+            "role": "MOSI",
+            "alternateFunction": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PB4",
+      "position": {
+        "x": 99.2,
+        "y": 49.2
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "SPI",
+          "mode": "MISO",
+          "metadata": {
+            "role": "MISO",
+            "alternateFunction": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PB5",
+      "position": {
+        "x": 99.2,
+        "y": 46.2
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "SPI",
+          "mode": "SCK",
+          "metadata": {
+            "role": "SCK",
+            "alternateFunction": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PC0",
+      "position": {
+        "x": 3.6,
+        "y": 74
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "ADC",
+          "mode": "ADC0",
+          "metadata": {
+            "channel": 0,
+            "role": "ANALOG_INPUT"
+          }
+        }
+      ]
+    },
+    {
+      "id": "PC1",
+      "position": {
+        "x": 3.6,
+        "y": 77
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "ADC",
+          "mode": "ADC1",
+          "metadata": {
+            "channel": 1,
+            "role": "ANALOG_INPUT"
+          }
+        }
+      ]
+    },
+    {
+      "id": "PC2",
+      "position": {
+        "x": 3.6,
+        "y": 80.5
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "ADC",
+          "mode": "ADC2",
+          "metadata": {
+            "channel": 2,
+            "role": "ANALOG_INPUT"
+          }
+        }
+      ]
+    },
+    {
+      "id": "PC3",
+      "position": {
+        "x": 3.6,
+        "y": 83.7
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "ADC",
+          "mode": "ADC3",
+          "metadata": {
+            "channel": 3,
+            "role": "ANALOG_INPUT"
+          }
+        }
+      ]
+    },
+    {
+      "id": "PC4",
+      "position": {
+        "x": 3.6,
+        "y": 87
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "ADC",
+          "mode": "ADC4",
+          "metadata": {
+            "channel": 4,
+            "role": "ANALOG_INPUT"
+          }
+        },
+        {
+          "type": "I2C",
+          "mode": "SDA",
+          "metadata": {
+            "role": "SDA",
+            "alternateFunction": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PC5",
+      "position": {
+        "x": 3.6,
+        "y": 90
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "ADC",
+          "mode": "ADC5",
+          "metadata": {
+            "channel": 5,
+            "role": "ANALOG_INPUT"
+          }
+        },
+        {
+          "type": "I2C",
+          "mode": "SCL",
+          "metadata": {
+            "role": "SCL",
+            "alternateFunction": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PD0",
+      "position": {
+        "x": 99.2,
+        "y": 90
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "UART",
+          "mode": "RX",
+          "metadata": {
+            "role": "RX",
+            "alternateFunction": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PD1",
+      "position": {
+        "x": 99.2,
+        "y": 86.6
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "UART",
+          "mode": "TX",
+          "metadata": {
+            "role": "TX",
+            "alternateFunction": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "PD2",
+      "position": {
+        "x": 99.2,
+        "y": 83.2
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "EXTERNAL_INTERRUPT",
+          "mode": "INT0",
+          "metadata": {
+            "interrupt": "INT0",
+            "role": "EXTERNAL_INTERRUPT"
+          }
+        }
+      ]
+    },
+    {
+      "id": "PD3",
+      "position": {
+        "x": 99.2,
+        "y": 80
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "EXTERNAL_INTERRUPT",
+          "mode": "INT1",
+          "metadata": {
+            "interrupt": "INT1",
+            "role": "EXTERNAL_INTERRUPT"
+          }
+        },
+        {
+          "type": "TIMER2_PWM",
+          "mode": "OC2B",
+          "metadata": {
+            "channel": "OC2B",
+            "role": "OUTPUT_COMPARE"
+          }
+        }
+      ]
+    },
+    {
+      "id": "PD4",
+      "position": {
+        "x": 99.2,
+        "y": 76.8
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "PD5",
+      "position": {
+        "x": 99.2,
+        "y": 73.4
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "TIMER0_PWM",
+          "mode": "OC0B",
+          "metadata": {
+            "channel": "OC0B",
+            "role": "OUTPUT_COMPARE"
+          }
+        }
+      ]
+    },
+    {
+      "id": "PD6",
+      "position": {
+        "x": 99.2,
+        "y": 70.2
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "TIMER0_PWM",
+          "mode": "OC0A",
+          "metadata": {
+            "channel": "OC0A",
+            "role": "OUTPUT_COMPARE"
+          }
+        },
+        {
+          "type": "ANALOG_COMPARATOR",
+          "mode": "AIN0",
+          "metadata": {
+            "input": "AIN0",
+            "role": "ANALOG_INPUT"
+          }
+        }
+      ]
+    },
+    {
+      "id": "PD7",
+      "position": {
+        "x": 99.2,
+        "y": 67
+      },
+      "signals": [
+        {
+          "type": "GPIO",
+          "mode": "INPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "OUTPUT",
+          "metadata": {}
+        },
+        {
+          "type": "GPIO",
+          "mode": "INPUT_PULLUP",
+          "metadata": {}
+        },
+        {
+          "type": "ANALOG_COMPARATOR",
+          "mode": "AIN1",
+          "metadata": {
+            "input": "AIN1",
+            "role": "ANALOG_INPUT"
+          }
+        }
+      ]
+    }
+  ],
+
+  "GPIO": {
+    "id": "gpio",
+    "kind": "pin",
+    "pinMapping": {
+      "pins": [
+        "PB0",
+        "PB1",
+        "PB2",
+        "PB3",
+        "PB4",
+        "PB5",
+        "PC0",
+        "PC1",
+        "PC2",
+        "PC3",
+        "PC4",
+        "PC5",
+        "PD0",
+        "PD1",
+        "PD2",
+        "PD3",
+        "PD4",
+        "PD5",
+        "PD6",
+        "PD7"
+      ]
+    },
+    "ui": {
+      "name": "General Purpose Input/Output",
+      "config": {
+        "mode": {
+          "name": "Режим",
+          "type": "select",
+          "values": ["INPUT", "OUTPUT", "INPUT_PULLUP"],
+          "defaultValue": "INPUT",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        },
+        "initialState": {
+          "name": "Начальное состояние",
+          "type": "select",
+          "values": ["LOW", "HIGH"],
+          "defaultValue": "LOW",
+          "appliesTo": {
+            "mode": ["OUTPUT"]
+          },
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        }
+      },
+      "interrupts": {
+        "name": "PCINT",
+        "description": "Прерывание при изменении состояния пина",
+        "defaultEnabled": false,
+        "appliesTo": {
+          "mode": ["INPUT", "INPUT_PULLUP"]
+        }
+      },
+      "conflicts": [
+        {
+          "pins": ["PB3", "PB4", "PB5"],
+          "peripherals": ["SPI"],
+          "message": "PB3/PB4/PB5 используются для SPI — настройка как GPIO вызовет конфликт."
+        },
+        {
+          "pins": ["PD0", "PD1"],
+          "peripherals": ["UART0"],
+          "message": "PD0/PD1 используются UART0 — настройка как GPIO вызовет конфликт."
+        },
+        {
+          "pins": ["PC4", "PC5"],
+          "peripherals": ["I2C"],
+          "message": "PC4/PC5 используются I2C — настройка как GPIO вызовет конфликт."
+        },
+        {
+          "pins": ["PD2", "PD3"],
+          "peripherals": ["EXTERNAL_INTERRUPT"],
+          "message": "PD2/PD3 используются внешними прерываниями — настройка как GPIO вызовет конфликт."
+        },
+        {
+          "pins": ["PD6", "PD7"],
+          "peripherals": ["ANALOG_COMPARATOR"],
+          "message": "PD6/PD7 используются компаратором — настройка как GPIO вызовет конфликт."
+        }
+      ]
+    },
+    "codeGenerator": {
+      "globalIncludes": ["<avr/io.h>", "<avr/interrupt.h>"],
+      "modeKey": "mode",
+      "modeMapping": {
+        "INPUT": "input",
+        "OUTPUT": "output",
+        "INPUT_PULLUP": "input_pullup"
+      },
+      "ports": [
+        {
+          "id": "B",
+          "name": "PORTB",
+          "pins": [0, 1, 2, 3, 4, 5],
+          "registers": {
+            "ddr": "DDRB",
+            "port": "PORTB",
+            "pin": "PINB"
+          }
+        },
+        {
+          "id": "C",
+          "name": "PORTC",
+          "pins": [0, 1, 2, 3, 4, 5],
+          "registers": {
+            "ddr": "DDRC",
+            "port": "PORTC",
+            "pin": "PINC"
+          }
+        },
+        {
+          "id": "D",
+          "name": "PORTD",
+          "pins": [0, 1, 2, 3, 4, 5, 6, 7],
+          "registers": {
+            "ddr": "DDRD",
+            "port": "PORTD",
+            "pin": "PIND"
+          }
+        }
+      ],
+      "init": {
+        "$mode": {
+          "input": [
+            "{{ddr}} &= ~(1 << {{ddrBit}});",
+            "{{portReg}} &= ~(1 << {{portBit}});"
+          ],
+          "output": [
+            "{{ddr}} |= (1 << {{ddrBit}});",
+            "{{portReg}} &= ~(1 << {{portBit}});"
+          ],
+          "input_pullup": [
+            "{{ddr}} &= ~(1 << {{ddrBit}});",
+            "{{portReg}} |= (1 << {{portBit}});"
+          ]
+        }
+      },
+      "interrupts": {
+        "PCINT": {
+          "code": {
+            "enable": ["PCICR |= (1 << PCIE{{pcicr}});"],
+            "isr": [
+              "ISR(PCINT{{pcicr}}_vect) {",
+              "     if ({{pinReg}} & (1 << {{pinBit}})) {",
+              "        // {{port}}{{pin}} HIGH",
+              "    } else {",
+              "        // {{port}}{{pin}} LOW",
+              "    }",
+              "}"
+            ]
+          }
+        }
+      }
+    }
+  },
+
+  "UART": {
+    "id": "uart0",
+    "kind": "pin",
+    "pinMapping": {
+      "TX": ["PD1"],
+      "RX": ["PD0"]
+    },
+    "ui": {
+      "name": "Universal Asynchronous Receiver/Transmitter",
+      "requiresAllPins": true,
+      "alerts": [
+        {
+          "severity": "info",
+          "message": "Настройки UART применяются к обоим пинам (RX и TX), так как они используют один модуль UART0.",
+          "showWhen": "always"
+        }
+      ],
+      "config": {
+        "baudRate": {
+          "name": "Скорость передачи",
+          "type": "select",
+          "values": [9600, 19200, 38400, 57600, 115200],
+          "defaultValue": 9600,
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        },
+        "dataBits": {
+          "name": "Биты данных",
+          "type": "select",
+          "values": [5, 6, 7, 8, 9],
+          "defaultValue": 8,
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        },
+        "stopBits": {
+          "name": "Стоп-биты",
+          "type": "select",
+          "values": [1, 2],
+          "defaultValue": 1,
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        },
+        "parity": {
+          "name": "Чётность",
+          "type": "select",
+          "values": ["None", "Even", "Odd"],
+          "defaultValue": "None",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        },
+        "mode": {
+          "name": "Режим работы",
+          "type": "select",
+          "values": ["Asynchronous", "Synchronous"],
+          "defaultValue": "Asynchronous",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        }
+      },
+      "interrupts": {
+        "RX": {
+          "name": "USART_RX",
+          "description": "Прерывание при приёме данных",
+          "defaultEnabled": true
+        },
+        "TX": {
+          "name": "USART_TX",
+          "description": "Прерывание при завершении передачи",
+          "defaultEnabled": false
+        }
+      },
+      "conflicts": [
+        {
+          "pins": ["PD0", "PD1"],
+          "peripherals": ["GPIO"],
+          "message": "PD0/PD1 уже назначены как GPIO — конфликт с UART0."
+        }
+      ]
+    },
+    "codeGenerator": {
+      "globalIncludes": ["<avr/io.h>", "<avr/interrupt.h>"],
+      "modeKey": "mode",
+      "modeMapping": {
+        "Asynchronous": "async",
+        "Synchronous": "sync"
+      },
+      "valueMapping": {
+        "parity": {
+          "None": 0,
+          "Even": 2,
+          "Odd": 3
+        },
+        "stopBits": {
+          "1": 0,
+          "2": 1
+        },
+        "dataBits": {
+          "5": 0,
+          "6": 1,
+          "7": 2,
+          "8": 3
+        }
+      },
+      "init": {
+        "$mode": {
+          "async": [
+            "UBRR0H = (F_CPU/16/{{baudRate}}-1)>>8;",
+            "UBRR0L = (F_CPU/16/{{baudRate}}-1);",
+            "UCSR0B = (1<<RXEN0)|(1<<TXEN0);",
+            "UCSR0C = ({{parity}}<<UPM00)|({{stopBits}}<<USBS0)|({{dataBits}}<<UCSZ00);"
+          ],
+          "sync": [
+            "UBRR0H = (F_CPU/2/{{baudRate}}-1)>>8;",
+            "UBRR0L = (F_CPU/2/{{baudRate}}-1);",
+            "UCSR0B = (1<<RXEN0)|(1<<TXEN0);",
+            "UCSR0C = (1<<UMSEL00)|({{parity}}<<UPM00)|({{stopBits}}<<USBS0)|({{dataBits}}<<UCSZ00);"
+          ]
+        }
+      },
+      "interrupts": {
+        "RX": {
+          "code": {
+            "enable": ["UCSR0B |= (1<<RXCIE0);"],
+            "isr": ["ISR(USART_RX_vect){  }"]
+          }
+        },
+        "TX": {
+          "code": {
+            "enable": ["UCSR0B |= (1<<TXCIE0);"],
+            "isr": ["ISR(USART_TX_vect){  }"]
+          }
+        }
+      }
+    }
+  },
+
+  "SPI": {
+    "id": "spi",
+    "kind": "pin",
+    "pinMapping": {
+      "MOSI": ["PB3"],
+      "MISO": ["PB4"],
+      "SCK": ["PB5"],
+      "SS": ["PB2"]
+    },
+    "ui": {
+      "name": "Serial Peripheral Interface",
+      "requiresAllPins": true,
+      "config": {
+        "mode": {
+          "name": "Режим",
+          "type": "select",
+          "values": ["Master", "Slave"],
+          "defaultValue": "Master",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        },
+        "cpol": {
+          "name": "CPOL (Полярность тактового сигнала)",
+          "type": "select",
+          "values": [0, 1],
+          "defaultValue": 0,
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        },
+        "cpha": {
+          "name": "CPHA (Фаза тактового сигнала)",
+          "type": "select",
+          "values": [0, 1],
+          "defaultValue": 0,
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        },
+        "speed": {
+          "name": "Скорость",
+          "type": "select",
+          "values": ["fosc/4", "fosc/16", "fosc/64", "fosc/128"],
+          "defaultValue": "fosc/4",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        }
+      },
+      "interrupts": {
+        "SPI_STC": {
+          "name": "SPI_STC_vect",
+          "description": "Прерывание при завершении передачи SPI",
+          "defaultEnabled": false
+        }
+      },
+      "conflicts": [
+        {
+          "pins": ["PB3", "PB4", "PB5"],
+          "peripherals": ["GPIO"],
+          "message": "PB3/PB4/PB5 уже как GPIO — конфликт с SPI."
+        },
+        {
+          "pins": ["PB2"],
+          "peripherals": ["TIMER1_PWM"],
+          "message": "PB2 используется для OC1B (Timer1 PWM) — конфликт со SPI SS."
+        }
+      ]
+    },
+    "codeGenerator": {
+      "globalIncludes": ["<avr/io.h>", "<avr/interrupt.h>"],
+      "modeKey": "mode",
+      "modeMapping": {
+        "Master": "master",
+        "Slave": "slave"
+      },
+      "valueMapping": {
+        "speed": {
+          "fosc/4": 0,
+          "fosc/16": 1,
+          "fosc/64": 2,
+          "fosc/128": 3
+        }
+      },
+      "init": {
+        "$mode": {
+          "master": [
+            "SPCR = (1 << SPE) | (1 << MSTR) | ({{cpol}} << CPOL) | ({{cpha}} << CPHA) | ({{speed}} << SPR0);",
+            "SPSR = (1 << SPI2X);"
+          ],
+          "slave": [
+            "SPCR = (1 << SPE) | ({{cpol}} << CPOL) | ({{cpha}} << CPHA);"
+          ]
+        }
+      },
+      "interrupts": {
+        "SPI_STC": {
+          "code": {
+            "enable": ["SPCR |= (1 << SPIE);"],
+            "isr": ["ISR(SPI_STC_vect) {", "    uint8_t data = SPDR;", "}"]
+          }
+        }
+      }
+    }
+  },
+
+  "I2C": {
+    "id": "i2c",
+    "kind": "pin",
+    "pinMapping": {
+      "SDA": ["PC4"],
+      "SCL": ["PC5"]
+    },
+    "ui": {
+      "name": "Two Wire Interface",
+      "requiresAllPins": true,
+      "config": {
+        "mode": {
+          "name": "Режим",
+          "type": "select",
+          "values": ["Master", "Slave"],
+          "defaultValue": "Master",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        },
+        "speed": {
+          "name": "Скорость",
+          "type": "select",
+          "values": [100000, 400000],
+          "defaultValue": 100000,
+          "appliesTo": {
+            "mode": ["Master"]
+          },
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        },
+        "slaveAddress": {
+          "name": "Адрес устройства",
+          "type": "number",
+          "defaultValue": 8,
+          "appliesTo": {
+            "mode": ["Slave"]
+          },
+          "ui": {
+            "component": "TextField",
+            "valueType": "number",
+            "inputProps": {
+              "min": 8,
+              "max": 119
+            },
+            "helperText": "8-119"
+          }
+        }
+      },
+      "interrupts": {
+        "TWI": {
+          "name": "TWI_vect",
+          "description": "Прерывание при событии на шине I2C",
+          "defaultEnabled": false
+        }
+      },
+      "conflicts": [
+        {
+          "pins": ["PC4", "PC5"],
+          "peripherals": ["GPIO"],
+          "message": "PC4/PC5 уже заняты GPIO — конфликт с I2C."
+        }
+      ]
+    },
+    "codeGenerator": {
+      "globalIncludes": ["<avr/io.h>", "<avr/interrupt.h>", "<util/twi.h>"],
+      "modeKey": "mode",
+      "modeMapping": {
+        "Master": "master",
+        "Slave": "slave"
+      },
+      "init": {
+        "$mode": {
+          "master": [
+            "TWSR = 0;",
+            "TWBR = (F_CPU / {{speed}} - 16) / 2;",
+            "TWCR = (1 << TWEN);"
+          ],
+          "slave": [
+            "TWAR = ({{slaveAddress}} << 1);",
+            "TWCR = (1 << TWEN) | (1 << TWIE) | (1 << TWEA);"
+          ]
+        }
+      },
+      "interrupts": {
+        "TWI": {
+          "code": {
+            "enable": ["TWCR |= (1 << TWIE);"],
+            "isr": ["ISR(TWI_vect) {", "}"]
+          }
+        }
+      }
+    }
+  },
+
+  "TIMER0_PWM": {
+    "id": "timer0_pwm",
+    "kind": "pin",
+    "pinMapping": {
+      "OC0A": ["PD6"],
+      "OC0B": ["PD5"]
+    },
+    "ui": {
+      "name": "Timer/Counter 0 (ШИМ)",
+      "alerts": [
+        {
+          "severity": "info",
+          "message": "Timer0 используется для генерации ШИМ-сигналов на пинах PD6 (OC0A) и PD5 (OC0B). Для системных задач (прерывания, задержки) используйте Timer0 в разделе \"Системные периферии\".",
+          "showWhen": "always"
+        }
+      ],
+      "config": {
+        "mode": {
+          "name": "Режим",
+          "type": "select",
+          "values": ["FastPWM", "PhaseCorrectPWM", "PhaseFrequencyCorrectPWM"],
+          "defaultValue": "FastPWM",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        },
+        "prescaler": {
+          "name": "Делитель частоты",
+          "type": "select",
+          "values": [1, 8, 64, 256, 1024],
+          "defaultValue": 64,
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        },
+        "dutyCycle": {
+          "name": "Duty Cycle / OCR",
+          "type": "number",
+          "defaultValue": 128,
+          "ui": {
+            "component": "TextField",
+            "valueType": "number",
+            "inputProps": {
+              "min": 0,
+              "max": 255
+            },
+            "helperText": "0-255"
+          }
+        }
+      },
+      "conflicts": [
+        {
+          "pins": ["PD5", "PD6"],
+          "peripherals": ["GPIO", "ANALOG_COMPARATOR"],
+          "message": "PD5/PD6 используются PWM или компаратором — конфликт с GPIO/Comparator."
+        }
+      ]
+    },
+    "codeGenerator": {
+      "globalIncludes": ["<avr/io.h>"],
+      "modeKey": "mode",
+      "modeMapping": {
+        "FastPWM": "fast_pwm",
+        "PhaseCorrectPWM": "phase_correct_pwm",
+        "PhaseFrequencyCorrectPWM": "phase_frequency_correct_pwm"
+      },
+      "valueMapping": {
+        "prescaler": {
+          "1": 1,
+          "8": 2,
+          "64": 3,
+          "256": 4,
+          "1024": 5
+        }
+      },
+      "init": {
+        "$mode": {
+          "fast_pwm": [
+            "TCCR0A = (1 << COM0A1) | (1 << COM0B1) | (1 << WGM01) | (1 << WGM00);",
+            "TCCR0B = ({{prescaler}} << CS00);",
+            "OCR0A = {{dutyCycle}};",
+            "OCR0B = {{dutyCycle}};"
+          ],
+          "phase_correct_pwm": [
+            "TCCR0A = (1 << COM0A1) | (1 << COM0B1) | (1 << WGM00);",
+            "TCCR0B = ({{prescaler}} << CS00);",
+            "OCR0A = {{dutyCycle}};",
+            "OCR0B = {{dutyCycle}};"
+          ],
+          "phase_frequency_correct_pwm": [
+            "TCCR0A = (1 << COM0A1) | (1 << COM0B1) | (1 << WGM00);",
+            "TCCR0B = ({{prescaler}} << CS00);",
+            "OCR0A = {{dutyCycle}};",
+            "OCR0B = {{dutyCycle}};"
+          ]
+        }
+      }
+    }
+  },
+
+  "TIMER1_PWM": {
+    "id": "timer1_pwm",
+    "kind": "pin",
+    "pinMapping": {
+      "OC1A": ["PB1"],
+      "OC1B": ["PB2"]
+    },
+    "ui": {
+      "name": "Timer/Counter 1 (ШИМ)",
+      "alerts": [
+        {
+          "severity": "info",
+          "message": "Timer1 используется для генерации ШИМ-сигналов на пинах PB1 (OC1A) и PB2 (OC1B). Для системных задач (прерывания, задержки, Input Capture) используйте Timer1 в разделе \"Системные периферии\".",
+          "showWhen": "always"
+        }
+      ],
+      "config": {
+        "mode": {
+          "name": "Режим",
+          "type": "select",
+          "values": ["FastPWM", "PhaseCorrectPWM", "PhaseFrequencyCorrectPWM"],
+          "defaultValue": "FastPWM",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        },
+        "prescaler": {
+          "name": "Делитель частоты",
+          "type": "select",
+          "values": [1, 8, 64, 256, 1024],
+          "defaultValue": 64,
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        },
+        "dutyCycle": {
+          "name": "Duty Cycle / OCR",
+          "type": "number",
+          "defaultValue": 32768,
+          "ui": {
+            "component": "TextField",
+            "valueType": "number",
+            "inputProps": {
+              "min": 0,
+              "max": 65535
+            },
+            "helperText": "0-65535"
+          }
+        }
+      },
+      "conflicts": [
+        {
+          "pins": ["PB1", "PB2"],
+          "peripherals": ["GPIO", "SPI"],
+          "message": "PB1/PB2 используются PWM или SPI — конфликт."
+        }
+      ]
+    },
+    "codeGenerator": {
+      "globalIncludes": ["<avr/io.h>"],
+      "modeKey": "mode",
+      "modeMapping": {
+        "FastPWM": "fast_pwm",
+        "PhaseCorrectPWM": "phase_correct_pwm",
+        "PhaseFrequencyCorrectPWM": "phase_frequency_correct_pwm"
+      },
+      "valueMapping": {
+        "prescaler": {
+          "1": 1,
+          "8": 2,
+          "64": 3,
+          "256": 4,
+          "1024": 5
+        }
+      },
+      "init": {
+        "$mode": {
+          "fast_pwm": [
+            "TCCR1A = (1 << COM1A1) | (1 << COM1B1) | (1 << WGM11) | (1 << WGM10);",
+            "TCCR1B = (1 << WGM13) | (1 << WGM12) | ({{prescaler}} << CS10);",
+            "OCR1A = {{dutyCycle}};",
+            "OCR1B = {{dutyCycle}};"
+          ],
+          "phase_correct_pwm": [
+            "TCCR1A = (1 << COM1A1) | (1 << COM1B1) | (1 << WGM11);",
+            "TCCR1B = (1 << WGM13) | ({{prescaler}} << CS10);",
+            "OCR1A = {{dutyCycle}};",
+            "OCR1B = {{dutyCycle}};"
+          ],
+          "phase_frequency_correct_pwm": [
+            "TCCR1A = (1 << COM1A1) | (1 << COM1B1) | (1 << WGM11);",
+            "TCCR1B = (1 << WGM13) | ({{prescaler}} << CS10);",
+            "ICR1 = {{dutyCycle}};",
+            "OCR1A = {{dutyCycle}} / 2;",
+            "OCR1B = {{dutyCycle}} / 2;"
+          ]
+        }
+      }
+    }
+  },
+
+  "TIMER2_PWM": {
+    "id": "timer2_pwm",
+    "kind": "pin",
+    "pinMapping": {
+      "OC2A": ["PB3"],
+      "OC2B": ["PD3"]
+    },
+    "ui": {
+      "name": "Timer/Counter 2 (ШИМ)",
+      "alerts": [
+        {
+          "severity": "info",
+          "message": "Timer2 используется для генерации ШИМ-сигналов на пинах PB3 (OC2A) и PD3 (OC2B). Для системных задач (прерывания, задержки) используйте Timer2 в разделе \"Системные периферии\".",
+          "showWhen": "always"
+        }
+      ],
+      "config": {
+        "mode": {
+          "name": "Режим",
+          "type": "select",
+          "values": ["FastPWM", "PhaseCorrectPWM", "PhaseFrequencyCorrectPWM"],
+          "defaultValue": "FastPWM",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        },
+        "prescaler": {
+          "name": "Делитель частоты",
+          "type": "select",
+          "values": [1, 8, 32, 64, 128, 256, 1024],
+          "defaultValue": 64,
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        },
+        "dutyCycle": {
+          "name": "Duty Cycle / OCR",
+          "type": "number",
+          "defaultValue": 128,
+          "ui": {
+            "component": "TextField",
+            "valueType": "number",
+            "inputProps": {
+              "min": 0,
+              "max": 255
+            },
+            "helperText": "0-255"
+          }
+        }
+      },
+      "conflicts": [
+        {
+          "pins": ["PB3", "PD3"],
+          "peripherals": ["GPIO", "SPI", "EXTERNAL_INTERRUPT"],
+          "message": "PB3/PD3 заняты PWM или SPI/INT — конфликт."
+        }
+      ]
+    },
+    "codeGenerator": {
+      "globalIncludes": ["<avr/io.h>"],
+      "modeKey": "mode",
+      "modeMapping": {
+        "FastPWM": "fast_pwm",
+        "PhaseCorrectPWM": "phase_correct_pwm",
+        "PhaseFrequencyCorrectPWM": "phase_frequency_correct_pwm"
+      },
+      "valueMapping": {
+        "prescaler": {
+          "1": 1,
+          "8": 2,
+          "32": 3,
+          "64": 4,
+          "128": 5,
+          "256": 6,
+          "1024": 7
+        }
+      },
+      "init": {
+        "$mode": {
+          "fast_pwm": [
+            "TCCR2A = (1 << COM2A1) | (1 << COM2B1) | (1 << WGM21) | (1 << WGM20);",
+            "TCCR2B = ({{prescaler}} << CS20);",
+            "OCR2A = {{dutyCycle}};",
+            "OCR2B = {{dutyCycle}};"
+          ],
+          "phase_correct_pwm": [
+            "TCCR2A = (1 << COM2A1) | (1 << COM2B1) | (1 << WGM20);",
+            "TCCR2B = ({{prescaler}} << CS20);",
+            "OCR2A = {{dutyCycle}};",
+            "OCR2B = {{dutyCycle}};"
+          ],
+          "phase_frequency_correct_pwm": [
+            "TCCR2A = (1 << COM2A1) | (1 << COM2B1) | (1 << WGM20);",
+            "TCCR2B = ({{prescaler}} << CS20);",
+            "OCR2A = {{dutyCycle}};",
+            "OCR2B = {{dutyCycle}};"
+          ]
+        }
+      }
+    }
+  },
+
+  "ADC": {
+    "id": "adc",
+    "kind": "pin",
+    "pinMapping": {
+      "ADC0": ["PC0"],
+      "ADC1": ["PC1"],
+      "ADC2": ["PC2"],
+      "ADC3": ["PC3"],
+      "ADC4": ["PC4"],
+      "ADC5": ["PC5"]
+    },
+    "ui": {
+      "name": "Analog to Digital Converter",
+      "config": {
+        "channel": {
+          "name": "Каналы",
+          "type": "select",
+          "values": [0, 1, 2, 3, 4, 5],
+          "defaultValue": 0,
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        },
+        "reference": {
+          "name": "Опорное напряжение",
+          "type": "select",
+          "values": ["AVcc", "AREF", "Internal1.1V"],
+          "defaultValue": "AVcc",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        },
+        "prescaler": {
+          "name": "Делитель частоты",
+          "type": "select",
+          "values": [2, 4, 8, 16, 32, 64, 128],
+          "defaultValue": 128,
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        },
+        "mode": {
+          "name": "Режим",
+          "type": "select",
+          "values": ["Single", "FreeRunning"],
+          "defaultValue": "Single",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        }
+      },
+      "interrupts": {
+        "ADC": {
+          "name": "ADC_vect",
+          "description": "Прерывание при завершении преобразования ADC",
+          "defaultEnabled": false
+        }
+      },
+      "conflicts": [
+        {
+          "pins": ["PC0", "PC1", "PC2", "PC3", "PC4", "PC5"],
+          "peripherals": ["GPIO", "I2C"],
+          "message": "ADC каналы конфликтуют с GPIO/I2C."
+        }
+      ]
+    },
+    "codeGenerator": {
+      "globalIncludes": ["<avr/io.h>", "<avr/interrupt.h>"],
+      "modeKey": "mode",
+      "modeMapping": {
+        "Single": "single",
+        "FreeRunning": "free_running"
+      },
+      "valueMapping": {
+        "reference": {
+          "AREF": 0,
+          "AVcc": 1,
+          "Internal1.1V": 3
+        },
+        "prescaler": {
+          "2": 1,
+          "4": 2,
+          "8": 3,
+          "16": 4,
+          "32": 5,
+          "64": 6,
+          "128": 7
+        }
+      },
+      "init": {
+        "$mode": {
+          "single": [
+            "ADMUX = ({{reference}} << REFS0) | {{channel}};",
+            "ADCSRA = (1 << ADEN) | ({{prescaler}} << ADPS0);"
+          ],
+          "free_running": [
+            "ADMUX = ({{reference}} << REFS0) | {{channel}};",
+            "ADCSRA = (1 << ADEN) | (1 << ADATE) | ({{prescaler}} << ADPS0);",
+            "ADCSRA |= (1 << ADSC);"
+          ]
+        }
+      },
+      "interrupts": {
+        "ADC": {
+          "code": {
+            "enable": ["ADCSRA |= (1 << ADIE);"],
+            "isr": ["ISR(ADC_vect) {", "    uint16_t value = ADC;", "    ", "}"]
+          }
+        }
+      }
+    }
+  },
+
+  "EXTERNAL_INTERRUPT": {
+    "id": "external_interrupt",
+    "kind": "pin",
+    "pinMapping": {
+      "INT0": ["PD2"],
+      "INT1": ["PD3"]
+    },
+    "ui": {
+      "name": "External Interrupt",
+      "config": {
+        "interrupt": {
+          "name": "Прерывания",
+          "type": "select",
+          "values": ["INT0", "INT1"],
+          "defaultValue": "INT0",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        },
+        "trigger": {
+          "name": "Триггеры",
+          "type": "select",
+          "values": ["LOW", "CHANGE", "RISING", "FALLING"],
+          "defaultValue": "RISING",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        }
+      },
+      "interrupts": {
+        "INT0": {
+          "name": "INT0_vect",
+          "description": "Внешнее прерывание INT0",
+          "defaultEnabled": false
+        },
+        "INT1": {
+          "name": "INT1_vect",
+          "description": "Внешнее прерывание INT1",
+          "defaultEnabled": false
+        }
+      },
+      "conflicts": [
+        {
+          "pins": ["PD2", "PD3"],
+          "peripherals": ["GPIO", "TIMER2_PWM"],
+          "message": "PD2/PD3 уже заняты — конфликт."
+        }
+      ]
+    },
+    "codeGenerator": {
+      "globalIncludes": ["<avr/io.h>", "<avr/interrupt.h>"],
+      "valueMapping": {
+        "trigger": {
+          "LOW": 0,
+          "CHANGE": 1,
+          "FALLING": 2,
+          "RISING": 3
+        }
+      },
+      "init": {
+        "INT0": ["EICRA = ({{trigger}} << ISC00);", "EIMSK |= (1 << INT0);"],
+        "INT1": ["EICRA = ({{trigger}} << ISC10);", "EIMSK |= (1 << INT1);"]
+      },
+      "interrupts": {
+        "INT0": {
+          "code": {
+            "isr": ["ISR(INT0_vect) {", "}"]
+          }
+        },
+        "INT1": {
+          "code": {
+            "isr": ["ISR(INT1_vect) {", "}"]
+          }
+        }
+      }
+    }
+  },
+
+  "ANALOG_COMPARATOR": {
+    "id": "analog_comparator",
+    "kind": "pin",
+    "pinMapping": {
+      "AIN0": ["PD6"],
+      "AIN1": ["PD7"]
+    },
+    "ui": {
+      "name": "Analog Comparator",
+      "config": {
+        "mode": {
+          "name": "Режим",
+          "type": "select",
+          "values": ["Interrupt", "Timer1Capture"],
+          "defaultValue": "Interrupt",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        }
+      },
+      "interrupts": {
+        "ACI": {
+          "name": "ANALOG_COMP_vect",
+          "description": "Прерывание аналогового компаратора",
+          "defaultEnabled": false
+        }
+      },
+      "conflicts": [
+        {
+          "pins": ["PD6", "PD7"],
+          "peripherals": ["GPIO", "TIMER0_PWM"],
+          "message": "PD6/PD7 используются Comparator/PWM — конфликт."
+        }
+      ]
+    },
+    "codeGenerator": {
+      "globalIncludes": ["<avr/io.h>", "<avr/interrupt.h>"],
+      "modeKey": "mode",
+      "modeMapping": {
+        "Interrupt": "interrupt",
+        "Timer1Capture": "timer1_capture"
+      },
+      "init": {
+        "$mode": {
+          "interrupt": ["ACSR = (1 << ACIE);", "sei();"],
+          "timer1_capture": ["ACSR = (1 << ACIC);"]
+        }
+      },
+      "interrupts": {
+        "ACI": {
+          "code": {
+            "enable": ["ACSR |= (1 << ACIE);"],
+            "isr": ["ISR(ANALOG_COMP_vect) {", "}"]
+          }
+        }
+      }
+    }
+  },
+
+  "WATCHDOG_TIMER": {
+    "id": "watchdog_timer",
+    "kind": "global",
+    "pinMapping": {},
+    "ui": {
+      "name": "Watchdog Timer",
+      "alerts": [
+        {
+          "severity": "info",
+          "message": "Watchdog Timer используется для защиты от зависания программы. При срабатывании выполняется сброс микроконтроллера. При включении прерывания будет использоваться режим \"Прерывание + сброс\".",
+          "showWhen": "always"
+        }
+      ],
+      "config": {
+        "timeouts": {
+          "name": "Таймаут",
+          "type": "select",
+          "values": [16, 32, 64, 125, 250, 500, 1000, 2000, 4000, 8000],
+          "defaultValue": 1000,
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        }
+      },
+      "interrupts": {
+        "WDT": {
+          "name": "WDT_vect",
+          "description": "Прерывание watchdog таймера",
+          "defaultEnabled": false
+        }
+      },
+      "conflicts": [
+        {
+          "peripherals": ["TIMER0", "TIMER1", "TIMER2"],
+          "message": "Watchdog может конфликтовать с системными таймерами."
+        }
+      ]
+    },
+    "codeGenerator": {
+      "globalIncludes": ["<avr/io.h>", "<avr/interrupt.h>", "<avr/wdt.h>"],
+      "valueMapping": {
+        "timeout": {
+          "16": 0,
+          "32": 1,
+          "64": 2,
+          "125": 3,
+          "250": 4,
+          "500": 5,
+          "1000": 6,
+          "2000": 7,
+          "4000": 8,
+          "8000": 9
+        }
+      },
+      "init": {
+        "WDT": [
+          "WDTCSR = (1 << WDCE) | (1 << WDE);",
+          "WDTCSR = ({{timeout}} << WDP0) | (1 << WDE);"
+        ]
+      },
+      "interrupts": {
+        "WDT": {
+          "code": {
+            "enable": ["WDTCSR |= (1 << WDIE);"],
+            "isr": ["ISR(WDT_vect) {", "wdt_reset();", "}"]
+          }
+        }
+      }
+    }
+  },
+
+  "TIMER0": {
+    "id": "timer0",
+    "kind": "global",
+    "pinMapping": {},
+    "ui": {
+      "name": "Timer/Counter 0",
+      "config": {
+        "mode": {
+          "name": "Режим",
+          "type": "select",
+          "values": ["Normal", "CTC"],
+          "defaultValue": "Normal",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        },
+        "prescaler": {
+          "name": "Делитель частоты",
+          "type": "select",
+          "values": [1, 8, 32, 64, 128, 256, 1024],
+          "defaultValue": 64,
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        }
+      },
+      "interrupts": {
+        "OVF": {
+          "name": "TIMER0_OVF_vect",
+          "description": "Прерывание переполнения таймера 0",
+          "defaultEnabled": false
+        },
+        "COMPA": {
+          "name": "TIMER0_COMPA_vect",
+          "description": "Прерывание совпадения канала A таймера 0",
+          "defaultEnabled": false
+        },
+        "COMPB": {
+          "name": "TIMER0_COMPB_vect",
+          "description": "Прерывание совпадения канала B таймера 0",
+          "defaultEnabled": false
+        }
+      }
+    },
+    "codeGenerator": {
+      "globalIncludes": ["<avr/io.h>", "<avr/interrupt.h>"],
+      "modeKey": "mode",
+      "modeMapping": {
+        "Normal": "normal",
+        "CTC": "ctc"
+      },
+      "valueMapping": {
+        "prescaler": {
+          "1": 1,
+          "8": 2,
+          "32": 3,
+          "64": 4,
+          "128": 5,
+          "256": 6,
+          "1024": 7
+        }
+      },
+      "init": {
+        "$mode": {
+          "normal": [
+            "TCCR0A = 0;",
+            "TCCR0B = ({{prescaler}} << CS00);",
+            "TCNT0 = 0;"
+          ],
+          "ctc": [
+            "TCCR0A = (1 << WGM01);",
+            "TCCR0B = ({{prescaler}} << CS00);",
+            "OCR0A = {{compareValue}};",
+            "TCNT0 = 0;"
+          ]
+        }
+      },
+      "interrupts": {
+        "OVF": {
+          "code": {
+            "enable": ["TIMSK0 |= (1 << TOIE0);"],
+            "isr": ["ISR(TIMER0_OVF_vect) {", "}"]
+          }
+        },
+        "COMPA": {
+          "code": {
+            "enable": ["TIMSK0 |= (1 << OCIE0A);"],
+            "isr": ["ISR(TIMER0_COMPA_vect) {", "}"]
+          }
+        },
+        "COMPB": {
+          "code": {
+            "enable": ["TIMSK0 |= (1 << OCIE0B);"],
+            "isr": ["ISR(TIMER0_COMPB_vect) {", "}"]
+          }
+        }
+      }
+    }
+  },
+
+  "TIMER1": {
+    "id": "timer1",
+    "kind": "global",
+    "pinMapping": {},
+    "ui": {
+      "name": "Timer/Counter 1",
+      "config": {
+        "mode": {
+          "name": "Режим",
+          "type": "select",
+          "values": ["Normal", "CTC"],
+          "defaultValue": "Normal",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        },
+        "prescaler": {
+          "name": "Делитель частоты",
+          "type": "select",
+          "values": [1, 8, 32, 64, 128, 256, 1024],
+          "defaultValue": 64,
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        }
+      },
+      "interrupts": {
+        "OVF": {
+          "name": "TIMER1_OVF_vect",
+          "description": "Прерывание переполнения таймера 1",
+          "defaultEnabled": false
+        }
+      }
+    },
+    "codeGenerator": {
+      "globalIncludes": ["<avr/io.h>", "<avr/interrupt.h>"],
+      "modeKey": "mode",
+      "modeMapping": {
+        "Normal": "normal",
+        "CTC": "ctc"
+      },
+      "valueMapping": {
+        "prescaler": {
+          "1": 1,
+          "8": 2,
+          "32": 3,
+          "64": 4,
+          "128": 5,
+          "256": 6,
+          "1024": 7
+        }
+      },
+      "init": {
+        "$mode": {
+          "normal": [
+            "TCCR1A = 0;",
+            "TCCR1B = ({{prescaler}} << CS10);",
+            "TCNT1 = 0;"
+          ],
+          "ctc": [
+            "TCCR1A = 0;",
+            "TCCR1B = (1 << WGM12) | ({{prescaler}} << CS10);"
+          ]
+        }
+      },
+      "interrupts": {
+        "OVF": {
+          "code": {
+            "enable": ["TIMSK1 |= (1 << TOIE1);"],
+            "isr": ["ISR(TIMER1_OVF_vect) {", "}"]
+          }
+        }
+      }
+    }
+  },
+
+  "TIMER2": {
+    "id": "timer2",
+    "kind": "global",
+    "pinMapping": {},
+    "ui": {
+      "name": "Timer/Counter 2",
+      "config": {
+        "mode": {
+          "name": "Режим",
+          "type": "select",
+          "values": ["Normal", "CTC"],
+          "defaultValue": "Normal",
+          "ui": {
+            "component": "Select",
+            "valueType": "string"
+          }
+        },
+        "prescaler": {
+          "name": "Делитель частоты",
+          "type": "select",
+          "values": [1, 8, 32, 64, 128, 256, 1024],
+          "defaultValue": 64,
+          "ui": {
+            "component": "Select",
+            "valueType": "number"
+          }
+        }
+      },
+      "interrupts": {
+        "OVF": {
+          "name": "TIMER2_OVF_vect",
+          "description": "Прерывание переполнения таймера 2",
+          "defaultEnabled": false
+        },
+        "COMPA": {
+          "name": "TIMER2_COMPA_vect",
+          "description": "Прерывание совпадения канала A таймера 2",
+          "defaultEnabled": false
+        },
+        "COMPB": {
+          "name": "TIMER2_COMPB_vect",
+          "description": "Прерывание совпадения канала B таймера 2",
+          "defaultEnabled": false
+        }
+      }
+    },
+    "codeGenerator": {
+      "globalIncludes": ["<avr/io.h>", "<avr/interrupt.h>"],
+      "modeKey": "mode",
+      "modeMapping": {
+        "Normal": "normal",
+        "CTC": "ctc"
+      },
+      "valueMapping": {
+        "prescaler": {
+          "1": 1,
+          "8": 2,
+          "32": 3,
+          "64": 4,
+          "128": 5,
+          "256": 6,
+          "1024": 7
+        }
+      },
+      "init": {
+        "$mode": {
+          "normal": [
+            "TCCR2A = 0;",
+            "TCCR2B = ({{prescaler}} << CS20);",
+            "TCNT2 = 0;"
+          ],
+          "ctc": ["TCCR2A = (1 << WGM21);", "TCCR2B = ({{prescaler}} << CS20);"]
+        }
+      },
+      "interrupts": {
+        "OVF": {
+          "code": {
+            "enable": ["TIMSK2 |= (1 << TOIE2);"],
+            "isr": ["ISR(TIMER2_OVF_vect) {", "}"]
+          }
+        },
+        "COMPA": {
+          "code": {
+            "enable": ["TIMSK2 |= (1 << OCIE2A);"],
+            "isr": ["ISR(TIMER2_COMPA_vect) {", "}"]
+          }
+        },
+        "COMPB": {
+          "code": {
+            "enable": ["TIMSK2 |= (1 << OCIE2B);"],
+            "isr": ["ISR(TIMER2_COMPB_vect) {", "}"]
+          }
+        }
+      }
+    }
+  }
+}

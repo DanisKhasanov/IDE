@@ -1,8 +1,6 @@
 [
   {
     "id": "PB0",
-    "port": "B",
-    "number": 0,
     "position": {
       "x": 99.2,
       "y": 62.2
@@ -27,8 +25,6 @@
   },
   {
     "id": "PB1",
-    "port": "B",
-    "number": 1,
     "position": {
       "x": 99.2,
       "y": 58.8
@@ -61,8 +57,6 @@
   },
   {
     "id": "PB2",
-    "port": "B",
-    "number": 2,
     "position": {
       "x": 99.2,
       "y": 55.5
@@ -103,8 +97,6 @@
   },
   {
     "id": "PB3",
-    "port": "B",
-    "number": 3,
     "position": {
       "x": 99.2,
       "y": 52.3
@@ -145,8 +137,6 @@
   },
   {
     "id": "PB4",
-    "port": "B",
-    "number": 4,
     "position": {
       "x": 99.2,
       "y": 49.2
@@ -179,8 +169,6 @@
   },
   {
     "id": "PB5",
-    "port": "B",
-    "number": 5,
     "position": {
       "x": 99.2,
       "y": 46.2
@@ -213,8 +201,6 @@
   },
   {
     "id": "PC0",
-    "port": "C",
-    "number": 0,
     "position": {
       "x": 3.6,
       "y": 74
@@ -247,8 +233,6 @@
   },
   {
     "id": "PC1",
-    "port": "C",
-    "number": 1,
     "position": {
       "x": 3.6,
       "y": 77
@@ -281,8 +265,6 @@
   },
   {
     "id": "PC2",
-    "port": "C",
-    "number": 2,
     "position": {
       "x": 3.6,
       "y": 80.5
@@ -315,8 +297,6 @@
   },
   {
     "id": "PC3",
-    "port": "C",
-    "number": 3,
     "position": {
       "x": 3.6,
       "y": 83.7
@@ -349,8 +329,6 @@
   },
   {
     "id": "PC4",
-    "port": "C",
-    "number": 4,
     "position": {
       "x": 3.6,
       "y": 87
@@ -391,8 +369,6 @@
   },
   {
     "id": "PC5",
-    "port": "C",
-    "number": 5,
     "position": {
       "x": 3.6,
       "y": 90
@@ -433,8 +409,6 @@
   },
   {
     "id": "PD0",
-    "port": "D",
-    "number": 0,
     "position": {
       "x": 99.2,
       "y": 90
@@ -467,8 +441,6 @@
   },
   {
     "id": "PD1",
-    "port": "D",
-    "number": 1,
     "position": {
       "x": 99.2,
       "y": 86.6
@@ -501,8 +473,6 @@
   },
   {
     "id": "PD2",
-    "port": "D",
-    "number": 2,
     "position": {
       "x": 99.2,
       "y": 83.2
@@ -535,8 +505,6 @@
   },
   {
     "id": "PD3",
-    "port": "D",
-    "number": 3,
     "position": {
       "x": 99.2,
       "y": 80
@@ -577,8 +545,6 @@
   },
   {
     "id": "PD4",
-    "port": "D",
-    "number": 4,
     "position": {
       "x": 99.2,
       "y": 76.8
@@ -603,8 +569,6 @@
   },
   {
     "id": "PD5",
-    "port": "D",
-    "number": 5,
     "position": {
       "x": 99.2,
       "y": 73.4
@@ -637,8 +601,6 @@
   },
   {
     "id": "PD6",
-    "port": "D",
-    "number": 6,
     "position": {
       "x": 99.2,
       "y": 70.2
@@ -679,8 +641,6 @@
   },
   {
     "id": "PD7",
-    "port": "D",
-    "number": 7,
     "position": {
       "x": 99.2,
       "y": 67
