@@ -681,7 +681,8 @@ export function generateInitCode(
       switch (functionType) {
         case "GPIO":
           initCode.push(...generateGPIO(pinName, settings));
-          if (settings.enablePCINT) {
+          // Поддержка обоих форматов: нового (enablePCINTInterrupt) и старого (enablePCINT)
+          if (settings.enablePCINTInterrupt || settings.enablePCINT) {
             // Собираем информацию о PCINT пинах для последующей группировки
             // Сохраняем режим GPIO, чтобы не дублировать настройку пина
             pcintPins.push({ pinName, settings, gpioMode: settings.mode });

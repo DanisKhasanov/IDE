@@ -1,4 +1,4 @@
-import type { PinConfig } from "@/types/boardConfig";
+import type { PinConfig, ConflictRule } from "@/types/boardConfig";
 import atmega328Config from "@config/test/atmega328.json";
 
 // Типы для исходной JSON структуры
@@ -36,12 +36,15 @@ export type PeripheryConfig = {
       showWhen?: "always" | string;
     }>;
     config?: Record<string, FieldConfig>;
-    interrupts?: Record<string, { 
-      name: string; 
-      description: string; 
-      defaultEnabled?: boolean;
-      appliesTo?: Record<string, any> 
-    }>;
+    interrupts?: Record<
+      string,
+      {
+        name: string;
+        description: string;
+        defaultEnabled?: boolean;
+        appliesTo?: Record<string, any>;
+      }
+    >;
     conflicts?: Array<{
       pins: string[];
       peripherals: string[];
@@ -59,11 +62,16 @@ export const getBoardInfo = () => {
   const meta = config.meta || {};
   // Используем путь по умолчанию для изображения
   const imagePath = config.image || "/src/config/atmega328p/image.png";
-  
+
+  // Получаем список доступных частот или используем только defaultFcpu
+  const fcpuOptions = meta.fcpuOptions;
+  const defaultFcpu = meta.defaultFcpu;
+
   return {
-    id: meta.board || "arduino_uno",
-    name: meta.board || "Arduino Uno",
-    frequency: (meta.defaultFcpu || 16000000).toString(),
+    id: meta.board,
+    name: meta.board,
+    frequency: defaultFcpu.toString(),
+    fcpuOptions: fcpuOptions.map((f: number) => f.toString()),
     image: imagePath,
   };
 };
@@ -81,7 +89,7 @@ export const getPeriphery = (name: string): PeripheryConfig | undefined => {
   // В новом формате периферии находятся в корне JSON
   const config = atmega328Config as any;
   const periphery = config[name];
-  if (periphery && typeof periphery === 'object' && 'id' in periphery) {
+  if (periphery && typeof periphery === "object" && "id" in periphery) {
     return periphery as PeripheryConfig;
   }
   return undefined;
@@ -92,7 +100,9 @@ export const getPeripheryConfigValue = (
   configKey: string
 ): any[] => {
   const periphery = getPeriphery(peripheryName);
-  const fieldConfig = periphery?.ui?.config?.[configKey] as FieldConfig | undefined;
+  const fieldConfig = periphery?.ui?.config?.[configKey] as
+    | FieldConfig
+    | undefined;
   return fieldConfig?.values || [];
 };
 
@@ -104,7 +114,9 @@ export const getPeripheryFieldUIConfig = (
   configKey: string
 ): FieldUIConfig | undefined => {
   const periphery = getPeriphery(peripheryName);
-  const fieldConfig = periphery?.ui?.config?.[configKey] as FieldConfig | undefined;
+  const fieldConfig = periphery?.ui?.config?.[configKey] as
+    | FieldConfig
+    | undefined;
   return fieldConfig?.ui;
 };
 
@@ -143,7 +155,9 @@ export const getPeripheryConfigName = (
   configKey: string
 ): string => {
   const periphery = getPeriphery(peripheryName);
-  const fieldConfig = periphery?.ui?.config?.[configKey] as FieldConfig | undefined;
+  const fieldConfig = periphery?.ui?.config?.[configKey] as
+    | FieldConfig
+    | undefined;
   return fieldConfig?.name || configKey;
 };
 
@@ -172,11 +186,11 @@ export const shouldShowConfigField = (
   if (!appliesTo) {
     return true; // Если нет условий, поле всегда видимо
   }
-  
+
   // Проверяем все условия в appliesTo
   for (const [conditionKey, conditionValue] of Object.entries(appliesTo)) {
     const currentValue = currentSettings[conditionKey];
-    
+
     // Поддержка массивов значений (например, mode: ["FastPWM", "PhaseCorrectPWM"])
     if (Array.isArray(conditionValue)) {
       if (!conditionValue.includes(currentValue)) {
@@ -186,7 +200,7 @@ export const shouldShowConfigField = (
       return false; // Условие не выполнено
     }
   }
-  
+
   return true; // Все условия выполнены
 };
 
@@ -203,34 +217,38 @@ export const getDependentFieldsToClean = (
   const periphery = getPeriphery(peripheryName);
   const config = periphery?.ui?.config;
   if (!config) return [];
-  
+
   const fieldsToClean: string[] = [];
-  
+
   // Проходим по всем полям конфигурации
   Object.entries(config).forEach(([configKey, configValue]) => {
     const appliesTo = (configValue as any)?.appliesTo;
     if (!appliesTo) return;
-    
+
     // Проверяем, зависит ли это поле от изменяемого поля
     const dependsOnChangedField = appliesTo[changedConfigKey] !== undefined;
-    
+
     if (!dependsOnChangedField) return;
-    
+
     // Создаем новую настройку с измененным значением для проверки
     const newSettings = {
       ...currentSettings,
       [changedConfigKey]: newValue,
     };
-    
+
     // Проверяем, выполняется ли условие appliesTo с новым значением
-    const shouldStillShow = shouldShowConfigField(peripheryName, configKey, newSettings);
-    
+    const shouldStillShow = shouldShowConfigField(
+      peripheryName,
+      configKey,
+      newSettings
+    );
+
     // Если условие не выполняется, поле нужно очистить
     if (!shouldStillShow) {
       fieldsToClean.push(configKey);
     }
   });
-  
+
   return fieldsToClean;
 };
 
@@ -241,19 +259,22 @@ export const getPeripheryDefaultSettings = (
   const periphery = getPeriphery(peripheryName);
   const config = periphery?.ui?.config;
   if (!config) return {};
-  
+
   return Object.fromEntries(
     Object.entries(config)
       .filter(([configKey, value]) => {
-        if (!value || typeof value !== 'object' || !('defaultValue' in value)) {
+        if (!value || typeof value !== "object" || !("defaultValue" in value)) {
           return false;
         }
-        
+
         // Проверяем условные настройки (appliesTo)
-        if (currentSettings && !shouldShowConfigField(peripheryName, configKey, currentSettings)) {
+        if (
+          currentSettings &&
+          !shouldShowConfigField(peripheryName, configKey, currentSettings)
+        ) {
           return false; // Настройка не применяется к текущему режиму
         }
-        
+
         return true;
       })
       .map(([key, value]) => [key, (value as any).defaultValue])
@@ -262,7 +283,12 @@ export const getPeripheryDefaultSettings = (
 
 export const getPeripheryInterrupts = (
   peripheryName: string
-): Record<string, { name: string; description: string; defaultEnabled?: boolean }> | undefined => {
+):
+  | Record<
+      string,
+      { name: string; description: string; defaultEnabled?: boolean }
+    >
+  | undefined => {
   const periphery = getPeriphery(peripheryName);
   return periphery?.ui?.interrupts;
 };
@@ -280,29 +306,29 @@ export const getPeripheryPinMapping = (
  * @returns Массив объектов конфликтов с полной информацией о условиях активации
  * @note В новом формате конфликты находятся внутри каждой периферии в поле ui.conflicts
  */
-export const getConflicts = () => {
-  const conflicts: any[] = [];
-  const config = atmega328Config as any;
-  
+export const getConflicts = (): ConflictRule[] => {
+  const conflicts: ConflictRule[] = [];
+  const config = atmega328Config as Record<string, any>;
+
   // Проходим по всем перифериям и собираем конфликты
   Object.keys(config).forEach((key) => {
-    if (key === 'meta' || key === 'UI_PIN') return;
-    
-    const periphery = config[key];
+    if (key === "meta" || key === "UI_PIN") return;
+
+    const periphery = config[key] as PeripheryConfig | undefined;
     if (periphery?.ui?.conflicts) {
-      periphery.ui.conflicts.forEach((conflict: any) => {
+      periphery.ui.conflicts.forEach((conflict) => {
         conflicts.push({
-          description: conflict.message || '',
+          description: conflict.message || "",
           periphery: key,
-          mode: null, // В новом формате режим не указан в конфликтах
           enabled: true,
           pins: conflict.pins || [],
-          conflictType: 'reservePins',
+          peripherals: conflict.peripherals || [], // Список периферий, с которыми конфликтует
+          conflictType: "reservePins",
         });
       });
     }
   });
-  
+
   return conflicts;
 };
 
@@ -310,9 +336,9 @@ export const getConflicts = () => {
 export const getPinPeripheries = (): string[] => {
   const config = atmega328Config as any;
   return Object.keys(config).filter((key) => {
-    if (key === 'meta' || key === 'UI_PIN') return false;
+    if (key === "meta" || key === "UI_PIN") return false;
     const periphery = config[key];
-    return periphery?.kind === 'pin';
+    return periphery?.kind === "pin";
   });
 };
 
@@ -320,12 +346,11 @@ export const getPinPeripheries = (): string[] => {
 export const getSystemPeripheries = (): string[] => {
   const config = atmega328Config as any;
   return Object.keys(config).filter((key) => {
-    if (key === 'meta' || key === 'UI_PIN') return false;
+    if (key === "meta" || key === "UI_PIN") return false;
     const periphery = config[key];
-    return periphery?.kind === 'global';
+    return periphery?.kind === "global";
   });
 };
 
 // Прямой доступ к конфигу
 export const getAtmega328Config = () => atmega328Config;
-

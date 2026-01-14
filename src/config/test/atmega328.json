@@ -1,8 +1,9 @@
 {
   "meta": {
     "mcu": "ATmega328P",
-    "board": "arduino_uno",
-    "defaultFcpu": 16000000
+    "board": "Arduino Uno",
+    "defaultFcpu": 16000000,
+    "fcpuOptions": [1000000, 8000000, 16000000, 20000000]
   },
 
   "UI_PIN": [
@@ -735,40 +736,15 @@
         }
       },
       "interrupts": {
-        "name": "PCINT",
-        "description": "Прерывание при изменении состояния пина",
-        "defaultEnabled": false,
-        "appliesTo": {
-          "mode": ["INPUT", "INPUT_PULLUP"]
+        "PCINT": {
+          "name": "PCINT_vect",
+          "description": "Прерывание при изменении состояния пина",
+          "defaultEnabled": false,
+          "appliesTo": {
+            "mode": ["INPUT", "INPUT_PULLUP"]
+          }
         }
-      },
-      "conflicts": [
-        {
-          "pins": ["PB3", "PB4", "PB5"],
-          "peripherals": ["SPI"],
-          "message": "PB3/PB4/PB5 используются для SPI — настройка как GPIO вызовет конфликт."
-        },
-        {
-          "pins": ["PD0", "PD1"],
-          "peripherals": ["UART0"],
-          "message": "PD0/PD1 используются UART0 — настройка как GPIO вызовет конфликт."
-        },
-        {
-          "pins": ["PC4", "PC5"],
-          "peripherals": ["I2C"],
-          "message": "PC4/PC5 используются I2C — настройка как GPIO вызовет конфликт."
-        },
-        {
-          "pins": ["PD2", "PD3"],
-          "peripherals": ["EXTERNAL_INTERRUPT"],
-          "message": "PD2/PD3 используются внешними прерываниями — настройка как GPIO вызовет конфликт."
-        },
-        {
-          "pins": ["PD6", "PD7"],
-          "peripherals": ["ANALOG_COMPARATOR"],
-          "message": "PD6/PD7 используются компаратором — настройка как GPIO вызовет конфликт."
-        }
-      ]
+      }
     },
     "codeGenerator": {
       "globalIncludes": ["<avr/io.h>", "<avr/interrupt.h>"],
@@ -858,7 +834,7 @@
       "alerts": [
         {
           "severity": "info",
-          "message": "Настройки UART применяются к обоим пинам (RX и TX), так как они используют один модуль UART0.",
+          "message": "Настройки UART применяются к обоим пинам (RX и TX), так как они используют один модуль UART.",
           "showWhen": "always"
         }
       ],
@@ -918,7 +894,7 @@
         "RX": {
           "name": "USART_RX",
           "description": "Прерывание при приёме данных",
-          "defaultEnabled": true
+          "defaultEnabled": false
         },
         "TX": {
           "name": "USART_TX",
@@ -930,7 +906,7 @@
         {
           "pins": ["PD0", "PD1"],
           "peripherals": ["GPIO"],
-          "message": "PD0/PD1 уже назначены как GPIO — конфликт с UART0."
+          "message": "PD0/PD1 уже назначены как GPIO — конфликт с UART."
         }
       ]
     },
@@ -1255,8 +1231,8 @@
       "conflicts": [
         {
           "pins": ["PD5", "PD6"],
-          "peripherals": ["GPIO", "ANALOG_COMPARATOR"],
-          "message": "PD5/PD6 используются PWM или компаратором — конфликт с GPIO/Comparator."
+          "peripherals": ["GPIO"],
+          "message": "PD5/PD6 используются PWM — конфликт с GPIO."
         }
       ]
     },
@@ -1357,8 +1333,13 @@
       "conflicts": [
         {
           "pins": ["PB1", "PB2"],
-          "peripherals": ["GPIO", "SPI"],
-          "message": "PB1/PB2 используются PWM или SPI — конфликт."
+          "peripherals": ["GPIO"],
+          "message": "PB1/PB2 используются PWM — конфликт с GPIO."
+        },
+        {
+          "pins": ["PB2"],
+          "peripherals": ["SPI"],
+          "message": "PB2 используется для OC1B (Timer1 PWM) — конфликт со SPI SS."
         }
       ]
     },
@@ -1573,9 +1554,14 @@
       },
       "conflicts": [
         {
-          "pins": ["PC0", "PC1", "PC2", "PC3", "PC4", "PC5"],
+          "pins": ["PC0", "PC1", "PC2", "PC3"],
+          "peripherals": ["GPIO"],
+          "message": "ADC каналы PC0-PC3 конфликтуют с GPIO."
+        },
+        {
+          "pins": ["PC4", "PC5"],
           "peripherals": ["GPIO", "I2C"],
-          "message": "ADC каналы конфликтуют с GPIO/I2C."
+          "message": "ADC каналы PC4/PC5 конфликтуют с GPIO/I2C."
         }
       ]
     },

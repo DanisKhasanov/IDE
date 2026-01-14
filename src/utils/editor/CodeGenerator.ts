@@ -463,7 +463,8 @@ ${functionCalls.join("\n")}
     const hasInterrupts = selectedPins.some(
       (p) => {
         // Проверяем PCINT из настроек GPIO
-        if (p.functionType === "GPIO" && p.settings?.enablePCINT) {
+        // Поддержка обоих форматов: нового (enablePCINTInterrupt) и старого (enablePCINT)
+        if (p.functionType === "GPIO" && (p.settings?.enablePCINTInterrupt || p.settings?.enablePCINT)) {
           return true;
         }
         if (
@@ -554,7 +555,8 @@ ${functionCalls.join("\n")}
     
     selectedPins.forEach((pinFunc) => {
       // Проверяем, является ли это GPIO с включенным PCINT
-      if (pinFunc.functionType === "GPIO" && pinFunc.settings?.enablePCINT) {
+      // Поддержка обоих форматов: нового (enablePCINTInterrupt) и старого (enablePCINT)
+      if (pinFunc.functionType === "GPIO" && (pinFunc.settings?.enablePCINTInterrupt || pinFunc.settings?.enablePCINT)) {
         const pin = this.findPinByName(pinFunc.pinName);
         if (!pin) return;
         

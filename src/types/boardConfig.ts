@@ -68,11 +68,14 @@ export interface PeripheralConfig {
   requiresAllPins?: boolean; // Указывает, что периферия требует объединения всех пинов
 }
 
+// Новый формат конфликта из ui.conflicts
 export interface ConflictRule {
-  description: string;
-  when: string;
-  conflictsWith: string[];
-  pins: string[];
+  description: string; // Сообщение об ошибке
+  periphery: string; // Название периферии, которая объявляет конфликт
+  enabled: boolean; // Всегда true в новом формате
+  pins: string[]; // Массив ID пинов, которые резервируются
+  peripherals: string[]; // Список периферий, с которыми конфликтует
+  conflictType: "reservePins"; // Тип конфликта
 }
 
 export interface BoardConfig {

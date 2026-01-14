@@ -17,7 +17,7 @@ interface BoardSelectionTabProps {
   selectedBoard: string | null;
   boardConfigs: Record<
     string,
-    { name: string; frequency: string; config: BoardConfig }
+    { name: string; fcpuOptions?: string[]; defaultFcpu: string; config: BoardConfig }
   >;
   currentBoardConfig: BoardConfig | undefined;
   projectName: string;
@@ -29,6 +29,17 @@ interface BoardSelectionTabProps {
   onFrequencyChange: (frequency: string) => void;
   onSelectFolder: () => void;
 }
+
+// Форматирование частоты для отображения
+const formatFrequency = (freq: string): string => {
+  const num = parseInt(freq, 10);
+  if (num >= 1000000) {
+    return `${num / 1000000} МГц`;
+  } else if (num >= 1000) {
+    return `${num / 1000} кГц`;
+  }
+  return freq;
+};
 
 export const BoardSelectionTab = ({
   selectedBoard,
@@ -89,7 +100,7 @@ export const BoardSelectionTab = ({
           ))}
         </Select>
       </FormControl>
-      <FormControl fullWidth>
+      <FormControl fullWidth disabled={!selectedBoard}>
         <InputLabel id="frequency-select-label">Частота CPU</InputLabel>
         <Select
           labelId="frequency-select-label"
@@ -97,11 +108,11 @@ export const BoardSelectionTab = ({
           label="Частота CPU"
           onChange={(e) => onFrequencyChange(e.target.value)}
         >
-          {currentBoardConfig && (
-            <MenuItem key={currentBoardConfig.frequency} value={currentBoardConfig.frequency}>
-              {currentBoardConfig.frequency} Hz
+          {selectedBoard && boardConfigs[selectedBoard]?.fcpuOptions?.map((freq) => (
+            <MenuItem key={freq} value={freq}>
+              {formatFrequency(freq)} Hz
             </MenuItem>
-          )}
+          ))}
         </Select>
       </FormControl>
 

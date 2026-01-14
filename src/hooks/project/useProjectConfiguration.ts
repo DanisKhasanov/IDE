@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import type { SelectedPinFunction, BoardConfig, PinConfig } from "@/types/boardConfig";
-import { getPins, getPeriphery } from "@/utils/config/boardConfigHelpers";
+import { getPins, getPeriphery, getPeripheryPinMapping } from "@/utils/config/boardConfigHelpers";
 
 /**
  * Настройки пина для периферии с пинами
@@ -80,6 +80,18 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
     (functionType: string): string[] => {
       if (!boardConfig) return [];
 
+      // Сначала проверяем pinMapping из конфигурации периферии
+      const pinMapping = getPeripheryPinMapping(functionType);
+      if (pinMapping) {
+        // Собираем все пины из pinMapping
+        const pins: string[] = [];
+        Object.values(pinMapping).forEach((pinNames) => {
+          pins.push(...pinNames);
+        });
+        return pins;
+      }
+
+      // Если pinMapping нет, ищем пины через signals (старый способ)
       return boardConfig.pins
         .filter((pin) => {
           const signals = pin.signals || [];
@@ -428,8 +440,9 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
       }
 
       // Проверяем, требует ли периферия объединения всех пинов
-      const peripheralConfig = boardConfig?.peripherals[functionType];
-      const requiresAllPins = peripheralConfig?.requiresAllPins === true;
+      // В новом формате конфигурации периферии получаем через getPeriphery
+      const peripheralConfig = getPeriphery(functionType);
+      const requiresAllPins = peripheralConfig?.ui?.requiresAllPins === true;
 
       if (requiresAllPins) {
         // Для периферий с requiresAllPins автоматически добавляем все пины с одинаковыми настройками
@@ -484,8 +497,9 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
     (pinName: string, functionType?: string) => {
       // Если указан тип функции, проверяем, требует ли периферия объединения всех пинов
       if (functionType) {
-        const peripheralConfig = boardConfig?.peripherals[functionType];
-        const requiresAllPins = peripheralConfig?.requiresAllPins === true;
+        // В новом формате конфигурации периферии получаем через getPeriphery
+        const peripheralConfig = getPeriphery(functionType);
+        const requiresAllPins = peripheralConfig?.ui?.requiresAllPins === true;
 
         if (requiresAllPins) {
           // Для периферий с requiresAllPins удаляем все пины одновременно

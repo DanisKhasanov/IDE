@@ -95,11 +95,22 @@ export const PeripheryRenderer = ({
 
               // Проверяем, нужно ли показывать прерывание
               if (interruptAppliesTo) {
-                const shouldShow = shouldShowConfigField(
-                  peripheryName,
-                  `interrupt_${key}`,
-                  settings
-                );
+                // Проверяем условия appliesTo напрямую для прерываний
+                let shouldShow = true;
+                for (const [conditionKey, conditionValue] of Object.entries(interruptAppliesTo)) {
+                  const currentValue = settings[conditionKey];
+                  
+                  // Поддержка массивов значений
+                  if (Array.isArray(conditionValue)) {
+                    if (!conditionValue.includes(currentValue)) {
+                      shouldShow = false;
+                      break;
+                    }
+                  } else if (currentValue !== conditionValue) {
+                    shouldShow = false;
+                    break;
+                  }
+                }
                 if (!shouldShow) return null;
               }
 
@@ -141,11 +152,22 @@ export const PeripheryRenderer = ({
 
               // Проверяем, нужно ли показывать прерывание
               if (interruptAppliesTo) {
-                const shouldShow = shouldShowConfigField(
-                  peripheryName,
-                  `interrupt_${key}`,
-                  settings
-                );
+                // Проверяем условия appliesTo напрямую для прерываний
+                let shouldShow = true;
+                for (const [conditionKey, conditionValue] of Object.entries(interruptAppliesTo)) {
+                  const currentValue = settings[conditionKey];
+                  
+                  // Поддержка массивов значений
+                  if (Array.isArray(conditionValue)) {
+                    if (!conditionValue.includes(currentValue)) {
+                      shouldShow = false;
+                      break;
+                    }
+                  } else if (currentValue !== conditionValue) {
+                    shouldShow = false;
+                    break;
+                  }
+                }
                 if (!shouldShow) return null;
               }
 

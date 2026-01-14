@@ -11,7 +11,7 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import OpenInFullIcon from "@mui/icons-material/OpenInFull";
 import type { SensorData } from "@/utils/serial/SerialDataReader";
-import { loadGuiPanelSettings } from "@/utils/config/GuiPanelSettings";
+import { loadGuiPanelSettings } from "@/utils/ui/GuiPanelSettings";
 
 interface GuiPanelProps {
   onClose?: () => void;

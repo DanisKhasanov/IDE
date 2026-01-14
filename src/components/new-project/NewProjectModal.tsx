@@ -13,11 +13,7 @@ import {
   Tab,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import type {
-  BoardConfig,
-  SelectedPinFunction,
-  PinConfig,
-} from "@/types/boardConfig";
+import type { SelectedPinFunction, PinConfig, ConflictRule } from "@/types/boardConfig";
 import { BoardSelectionTab } from "./BoardSelectionTab";
 import { PeripheralsTab } from "./PeripheralsTab";
 import { SystemPeripheralsTab } from "./SystemPeripheralsTab";
@@ -36,11 +32,12 @@ import { useProjectConfiguration } from "@/hooks/project/useProjectConfiguration
 const BOARD_INFO = getBoardInfo();
 const BOARD_CONFIGS: Record<
   string,
-  { name: string; frequency: string; config: any }
+  { name: string; fcpuOptions?: string[]; defaultFcpu: string; config: any }
 > = {
   uno: {
     name: BOARD_INFO.name,
-    frequency: BOARD_INFO.frequency,
+    fcpuOptions: BOARD_INFO.fcpuOptions,
+    defaultFcpu: BOARD_INFO.frequency, // defaultFcpu из конфига
     config: {
       id: BOARD_INFO.id,
       name: BOARD_INFO.name,
@@ -59,18 +56,18 @@ type NewProjectModalProps = {
   onProjectCreate: (projectPath: string) => void;
 };
 
-const NewProjectModal: React.FC<NewProjectModalProps> = ({
+const NewProjectModal = ({
   open,
   onClose,
   onProjectCreate,
-}) => {
+}: NewProjectModalProps) => {
   const [projectName, setProjectName] = useState("");
   const [parentPath, setParentPath] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [selectedFrequency, setSelectedFrequency] = useState<string>("");
   const [conflicts, setConflicts] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<0 | 1 | 2>(0); 
+  const [activeTab, setActiveTab] = useState<0 | 1 | 2>(0);
   const { showError, showWarning } = useSnackbar();
 
   const currentBoardConfig = BOARD_CONFIGS[selectedBoard]?.config;
@@ -153,7 +150,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     // Получаем все активные функции из новой структуры
     const activeFunctions: SelectedPinFunction[] = [];
     Object.entries(peripherals).forEach(([peripheralName, peripheral]) => {
-      if ('pins' in peripheral && peripheral.pins) {
+      if ("pins" in peripheral && peripheral.pins) {
         // Периферии с пинами
         Object.entries(peripheral.pins).forEach(([pinName, settings]) => {
           activeFunctions.push({
@@ -168,26 +165,31 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     // Проверяем каждый конфликт из конфигурации
     const conflicts = getConflicts();
     const pins = getPins();
-    
-    conflicts.forEach((conflict: any) => {
-      // Проверяем, активна ли периферия, которая вызывает конфликт
-      const isConflictTriggerActive = activeFunctions.some((func) => {
+
+    conflicts.forEach((conflict: ConflictRule) => {
+      // Проверяем, активна ли периферия, которая вызывает конфликт И использует пины из конфликта
+      const conflictPeripheryFunctions = activeFunctions.filter((func) => {
         // Проверяем тип периферии
         if (func.functionType !== conflict.periphery) return false;
-        
-        // Если в конфликте указан режим, проверяем точное совпадение
-        if (conflict.mode !== null) {
-          return func.settings?.mode === conflict.mode;
-        }
-        
-        // Если режим не указан, просто проверяем наличие периферии
         return true;
       });
 
-      if (!isConflictTriggerActive) return;
+      // Проверяем, действительно ли периферия использует пины из конфликта
+      const conflictPinsInUse = conflict.pins.filter((reservedPinId: string) => {
+        return conflictPeripheryFunctions.some((func) => {
+          const pin = pins.find(
+            (p: PinConfig) => (p.id || p.pin) === func.pinName
+          );
+          const pinId = pin ? pin.id || pin.pin : "";
+          return pinId === reservedPinId;
+        });
+      });
 
-      // Если конфликт активен, проверяем, есть ли другие функции на зарезервированных пинах
-      conflict.pins.forEach((reservedPinId: string) => {
+      // Если периферия не использует пины из конфликта, пропускаем проверку
+      if (conflictPinsInUse.length === 0) return;
+
+      // Если конфликт активен, проверяем, есть ли конфликтующие периферии на зарезервированных пинах
+      conflictPinsInUse.forEach((reservedPinId: string) => {
         // Находим функции на этом пине
         const functionsOnPin = activeFunctions.filter((func) => {
           const pin = pins.find(
@@ -197,13 +199,20 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
           return pinId === reservedPinId;
         });
 
-        // Проверяем, есть ли на этом пине функции, отличные от той, которая резервирует пин
-        const conflictingFunctions = functionsOnPin.filter(
-          (func) => func.functionType !== conflict.periphery
-        );
+        // Проверяем, есть ли на этом пине функции из списка конфликтующих периферий
+        const conflictingFunctions = functionsOnPin.filter((func) => {
+          // Если указан список периферий, проверяем только их
+          if (conflict.peripherals && conflict.peripherals.length > 0) {
+            return conflict.peripherals.includes(func.functionType);
+          }
+          // Если список не указан, проверяем любую другую функцию
+          return func.functionType !== conflict.periphery;
+        });
 
         if (conflictingFunctions.length > 0) {
-          detectedConflicts.push(`${conflict.description}: пин ${reservedPinId}`);
+          detectedConflicts.push(
+            `${conflict.description}: пин ${reservedPinId}`
+          );
         }
       });
     });
@@ -261,9 +270,14 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
 
       // Подготавливаем конфигурацию для передачи
       // Новая структура уже в нужном формате
+      // Добавляем суффикс "L" к частоте, если его нет (формат для компилятора)
+      const fCpuValue = selectedFrequency.endsWith("L") 
+        ? selectedFrequency 
+        : `${selectedFrequency}L`;
+      
       const pinConfig = {
         boardId: selectedBoard,
-        fCpu: selectedFrequency,
+        fCpu: fCpuValue,
         peripherals: peripherals,
       };
 
@@ -308,7 +322,7 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
     // При клике на пин определяем периферию, которую он использует
     // Ищем первую периферию с этим пином
     for (const [peripheralName, peripheral] of Object.entries(peripherals)) {
-      if ('pins' in peripheral && peripheral.pins?.[pinName]) {
+      if ("pins" in peripheral && peripheral.pins?.[pinName]) {
         selectPinAndPeripheral(pinName, peripheralName);
         return;
       }
@@ -324,7 +338,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
   ) => {
     // Проверяем, существует ли уже функция для этого пина
     const peripheral = peripherals[functionType];
-    const functionExists = peripheral && 'pins' in peripheral && peripheral.pins?.[pinName];
+    const functionExists =
+      peripheral && "pins" in peripheral && peripheral.pins?.[pinName];
 
     if (functionExists) {
       // Если функция уже существует, обновляем её настройки
@@ -450,7 +465,8 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
                     if (boardId) {
                       const boardConfig = BOARD_CONFIGS[boardId];
                       if (boardConfig) {
-                        setSelectedFrequency(boardConfig.frequency);
+                        // Используем defaultFcpu из конфига как значение по умолчанию
+                        setSelectedFrequency(boardConfig.defaultFcpu);
                       }
                     } else {
                       setSelectedFrequency("");
@@ -473,7 +489,10 @@ const NewProjectModal: React.FC<NewProjectModalProps> = ({
                   onPinFunctionAdd={(pinName, functionType, settings) => {
                     // Проверяем, существует ли уже функция для этого пина
                     const peripheral = peripherals[functionType];
-                    const functionExists = peripheral && 'pins' in peripheral && peripheral.pins?.[pinName];
+                    const functionExists =
+                      peripheral &&
+                      "pins" in peripheral &&
+                      peripheral.pins?.[pinName];
 
                     if (functionExists) {
                       // Если функция уже существует, обновляем её настройки

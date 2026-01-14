@@ -13,7 +13,7 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import type { SensorData } from "@/utils/serial/SerialDataReader";
-import { loadGuiPanelSettings, saveGuiPanelSettings } from "@/utils/config/GuiPanelSettings";
+import { loadGuiPanelSettings, saveGuiPanelSettings } from "@/utils/ui/GuiPanelSettings";
 
 interface GuiSettingsPageProps {
   onClose: () => void;
