@@ -16,6 +16,7 @@ import {
 } from "@hooks/index";
 import { useAdditionalPanel } from "@/hooks/ui/useAdditionalPanel";
 import { SnackbarProvider } from "@/contexts/SnackbarContext";
+import { setBoardUiConfig } from "@/utils/config/boardConfigHelpers";
 
 import type { CompilationProblem } from "@/components/terminal/ProblemsTab";
 import { parseCompilationErrors } from "@utils/arduino/CompilationErrorParser";
@@ -66,6 +67,24 @@ const App = () => {
       setTerminalActiveTab("terminal");
     }
   }, [currentProjectPath]);
+
+  // Загружаем UI-конфиг платы один раз при старте приложения.
+  // В dev он берётся из репозитория, в prod — из папки пользователя (с дефолтным фолбэком).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await window.electronAPI.getBoardUiConfig("uno");
+        if (cancelled) return;
+        setBoardUiConfig(result.config);
+      } catch (e) {
+        console.error("Не удалось загрузить UI-конфиг платы (uno):", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Отслеживание только что созданного проекта для открытия main.cpp
   const newlyCreatedProjectRef = useRef<string | null>(null);

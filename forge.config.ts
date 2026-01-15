@@ -86,6 +86,28 @@ const config: ForgeConfig = {
           });
         }
       }
+
+      // Копируем UI-конфиги плат (используются в интерфейсе для пинов/периферии).
+      // В dev они берутся из src/config/test/*.json, а в prod (packaged) будут доступны
+      // как встроенный дефолт по пути .vite/build/config/board-ui/*.json
+      const uiBoardsSrc = resolve(process.cwd(), 'src/config/test');
+      const uiBoardsDest = resolve(configDest, 'board-ui');
+
+      if (existsSync(uiBoardsSrc)) {
+        if (!existsSync(uiBoardsDest)) {
+          mkdirSync(uiBoardsDest, { recursive: true });
+        }
+
+        const uiFiles = readdirSync(uiBoardsSrc);
+        uiFiles.forEach((file: string) => {
+          if (file.endsWith('.json')) {
+            copyFileSync(
+              resolve(uiBoardsSrc, file),
+              resolve(uiBoardsDest, file)
+            );
+          }
+        });
+      }
     },
   },
   rebuildConfig: {

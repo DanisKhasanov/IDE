@@ -25,30 +25,9 @@ import {
   getConflicts,
   getPinPeripheries,
   getSystemPeripheries,
+  setBoardUiConfig,
 } from "@/utils/config/boardConfigHelpers";
 import { useProjectConfiguration } from "@/hooks/project/useProjectConfiguration";
-
-// Маппинг плат к конфигурациям микроконтроллеров
-const BOARD_INFO = getBoardInfo();
-const BOARD_CONFIGS: Record<
-  string,
-  { name: string; fcpuOptions?: string[]; defaultFcpu: string; config: any }
-> = {
-  uno: {
-    name: BOARD_INFO.name,
-    fcpuOptions: BOARD_INFO.fcpuOptions,
-    defaultFcpu: BOARD_INFO.frequency, // defaultFcpu из конфига
-    config: {
-      id: BOARD_INFO.id,
-      name: BOARD_INFO.name,
-      frequency: BOARD_INFO.frequency,
-      image: BOARD_INFO.image,
-      pins: getPins(),
-      peripherals: {}, // Периферии теперь получаются динамически через getPinPeripheries/getSystemPeripheries
-      conflicts: getConflicts(),
-    },
-  },
-};
 
 type NewProjectModalProps = {
   open: boolean;
@@ -70,7 +49,60 @@ const NewProjectModal = ({
   const [activeTab, setActiveTab] = useState<0 | 1 | 2>(0);
   const { showError, showWarning } = useSnackbar();
 
-  const currentBoardConfig = BOARD_CONFIGS[selectedBoard]?.config;
+  const [boardConfigs, setBoardConfigs] = useState<
+    Record<string, { name: string; fcpuOptions?: string[]; defaultFcpu: string; config: any }>
+  >({});
+  const [uiConfigLoadInfo, setUiConfigLoadInfo] = useState<{
+    source: "external" | "bundled";
+    externalDir: string;
+    externalPath: string;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const result = await window.electronAPI.getBoardUiConfig("uno");
+        if (cancelled) return;
+
+        setBoardUiConfig(result.config);
+        setUiConfigLoadInfo({
+          source: result.source,
+          externalDir: result.externalDir,
+          externalPath: result.externalPath,
+        });
+
+        const boardInfo = getBoardInfo(result.config);
+
+        setBoardConfigs({
+          uno: {
+            name: boardInfo.name,
+            fcpuOptions: boardInfo.fcpuOptions,
+            defaultFcpu: boardInfo.frequency,
+            config: {
+              id: boardInfo.id,
+              name: boardInfo.name,
+              frequency: boardInfo.frequency,
+              image: boardInfo.image,
+              pins: getPins(result.config),
+              peripherals: {},
+              conflicts: getConflicts(),
+            },
+          },
+        });
+      } catch (e) {
+        console.error("Не удалось загрузить UI-конфиг платы:", e);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const currentBoardConfig = selectedBoard ? boardConfigs[selectedBoard]?.config : undefined;
 
   // Используем единый hook для управления настройками
   const {
@@ -454,7 +486,7 @@ const NewProjectModal = ({
               {activeTab === 0 ? (
                 <BoardSelectionTab
                   selectedBoard={selectedBoard}
-                  boardConfigs={BOARD_CONFIGS}
+                  boardConfigs={boardConfigs}
                   currentBoardConfig={currentBoardConfig}
                   projectName={projectName}
                   parentPath={parentPath}
@@ -463,7 +495,7 @@ const NewProjectModal = ({
                     setSelectedBoard(boardId);
                     // Обновляем частоту при смене платы
                     if (boardId) {
-                      const boardConfig = BOARD_CONFIGS[boardId];
+                      const boardConfig = boardConfigs[boardId];
                       if (boardConfig) {
                         // Используем defaultFcpu из конфига как значение по умолчанию
                         setSelectedFrequency(boardConfig.defaultFcpu);

@@ -1,5 +1,4 @@
 import type { PinConfig, ConflictRule } from "@/types/boardConfig";
-import atmega328Config from "@config/test/atmega328.json";
 
 // Типы для исходной JSON структуры
 export type FieldUIConfig = {
@@ -56,9 +55,40 @@ export type PeripheryConfig = {
 
 export type PeripheriesJson = Record<string, PeripheryConfig>;
 
+// Текущий UI-конфиг (устанавливается один раз после загрузки через IPC)
+let currentBoardUiConfig: any | null = null;
+let missingConfigWarned = false;
+
+export const setBoardUiConfig = (config: any) => {
+  currentBoardUiConfig = config;
+};
+
+const getConfigOrThrow = (config?: any) => {
+  const resolved = config ?? currentBoardUiConfig;
+  if (!resolved) {
+    if (!missingConfigWarned) {
+      missingConfigWarned = true;
+      console.warn(
+        "UI-конфиг платы не загружен. Использую пустой конфиг до завершения загрузки."
+      );
+    }
+    // Важно: этот дефолт должен быть безопасным для всех хелперов, которые могут
+    // вызываться ещё до завершения async-загрузки конфига (например, при импортах модулей).
+    return {
+      meta: {
+        board: "uno",
+        defaultFcpu: 16000000,
+        fcpuOptions: [8000000, 16000000],
+      },
+      UI_PIN: [],
+    } as any;
+  }
+  return resolved;
+};
+
 // Хелперы для доступа к данным из JSON
-export const getBoardInfo = () => {
-  const config = atmega328Config as any;
+export const getBoardInfo = (configArg?: any) => {
+  const config = getConfigOrThrow(configArg) as any;
   const meta = config.meta || {};
   // Используем путь по умолчанию для изображения
   const imagePath = config.image || "/src/config/atmega328p/image.png";
@@ -67,17 +97,30 @@ export const getBoardInfo = () => {
   const fcpuOptions = meta.fcpuOptions;
   const defaultFcpu = meta.defaultFcpu;
 
+  const resolvedDefaultFcpu =
+    typeof defaultFcpu === "number"
+      ? defaultFcpu
+      : typeof defaultFcpu === "string"
+        ? Number(defaultFcpu)
+        : 16000000;
+
+  const resolvedFcpuOptions = Array.isArray(fcpuOptions)
+    ? fcpuOptions
+    : resolvedDefaultFcpu
+      ? [resolvedDefaultFcpu]
+      : [];
+
   return {
     id: meta.board,
     name: meta.board,
-    frequency: defaultFcpu.toString(),
-    fcpuOptions: fcpuOptions.map((f: number) => f.toString()),
+    frequency: String(resolvedDefaultFcpu),
+    fcpuOptions: resolvedFcpuOptions.map((f: number) => String(f)),
     image: imagePath,
   };
 };
 
-export const getPins = (): PinConfig[] => {
-  const config = atmega328Config as any;
+export const getPins = (configArg?: any): PinConfig[] => {
+  const config = getConfigOrThrow(configArg) as any;
   const uiPins = config.UI_PIN || [];
   return uiPins.map((pinData: any) => ({
     ...pinData,
@@ -85,9 +128,12 @@ export const getPins = (): PinConfig[] => {
   }));
 };
 
-export const getPeriphery = (name: string): PeripheryConfig | undefined => {
+export const getPeriphery = (
+  name: string,
+  configArg?: any
+): PeripheryConfig | undefined => {
   // В новом формате периферии находятся в корне JSON
-  const config = atmega328Config as any;
+  const config = getConfigOrThrow(configArg) as any;
   const periphery = config[name];
   if (periphery && typeof periphery === "object" && "id" in periphery) {
     return periphery as PeripheryConfig;
@@ -97,9 +143,10 @@ export const getPeriphery = (name: string): PeripheryConfig | undefined => {
 
 export const getPeripheryConfigValue = (
   peripheryName: string,
-  configKey: string
+  configKey: string,
+  configArg?: any
 ): any[] => {
-  const periphery = getPeriphery(peripheryName);
+  const periphery = getPeriphery(peripheryName, configArg);
   const fieldConfig = periphery?.ui?.config?.[configKey] as
     | FieldConfig
     | undefined;
@@ -111,9 +158,10 @@ export const getPeripheryConfigValue = (
  */
 export const getPeripheryFieldUIConfig = (
   peripheryName: string,
-  configKey: string
+  configKey: string,
+  configArg?: any
 ): FieldUIConfig | undefined => {
-  const periphery = getPeriphery(peripheryName);
+  const periphery = getPeriphery(peripheryName, configArg);
   const fieldConfig = periphery?.ui?.config?.[configKey] as
     | FieldConfig
     | undefined;
@@ -125,9 +173,10 @@ export const getPeripheryFieldUIConfig = (
  */
 export const getPeripheryFieldConfig = (
   peripheryName: string,
-  configKey: string
+  configKey: string,
+  configArg?: any
 ): FieldConfig | undefined => {
-  const periphery = getPeriphery(peripheryName);
+  const periphery = getPeriphery(peripheryName, configArg);
   return periphery?.ui?.config?.[configKey] as FieldConfig | undefined;
 };
 
@@ -144,17 +193,19 @@ export const getPeripheryMetadata = (
 
 export const getPeripheryConfigDefault = (
   peripheryName: string,
-  configKey: string
+  configKey: string,
+  configArg?: any
 ): any => {
-  const periphery = getPeriphery(peripheryName);
+  const periphery = getPeriphery(peripheryName, configArg);
   return periphery?.ui?.config?.[configKey]?.defaultValue;
 };
 
 export const getPeripheryConfigName = (
   peripheryName: string,
-  configKey: string
+  configKey: string,
+  configArg?: any
 ): string => {
-  const periphery = getPeriphery(peripheryName);
+  const periphery = getPeriphery(peripheryName, configArg);
   const fieldConfig = periphery?.ui?.config?.[configKey] as
     | FieldConfig
     | undefined;
@@ -166,9 +217,10 @@ export const getPeripheryConfigName = (
  */
 export const getPeripheryConfigAppliesTo = (
   peripheryName: string,
-  configKey: string
+  configKey: string,
+  configArg?: any
 ): Record<string, any> | undefined => {
-  const periphery = getPeriphery(peripheryName);
+  const periphery = getPeriphery(peripheryName, configArg);
   const configValue = periphery?.ui?.config?.[configKey];
   return (configValue as any)?.appliesTo;
 };
@@ -180,9 +232,14 @@ export const getPeripheryConfigAppliesTo = (
 export const shouldShowConfigField = (
   peripheryName: string,
   configKey: string,
-  currentSettings: Record<string, any>
+  currentSettings: Record<string, any>,
+  configArg?: any
 ): boolean => {
-  const appliesTo = getPeripheryConfigAppliesTo(peripheryName, configKey);
+  const appliesTo = getPeripheryConfigAppliesTo(
+    peripheryName,
+    configKey,
+    configArg
+  );
   if (!appliesTo) {
     return true; // Если нет условий, поле всегда видимо
   }
@@ -212,9 +269,10 @@ export const getDependentFieldsToClean = (
   peripheryName: string,
   changedConfigKey: string,
   newValue: any,
-  currentSettings: Record<string, any>
+  currentSettings: Record<string, any>,
+  configArg?: any
 ): string[] => {
-  const periphery = getPeriphery(peripheryName);
+  const periphery = getPeriphery(peripheryName, configArg);
   const config = periphery?.ui?.config;
   if (!config) return [];
 
@@ -240,7 +298,8 @@ export const getDependentFieldsToClean = (
     const shouldStillShow = shouldShowConfigField(
       peripheryName,
       configKey,
-      newSettings
+      newSettings,
+      configArg
     );
 
     // Если условие не выполняется, поле нужно очистить
@@ -254,9 +313,10 @@ export const getDependentFieldsToClean = (
 
 export const getPeripheryDefaultSettings = (
   peripheryName: string,
-  currentSettings?: Record<string, any>
+  currentSettings?: Record<string, any>,
+  configArg?: any
 ): Record<string, any> => {
-  const periphery = getPeriphery(peripheryName);
+  const periphery = getPeriphery(peripheryName, configArg);
   const config = periphery?.ui?.config;
   if (!config) return {};
 
@@ -270,7 +330,12 @@ export const getPeripheryDefaultSettings = (
         // Проверяем условные настройки (appliesTo)
         if (
           currentSettings &&
-          !shouldShowConfigField(peripheryName, configKey, currentSettings)
+          !shouldShowConfigField(
+            peripheryName,
+            configKey,
+            currentSettings,
+            configArg
+          )
         ) {
           return false; // Настройка не применяется к текущему режиму
         }
@@ -282,21 +347,23 @@ export const getPeripheryDefaultSettings = (
 };
 
 export const getPeripheryInterrupts = (
-  peripheryName: string
+  peripheryName: string,
+  configArg?: any
 ):
   | Record<
       string,
       { name: string; description: string; defaultEnabled?: boolean }
     >
   | undefined => {
-  const periphery = getPeriphery(peripheryName);
+  const periphery = getPeriphery(peripheryName, configArg);
   return periphery?.ui?.interrupts;
 };
 
 export const getPeripheryPinMapping = (
-  peripheryName: string
+  peripheryName: string,
+  configArg?: any
 ): Record<string, string[]> | undefined => {
-  const periphery = getPeriphery(peripheryName);
+  const periphery = getPeriphery(peripheryName, configArg);
   // В новом формате pinMapping находится в корне периферии
   return periphery?.pinMapping;
 };
@@ -308,7 +375,7 @@ export const getPeripheryPinMapping = (
  */
 export const getConflicts = (): ConflictRule[] => {
   const conflicts: ConflictRule[] = [];
-  const config = atmega328Config as Record<string, any>;
+  const config = getConfigOrThrow() as Record<string, any>;
 
   // Проходим по всем перифериям и собираем конфликты
   Object.keys(config).forEach((key) => {
@@ -334,7 +401,7 @@ export const getConflicts = (): ConflictRule[] => {
 
 // Получаем все периферии с пинами (kind === "pin")
 export const getPinPeripheries = (): string[] => {
-  const config = atmega328Config as any;
+  const config = getConfigOrThrow() as any;
   return Object.keys(config).filter((key) => {
     if (key === "meta" || key === "UI_PIN") return false;
     const periphery = config[key];
@@ -344,7 +411,7 @@ export const getPinPeripheries = (): string[] => {
 
 // Получаем все системные периферии (kind === "global")
 export const getSystemPeripheries = (): string[] => {
-  const config = atmega328Config as any;
+  const config = getConfigOrThrow() as any;
   return Object.keys(config).filter((key) => {
     if (key === "meta" || key === "UI_PIN") return false;
     const periphery = config[key];
@@ -353,4 +420,4 @@ export const getSystemPeripheries = (): string[] => {
 };
 
 // Прямой доступ к конфигу
-export const getAtmega328Config = () => atmega328Config;
+export const getBoardUiConfig = () => getConfigOrThrow();

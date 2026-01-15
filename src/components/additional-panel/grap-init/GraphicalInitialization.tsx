@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Box, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { PinsListPanel } from "@/components/common/PinsListPanel";
@@ -6,16 +6,6 @@ import type {
   SelectedPinFunction,
 } from "@/types/boardConfig";
 import { getBoardInfo, getPins, getConflicts } from "@/utils/config/boardConfigHelpers";
-
-const boardConfig = {
-  id: getBoardInfo().id,
-  name: getBoardInfo().name,
-  frequency: getBoardInfo().frequency,
-  image: getBoardInfo().image,
-  pins: getPins(),
-  peripherals: {}, // Периферии теперь получаются динамически
-  conflicts: getConflicts(),
-};
 
 interface GraphicalInitializationProps {
   currentProjectPath?: string | null;
@@ -26,6 +16,20 @@ const GraphicalInitialization: React.FC<GraphicalInitializationProps> = ({
   currentProjectPath,
   onClose,
 }) => {
+  // Важно: не вычислять boardConfig на уровне модуля — UI-конфиг подгружается async.
+  const boardConfig = useMemo(() => {
+    const info = getBoardInfo();
+    return {
+      id: info.id,
+      name: info.name,
+      frequency: info.frequency,
+      image: info.image,
+      pins: getPins(),
+      peripherals: {}, // Периферии теперь получаются динамически
+      conflicts: getConflicts(),
+    };
+  }, []);
+
   const [boardConfigState] = useState(boardConfig);
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
   const [selectedPinFunctions] = useState<
@@ -91,7 +95,7 @@ const GraphicalInitialization: React.FC<GraphicalInitializationProps> = ({
         }}
       >
         <PinsListPanel
-          boardConfig={boardConfig}
+          boardConfig={boardConfigState}
           selectedPin={selectedPin}
           selectedPinFunctions={selectedPinFunctions}
           onPinClick={handlePinClick}

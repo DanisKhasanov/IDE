@@ -6,6 +6,7 @@ import { registerArduinoHandlers } from "./arduinoHandlers";
 import { registerToolchainHandlers } from "./toolchainHandlers";
 import { registerUIHandlers } from "./uiHandlers";
 import { registerSerialDataHandlers } from "./serialDataHandlers";
+import { registerBoardUiConfigHandlers } from "./boardUiConfigHandlers";
 
 /**
  * Список всех IPC обработчиков для удаления при hot reload
@@ -58,6 +59,8 @@ const ALL_HANDLERS = [
   "serial-data-close",
   "serial-data-write",
   "serial-data-get-open-ports",
+  "board-ui-get-config",
+  "board-ui-get-external-dir",
 ];
 
 /**
@@ -90,5 +93,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow | null = null): vo
   registerToolchainHandlers();
   registerUIHandlers();
   registerSerialDataHandlers(mainWindow);
+  registerBoardUiConfigHandlers();
 }
 

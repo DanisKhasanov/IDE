@@ -6,6 +6,7 @@ import { menuAPI } from './menuAPI';
 import { toolchainAPI } from './toolchainAPI';
 import { uiAPI } from './uiAPI';
 import { serialDataAPI } from './serialDataAPI';
+import { configAPI } from './configAPI';
 
 /**
  * Сборка всех API для экспорта через contextBridge
@@ -91,5 +92,9 @@ export const electronAPI = {
   serialDataOnData: serialDataAPI.onData,
   serialDataOnError: serialDataAPI.onError,
   serialDataOnClose: serialDataAPI.onClose,
+
+  // API для UI-конфигов плат (json)
+  getBoardUiConfig: configAPI.getBoardUiConfig,
+  getBoardUiExternalDir: configAPI.getBoardUiExternalDir,
 };
 

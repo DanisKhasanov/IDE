@@ -109,6 +109,14 @@ declare global {
       arduinoDetectProject: (projectPath: string) => Promise<import('./arduino').ArduinoProjectInfo>;
       arduinoGetBoards: () => Promise<string[]>;
       arduinoGetBoardConfig: (boardName?: string) => Promise<import('./arduino').BoardConfig>;
+      // UI-конфиги плат (json для интерфейса: пины/периферия/конфликты)
+      getBoardUiConfig: (boardName?: string) => Promise<{
+        config: any;
+        source: "external" | "bundled";
+        externalDir: string;
+        externalPath: string;
+      }>;
+      getBoardUiExternalDir: () => Promise<string>;
       // Arduino заливка прошивки и работа с портами
       // Единственный метод для получения списка портов - использует SerialPortWatcher
       arduinoDetectPorts: () => Promise<import('./arduino').SerialPortInfo[]>;
