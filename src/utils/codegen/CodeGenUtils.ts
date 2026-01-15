@@ -1,6 +1,6 @@
 import { app } from "electron";
 import path from "path";
-import { promises as fs } from "fs";
+import { promises as fs, realpathSync } from "fs";
 
 /**
  * Интерфейс для результата генерации кода
@@ -73,10 +73,21 @@ function getPackagedConfigDirNearApp(): string {
   // /<папка где лежит IDE.app>/CONFIG/atmega328.json
   //
   // app.getPath("exe") на macOS: .../IDE.app/Contents/MacOS/IDE
+  // Linux/Windows: конфиг ожидаем рядом с исполняемым файлом (или рядом с AppImage).
+  const appImagePath = process.env.APPIMAGE;
+  if (appImagePath) {
+    return path.join(path.dirname(appImagePath), "CONFIG");
+  }
+
   const exePath = app.getPath("exe");
-  const appBundlePath = path.resolve(exePath, "..", "..", ".."); // -> IDE.app
-  const appContainerDir = path.dirname(appBundlePath); // -> папка, где лежит IDE.app
-  return path.join(appContainerDir, "CONFIG");
+  if (process.platform === "darwin") {
+    const appBundlePath = path.resolve(exePath, "..", "..", ".."); // -> IDE.app
+    const appContainerDir = path.dirname(appBundlePath); // -> папка, где лежит IDE.app
+    return path.join(appContainerDir, "CONFIG");
+  }
+
+  const resolvedExe = realpathSync(exePath);
+  return path.join(path.dirname(resolvedExe), "CONFIG");
 }
 
 function getCodegenConfigPath(): string {

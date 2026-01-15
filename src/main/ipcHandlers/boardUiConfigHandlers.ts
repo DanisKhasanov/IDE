@@ -1,6 +1,6 @@
 import { ipcMain, app } from "electron";
 import path from "path";
-import { promises as fs } from "fs";
+import { promises as fs, realpathSync } from "fs";
 import { pathToFileURL } from "url";
 
 type BoardUiConfigResponse = {
@@ -20,11 +20,25 @@ function getExternalBoardUiDir(): string {
     return path.join(process.cwd(), "CONFIG");
   }
 
-  // app.getPath("exe") на macOS: .../IDE.app/Contents/MacOS/IDE
+  // macOS: app.getPath("exe") -> .../IDE.app/Contents/MacOS/IDE
+  // Linux/Windows: app.getPath("exe") -> путь до исполняемого файла (часто рядом с ним хотим CONFIG)
+  // AppImage: удобно держать CONFIG рядом с файлом AppImage (путь доступен в APPIMAGE)
+  const appImagePath = process.env.APPIMAGE;
+  if (appImagePath) {
+    return path.join(path.dirname(appImagePath), "CONFIG");
+  }
+
   const exePath = app.getPath("exe");
-  const appBundlePath = path.resolve(exePath, "..", "..", ".."); // -> IDE.app
-  const appContainerDir = path.dirname(appBundlePath); // -> папка, где лежит IDE.app
-  return path.join(appContainerDir, "CONFIG");
+  if (process.platform === "darwin") {
+    const appBundlePath = path.resolve(exePath, "..", "..", ".."); // -> IDE.app
+    const appContainerDir = path.dirname(appBundlePath); // -> папка, где лежит IDE.app
+    return path.join(appContainerDir, "CONFIG");
+  }
+
+  // На Linux/Windows не делаем подъём на 3 уровня — это ломает путь и часто приводит к /CONFIG.
+  // realpathSync помогает, если exe — это симлинк (часто бывает в .deb пакетах).
+  const resolvedExe = realpathSync(exePath);
+  return path.join(path.dirname(resolvedExe), "CONFIG");
 }
 
 function mapBoardNameToUiFile(boardName: string): string {
