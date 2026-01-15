@@ -3,6 +3,7 @@ import { promisify } from 'util';
 import { existsSync, accessSync, constants } from 'fs';
 import type { BoardConfig } from '@/types/arduino';
 import type { UploadResult } from '@/types/arduino';
+import { getToolchainEnv } from '@utils/toolchain/ToolchainEnv';
 
 const execAsync = promisify(exec);
 
@@ -85,6 +86,7 @@ async function executeAvrdude(
   return await execAsync(avrdudeCmd, {
     timeout: 120000, // 120 секунд (2 минуты) для надежности при записи больших файлов
     maxBuffer: 1024 * 1024, // 1MB буфер для вывода
+    env: getToolchainEnv(),
   });
 }
 

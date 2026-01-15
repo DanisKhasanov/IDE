@@ -2,6 +2,7 @@ import { platform } from "os";
 import { spawn } from "child_process";
 import { EventEmitter } from "events";
 import type { InstallCommands, InstallResult } from "@/types/toolchain";
+import { getToolchainEnv } from "@utils/toolchain/ToolchainEnv";
 
 /**
  * Получение команд установки toolchain для текущей платформы
@@ -213,7 +214,7 @@ export class ToolchainInstaller extends EventEmitter {
   private async installMacOS(): Promise<InstallResult> {
     return new Promise((resolve) => {
       // Проверяем наличие Homebrew
-      const checkBrew = spawn("which", ["brew"]);
+      const checkBrew = spawn("which", ["brew"], { env: getToolchainEnv() });
       
       checkBrew.on("close", (code) => {
         if (code !== 0) {
@@ -233,7 +234,8 @@ export class ToolchainInstaller extends EventEmitter {
         });
 
         const process = spawn("sh", ["-c", cmd], {
-          stdio: ["ignore", "pipe", "pipe"]
+          stdio: ["ignore", "pipe", "pipe"],
+          env: getToolchainEnv(),
         });
 
         let stderr = "";

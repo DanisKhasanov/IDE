@@ -1,5 +1,6 @@
 import { exec } from "child_process";
 import { promisify } from "util";
+import { getToolchainEnv } from "@utils/toolchain/ToolchainEnv";
 
 const execAsync = promisify(exec);
 
@@ -35,7 +36,7 @@ export async function checkToolchain(): Promise<ToolchainStatus> {
 
   // Проверка avr-gcc
   try {
-    const { stdout } = await execAsync("avr-gcc --version", { timeout: 5000 });
+    const { stdout } = await execAsync("avr-gcc --version", { timeout: 5000, env: getToolchainEnv() });
     status.tools.avrGcc = true;
     // Извлекаем версию из первой строки вывода
     const versionMatch = stdout.split("\n")[0].match(/(\d+\.\d+\.\d+)/);
@@ -48,7 +49,7 @@ export async function checkToolchain(): Promise<ToolchainStatus> {
 
   // Проверка avr-objcopy
   try {
-    const { stdout } = await execAsync("avr-objcopy --version", { timeout: 5000 });
+    const { stdout } = await execAsync("avr-objcopy --version", { timeout: 5000, env: getToolchainEnv() });
     status.tools.avrObjcopy = true;
     // Извлекаем версию из первой строки вывода
     const versionMatch = stdout.split("\n")[0].match(/(\d+\.\d+\.\d+)/);
@@ -65,7 +66,7 @@ export async function checkToolchain(): Promise<ToolchainStatus> {
     // Проверяем наличие avrdude в PATH
     const whichCmd = process.platform === "win32" ? "where avrdude" : "which avrdude";
     try {
-      await execAsync(whichCmd, { timeout: 3000 });
+      await execAsync(whichCmd, { timeout: 3000, env: getToolchainEnv() });
       // Команда найдена, теперь проверяем версию
     } catch (whichError) {
       // Команда не найдена в PATH
@@ -77,7 +78,7 @@ export async function checkToolchain(): Promise<ToolchainStatus> {
     // avrdude -v выводит версию, но завершается с ошибкой, если не указан программист
     // Используем -? для вывода справки, которая содержит версию
     try {
-      const { stdout, stderr } = await execAsync("avrdude -? 2>&1", { timeout: 5000 });
+      const { stdout, stderr } = await execAsync("avrdude -? 2>&1", { timeout: 5000, env: getToolchainEnv() });
       const output = (stdout + stderr).toLowerCase();
       
       // Проверяем, что это не ошибка "команда не найдена"
@@ -112,7 +113,7 @@ export async function checkToolchain(): Promise<ToolchainStatus> {
         // Команда существует, но возможно есть другие проблемы
         // Проверяем через более простую команду
         try {
-          await execAsync("avrdude 2>&1", { timeout: 3000 });
+          await execAsync("avrdude 2>&1", { timeout: 3000, env: getToolchainEnv() });
           status.tools.avrdude = true;
         } catch {
           status.errors.push("avrdude найден, но не работает корректно");

@@ -3,6 +3,7 @@ import { promisify } from "util";
 import path from "node:path";
 import fs from "fs/promises";
 import { existsSync } from "fs";
+import { getToolchainEnv } from "@utils/toolchain/ToolchainEnv";
 import type {
   CompileResult,
   BoardConfig,
@@ -378,6 +379,7 @@ export async function compileArduinoProject(
     try {
       const { stderr, stdout } = await execAsync(compileMainCmd, {
         cwd: projectPath,
+        env: getToolchainEnv(),
       });
       // Проверяем наличие ошибок в выводе (даже если команда завершилась успешно)
       const output = (stderr || stdout || "").trim();
@@ -434,7 +436,7 @@ export async function compileArduinoProject(
         const compileCmd = `${compiler} ${flags} -c "${file}" -o "${objFile}"`;
 
         try {
-          const { stderr, stdout } = await execAsync(compileCmd, { cwd: projectPath });
+          const { stderr, stdout } = await execAsync(compileCmd, { cwd: projectPath, env: getToolchainEnv() });
           // Проверяем наличие ошибок компиляции в выводе
           const output = (stderr || stdout || "").trim();
           if (hasCompilationErrors(output)) {
@@ -494,7 +496,7 @@ export async function compileArduinoProject(
         const compileCmd = `${compiler} ${flags} -c "${file}" -o "${objFile}"`;
 
         try {
-          const { stderr, stdout } = await execAsync(compileCmd, { cwd: projectPath });
+          const { stderr, stdout } = await execAsync(compileCmd, { cwd: projectPath, env: getToolchainEnv() });
           // Проверяем наличие ошибок компиляции в выводе
           const output = (stderr || stdout || "").trim();
           if (hasCompilationErrors(output)) {
@@ -529,7 +531,7 @@ export async function compileArduinoProject(
     const linkCmd = `avr-gcc ${ldFlags} -o "${elfFile}" ${objectFilesStr} -lm`;
 
     try {
-      const { stderr, stdout } = await execAsync(linkCmd, { cwd: projectPath });
+      const { stderr, stdout } = await execAsync(linkCmd, { cwd: projectPath, env: getToolchainEnv() });
       // Проверяем наличие ошибок линковки в выводе
       const output = (stderr || stdout || "").trim();
       if (hasCompilationErrors(output)) {
@@ -566,7 +568,7 @@ export async function compileArduinoProject(
     const objcopyCmd = `${platformConfig.objcopyCmd} ${platformConfig.objcopyHexFlags} "${elfFile}" "${hexFile}"`;
 
     try {
-      await execAsync(objcopyCmd, { cwd: projectPath });
+      await execAsync(objcopyCmd, { cwd: projectPath, env: getToolchainEnv() });
     } catch (error) {
       const err = error as Error & { stderr?: string; stdout?: string; message: string };
       // Объединяем stdout и stderr для полной информации об ошибке
