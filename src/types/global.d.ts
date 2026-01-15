@@ -112,7 +112,7 @@ declare global {
       // UI-конфиги плат (json для интерфейса: пины/периферия/конфликты)
       getBoardUiConfig: (boardName?: string) => Promise<{
         config: any;
-        source: "external" | "bundled";
+        source: "external";
         externalDir: string;
         externalPath: string;
       }>;

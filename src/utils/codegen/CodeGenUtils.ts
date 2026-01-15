@@ -1,4 +1,6 @@
-import atmega328Config from "@config/test/atmega328.json";
+import { app } from "electron";
+import path from "path";
+import { promises as fs } from "fs";
 
 /**
  * Интерфейс для результата генерации кода
@@ -65,6 +67,32 @@ type CGUIState = {
     };
   };
 };
+
+function getPackagedConfigDirNearApp(): string {
+  // Требование (prod): конфиг берём строго из:
+  // /<папка где лежит IDE.app>/CONFIG/atmega328.json
+  //
+  // app.getPath("exe") на macOS: .../IDE.app/Contents/MacOS/IDE
+  const exePath = app.getPath("exe");
+  const appBundlePath = path.resolve(exePath, "..", "..", ".."); // -> IDE.app
+  const appContainerDir = path.dirname(appBundlePath); // -> папка, где лежит IDE.app
+  return path.join(appContainerDir, "CONFIG");
+}
+
+function getCodegenConfigPath(): string {
+  // Dev: строго из src/config/atmega328.json
+  if (!app.isPackaged) {
+    return path.join(process.cwd(), "src", "config", "atmega328.json");
+  }
+  // Prod: строго рядом с IDE.app
+  return path.join(getPackagedConfigDirNearApp(), "atmega328.json");
+}
+
+async function loadCodegenConfig(): Promise<CGJsonConfig> {
+  const configPath = getCodegenConfigPath();
+  const raw = await fs.readFile(configPath, "utf-8");
+  return JSON.parse(raw) as CGJsonConfig;
+}
 
 function cgApplyTemplate(
   line: string,
@@ -504,18 +532,19 @@ function cgGenerateFromConfig(
 export function generateInitCode(
   uiState: CGUIState,
   fCpu?: number
-): GeneratedCode {
+): Promise<GeneratedCode> {
   // 1) Берём конфиг и uiState напрямую (как в src/config/test/test.ts)
-  const config = atmega328Config as unknown as CGJsonConfig;
+  const configPromise = loadCodegenConfig();
 
   // 2) Генерируем наборы строк
-  const { includes, initLines, interruptEnableLines, isrLines } =
-    cgGenerateFromConfig(config, uiState, fCpu);
+  return configPromise.then((config) => {
+    const { includes, initLines, interruptEnableLines, isrLines } =
+      cgGenerateFromConfig(config, uiState, fCpu);
 
-  // 3) Формируем pins_init.h / pins_init.cpp (как ожидает projectHandlers.ts)
-  const finalIncludes = new Set<string>(["<Arduino.h>", ...includes]);
+    // 3) Формируем pins_init.h / pins_init.cpp (как ожидает projectHandlers.ts)
+    const finalIncludes = new Set<string>(["<Arduino.h>", ...includes]);
 
-  const headerCode = `#ifndef PINS_INIT_H
+    const headerCode = `#ifndef PINS_INIT_H
 #define PINS_INIT_H
 
 ${Array.from(finalIncludes)
@@ -527,16 +556,16 @@ void pins_init_all(void);
 #endif // PINS_INIT_H
 `;
 
-  const bodyLines: string[] = [];
-  // Пустые строки оставляем как есть (не удаляем) — чтобы сохранять читаемость, как в test.ts
-  bodyLines.push(...initLines);
-  if (interruptEnableLines.length > 0) {
-    if (bodyLines.length > 0 && bodyLines[bodyLines.length - 1] !== "") bodyLines.push("");
-    bodyLines.push(...interruptEnableLines);
-    bodyLines.push("sei(); // Enable global interrupts");
-  }
+    const bodyLines: string[] = [];
+    // Пустые строки оставляем как есть (не удаляем) — чтобы сохранять читаемость, как в test.ts
+    bodyLines.push(...initLines);
+    if (interruptEnableLines.length > 0) {
+      if (bodyLines.length > 0 && bodyLines[bodyLines.length - 1] !== "") bodyLines.push("");
+      bodyLines.push(...interruptEnableLines);
+      bodyLines.push("sei(); // Enable global interrupts");
+    }
 
-  const implementationCode = `${Array.from(finalIncludes)
+    const implementationCode = `${Array.from(finalIncludes)
     .map((inc) => `#include ${inc}`)
     .join("\n")}
 #include "pins_init.h"
@@ -548,9 +577,10 @@ ${bodyLines.map((line) => `    ${line}`).join("\n")}
 ${isrLines.length > 0 ? "\n" + isrLines.join("\n") + "\n" : ""}
 `;
 
-  return {
-    header: headerCode,
-    implementation: implementationCode,
-    includes: Array.from(finalIncludes),
-  };
+    return {
+      header: headerCode,
+      implementation: implementationCode,
+      includes: Array.from(finalIncludes),
+    };
+  });
 }

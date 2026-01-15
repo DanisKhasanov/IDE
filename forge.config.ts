@@ -5,7 +5,7 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
-import { copyFileSync, mkdirSync, existsSync, readdirSync, rmSync } from 'fs';
+import { existsSync, rmSync } from 'fs';
 import { resolve } from 'path';
 
 const config: ForgeConfig = {
@@ -52,62 +52,6 @@ const config: ForgeConfig = {
       // Electron Forge должен автоматически пересобрать модули, но удаление старых
       // гарантирует, что будут использованы модули для правильной платформы
       console.log(`Пересборка нативных модулей для ${platform}-${arch}...`);
-    },
-    // Хук для копирования конфигурационных файлов после сборки, но перед упаковкой
-    packageAfterCopy: async (_forgeConfig, buildPath) => {
-      // На этом этапе файлы уже собраны в buildPath
-      // Копируем конфигурацию из out/main/config в .vite/build/config внутри buildPath
-      const configSrc = resolve(process.cwd(), 'out/main/config');
-      const configDest = resolve(buildPath, '.vite/build/config');
-      
-      if (existsSync(configSrc)) {
-        // Создаем директорию назначения если её нет
-        if (!existsSync(configDest)) {
-          mkdirSync(configDest, { recursive: true });
-        }
-        
-        // Копируем JSON файлы
-        const boardsSrc = resolve(configSrc, 'boards');
-        const boardsDest = resolve(configDest, 'boards');
-        
-        if (existsSync(boardsSrc)) {
-          if (!existsSync(boardsDest)) {
-            mkdirSync(boardsDest, { recursive: true });
-          }
-          
-          const files = readdirSync(boardsSrc);
-          files.forEach((file: string) => {
-            if (file.endsWith('.json')) {
-              copyFileSync(
-                resolve(boardsSrc, file),
-                resolve(boardsDest, file)
-              );
-            }
-          });
-        }
-      }
-
-      // Копируем UI-конфиги плат (используются в интерфейсе для пинов/периферии).
-      // В dev они берутся из src/config/test/*.json, а в prod (packaged) будут доступны
-      // как встроенный дефолт по пути .vite/build/config/board-ui/*.json
-      const uiBoardsSrc = resolve(process.cwd(), 'src/config/test');
-      const uiBoardsDest = resolve(configDest, 'board-ui');
-
-      if (existsSync(uiBoardsSrc)) {
-        if (!existsSync(uiBoardsDest)) {
-          mkdirSync(uiBoardsDest, { recursive: true });
-        }
-
-        const uiFiles = readdirSync(uiBoardsSrc);
-        uiFiles.forEach((file: string) => {
-          if (file.endsWith('.json')) {
-            copyFileSync(
-              resolve(uiBoardsSrc, file),
-              resolve(uiBoardsDest, file)
-            );
-          }
-        });
-      }
     },
   },
   rebuildConfig: {

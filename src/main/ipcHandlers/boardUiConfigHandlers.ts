@@ -1,10 +1,11 @@
 import { ipcMain, app } from "electron";
 import path from "path";
 import { promises as fs } from "fs";
+import { pathToFileURL } from "url";
 
 type BoardUiConfigResponse = {
   config: any;
-  source: "external" | "bundled";
+  source: "external";
   externalDir: string;
   externalPath: string;
 };
@@ -27,11 +28,17 @@ function getExternalBoardUiDir(): string {
 }
 
 function mapBoardNameToUiFile(boardName: string): string {
-  // Сейчас UI использует формат src/config/test/atmega328.json (Arduino Uno).
+  // Сейчас UI использует формат src/config/atmega328.json (Arduino Uno).
   // Расширять можно, добавив новые маппинги.
   const normalized = (boardName || "uno").toLowerCase();
   if (normalized === "uno" || normalized === "arduino uno") return "atmega328.json";
   return "atmega328.json";
+}
+
+function mapBoardNameToImageFile(boardName: string): string {
+  const normalized = (boardName || "uno").toLowerCase();
+  if (normalized === "uno" || normalized === "arduino uno") return "image.png";
+  return "image.png";
 }
 
 async function fileExists(p: string): Promise<boolean> {
@@ -48,38 +55,63 @@ async function readJson(p: string): Promise<any> {
   return JSON.parse(raw);
 }
 
-function getBundledUiConfigPath(uiFileName: string): string {
-  // В packaged сборке (и в процессе упаковки) мы копируем дефолтные UI-конфиги сюда:
-  // <appPath>/.vite/build/config/board-ui/*.json
-  // В dev эта папка может отсутствовать — тогда используем src/config/test/*.json
-  if (app.isPackaged) {
-    return path.join(app.getAppPath(), ".vite", "build", "config", "board-ui", uiFileName);
-  }
-  return path.join(process.cwd(), "src", "config", "test", uiFileName);
+async function ensureConfigDirAndReadme(configDir: string): Promise<void> {
+  await fs.mkdir(configDir, { recursive: true });
+
+  const readmePath = path.join(configDir, "README.md");
+  if (await fileExists(readmePath)) return;
+
+  const content = `# CONFIG
+
+Эта папка используется приложением для загрузки конфигурации платы.
+
+## Что нужно сделать
+
+- Положите сюда файл **atmega328.json**
+- Положите сюда файл **image.png**
+
+Итоговый путь должен быть таким (пример):
+
+- \`CONFIG/atmega328.json\`
+- \`CONFIG/image.png\`
+`;
+
+  await fs.writeFile(readmePath, content, "utf-8");
 }
 
-async function ensureExternalUiConfig(
-  uiFileName: string
-): Promise<{ externalDir: string; externalPath: string }> {
-  const externalDir = getExternalBoardUiDir();
+function getDevBoardUiConfigPath(uiFileName: string): string {
+  // Dev режим: берём JSON и фото строго из src/config
+  return path.join(process.cwd(), "src", "config", uiFileName);
+}
+
+function getDevBoardImagePath(imageFileName: string): string {
+  // Dev режим: берём JSON и фото строго из src/config
+  return path.join(process.cwd(), "src", "config", imageFileName);
+}
+
+async function getProdExternalPaths(
+  uiFileName: string,
+  imageFileName: string
+): Promise<{ externalDir: string; externalPath: string; imagePath: string; imageUrl: string }> {
+  const externalDir = getExternalBoardUiDir(); // -> <рядом с IDE.app>/CONFIG
   const externalPath = path.join(externalDir, uiFileName);
+  const imagePath = path.join(externalDir, imageFileName);
 
-  const bundledPath = getBundledUiConfigPath(uiFileName);
+  // Жёсткое поведение: НИЧЕГО не создаём и не копируем.
+  // Пользователь обязан сам положить файлы в CONFIG.
+  await ensureConfigDirAndReadme(externalDir);
 
-  // Жёсткое поведение: пытаемся создать папку CONFIG рядом с .app и положить туда файл.
-  // Если прав нет или дефолтный файл не найден — это ошибка.
-  await fs.mkdir(externalDir, { recursive: true });
-
-  if (!(await fileExists(externalPath))) {
-    if (!(await fileExists(bundledPath))) {
-      throw new Error(
-        `Не найден дефолтный UI-конфиг для копирования: ${bundledPath}`
-      );
-    }
-    await fs.copyFile(bundledPath, externalPath);
+  const missing: string[] = [];
+  if (!(await fileExists(externalPath))) missing.push(externalPath);
+  if (!(await fileExists(imagePath))) missing.push(imagePath);
+  if (missing.length) {
+    throw new Error(
+      `Отсутствуют обязательные файлы для платы (prod). Создайте папку CONFIG рядом с IDE.app и положите туда atmega328.json и image.png.\n` +
+        missing.map((p) => `- ${p}`).join("\n")
+    );
   }
 
-  return { externalDir, externalPath };
+  return { externalDir, externalPath, imagePath, imageUrl: pathToFileURL(imagePath).toString() };
 }
 
 export function registerBoardUiConfigHandlers(): void {
@@ -91,18 +123,35 @@ export function registerBoardUiConfigHandlers(): void {
     "board-ui-get-config",
     async (_event, boardName: string = "uno"): Promise<BoardUiConfigResponse> => {
       const uiFileName = mapBoardNameToUiFile(boardName);
-      const { externalDir, externalPath } = await ensureExternalUiConfig(uiFileName);
+      const imageFileName = mapBoardNameToImageFile(boardName);
 
-      // В prod приоритет — внешний файл (чтобы пользователь мог менять),
-      // но если он битый/не читается, откатываемся на встроенный.
-      try {
-        const config = await readJson(externalPath);
-        return { config, source: "external", externalDir, externalPath };
-      } catch (e) {
-        const bundledPath = getBundledUiConfigPath(uiFileName);
-        const config = await readJson(bundledPath);
-        return { config, source: "bundled", externalDir, externalPath };
+      // Dev: строго из src/config (json+png)
+      if (!app.isPackaged) {
+        const jsonPath = getDevBoardUiConfigPath(uiFileName);
+        const imagePath = getDevBoardImagePath(imageFileName);
+    // Для удобства в dev тоже создаём папку CONFIG и README с инструкцией для продакшена
+    await ensureConfigDirAndReadme(getExternalBoardUiDir());
+        if (!(await fileExists(jsonPath))) {
+          throw new Error(`Не найден UI-конфиг платы (dev): ${jsonPath}`);
+        }
+        if (!(await fileExists(imagePath))) {
+          throw new Error(`Не найдено изображение платы (dev): ${imagePath}`);
+        }
+        const config = await readJson(jsonPath);
+        // В dev удобнее использовать путь, который отдаёт Vite:
+        // src/config/image.png доступен как /src/config/image.png
+        config.image = `/src/config/${imageFileName}`;
+        return { config, source: "external", externalDir: path.dirname(jsonPath), externalPath: jsonPath };
       }
+
+      // Prod: строго из <рядом с IDE.app>/CONFIG (json+png), без копирования
+      const { externalDir, externalPath, imageUrl } = await getProdExternalPaths(
+        uiFileName,
+        imageFileName
+      );
+      const config = await readJson(externalPath);
+      config.image = imageUrl; // file://.../CONFIG/image.png
+      return { config, source: "external", externalDir, externalPath };
     }
   );
 }

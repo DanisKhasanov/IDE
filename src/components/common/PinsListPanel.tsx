@@ -276,6 +276,11 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
 
     const imagePath = boardInfo.image;
     
+    // Для prod (CONFIG рядом с .app) мы используем file:// URL
+    if (imagePath.startsWith("file://")) {
+      return imagePath;
+    }
+
     if (!imagePath.startsWith("/src/config/")) {
       return `/src/config/${imagePath}`;
     }

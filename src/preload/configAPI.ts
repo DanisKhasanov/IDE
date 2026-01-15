@@ -2,7 +2,7 @@ import { safeInvoke } from "./utils";
 
 export type BoardUiConfigResult = {
   config: any;
-  source: "external" | "bundled";
+  source: "external";
   externalDir: string;
   externalPath: string;
 };

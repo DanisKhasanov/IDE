@@ -53,7 +53,7 @@ const NewProjectModal = ({
     Record<string, { name: string; fcpuOptions?: string[]; defaultFcpu: string; config: any }>
   >({});
   const [uiConfigLoadInfo, setUiConfigLoadInfo] = useState<{
-    source: "external" | "bundled";
+    source: "external";
     externalDir: string;
     externalPath: string;
   } | null>(null);

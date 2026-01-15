@@ -469,9 +469,9 @@ export function registerProjectHandlers(): void {
             10
           );
           const peripherals = normalizedPinConfig.peripherals as Record<string, any>;
-          console.log("=============", peripherals);
+      
 
-          const generatedCode = generateInitCode({ peripherals }, fCpu);
+          const generatedCode = await generateInitCode({ peripherals }, fCpu);
 
           // Создаем файлы pins_init.h и pins_init.cpp
           const pinsInitHeaderPath = path.join(srcPath, "pins_init.h");
