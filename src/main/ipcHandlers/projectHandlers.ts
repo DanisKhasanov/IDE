@@ -15,7 +15,7 @@ import {
 import { buildProjectTree, createProjectData } from "@utils/project/ProjectUtils";
 import { projectManager } from "@main/managers/ProjectManager";
 import { windowManager } from "@main/managers/WindowManager";
-import type { ProjectPinConfig, SelectedPinFunction } from "../../types/boardConfig";
+import type { ProjectPinConfig } from "../../types/boardConfig";
 
 /**
  * Получение пути к Arduino Core из resources/arduino-core
@@ -426,20 +426,52 @@ export function registerProjectHandlers(): void {
           // Не прерываем создание проекта, но логируем ошибку
         }
 
+        // Нормализуем pinConfig (иногда может прилетать строкой из IPC/хранилищ)
+        let normalizedPinConfig: any = pinConfig as any;
+        if (typeof normalizedPinConfig === "string") {
+          try {
+            normalizedPinConfig = JSON.parse(normalizedPinConfig);
+          } catch {
+            // оставляем как есть — ниже сработает дефолтная генерация
+          }
+        }
+        if (
+          normalizedPinConfig &&
+          typeof normalizedPinConfig === "object" &&
+          typeof normalizedPinConfig.peripherals === "string"
+        ) {
+          try {
+            normalizedPinConfig.peripherals = JSON.parse(
+              normalizedPinConfig.peripherals
+            );
+          } catch {
+            // оставляем как есть
+          }
+        }
+
         // Генерируем код инициализации
         let mainCode: string;
-        if (pinConfig && pinConfig.selectedPinFunctions && pinConfig.systemPeripherals) {
-          // Используем новый генератор кода из CodeGenUtils
+        if (
+          normalizedPinConfig &&
+          normalizedPinConfig.selectedPinFunctions &&
+          normalizedPinConfig.systemPeripherals
+        ) {
+          // Старый формат конфигурации больше не поддерживаем (только uiState.peripherals)
+          throw new Error(
+            "Устаревший формат pinConfig (selectedPinFunctions/systemPeripherals) больше не поддерживается. Используйте pinConfig.peripherals."
+          );
+        } else if (normalizedPinConfig && normalizedPinConfig.peripherals) {
+          // Новый формат: pinConfig.peripherals -> uiState.peripherals (как в src/config/test/test.ts)
           const { generateInitCode } = await import("../../utils/codegen/CodeGenUtils");
 
-          const fCpu = parseInt(pinConfig.fCpu?.replace("L", "") || "16000000", 10);
-
-          // Генерируем код
-          const generatedCode = generateInitCode(
-            pinConfig.selectedPinFunctions,
-            pinConfig.systemPeripherals,
-            fCpu
+          const fCpu = parseInt(
+            String(normalizedPinConfig.fCpu || "16000000").replace("L", ""),
+            10
           );
+          const peripherals = normalizedPinConfig.peripherals as Record<string, any>;
+          console.log("=============", peripherals);
+
+          const generatedCode = generateInitCode({ peripherals }, fCpu);
 
           // Создаем файлы pins_init.h и pins_init.cpp
           const pinsInitHeaderPath = path.join(srcPath, "pins_init.h");
@@ -448,7 +480,7 @@ export function registerProjectHandlers(): void {
           await fs.writeFile(pinsInitHeaderPath, generatedCode.header, "utf-8");
           await fs.writeFile(pinsInitCppPath, generatedCode.implementation, "utf-8");
 
-          console.log("Сгенерированы файлы инициализации пинов");
+          console.log("Сгенерированы файлы инициализации пинов (из pinConfig.peripherals)");
 
           // Генерируем main.cpp с подключением заголовочного файла
           mainCode = `#include <Arduino.h>

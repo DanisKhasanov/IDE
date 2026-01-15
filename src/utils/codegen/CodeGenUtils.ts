@@ -1,18 +1,4 @@
-import type { SelectedPinFunction } from "@/types/boardConfig";
-import { getPortFromPin, getBitFromPin } from "../arduino/PinUtils";
-import boardJson from "@config/atmega328p/board.json";
-import codegenJson from "@config/atmega328p/codegen.json";
-
-/**
- * Интерфейс для информации о пине
- */
-interface PinInfo {
-  name: string;
-  ddr: string;
-  port: string;
-  pin: string;
-  bit: number;
-}
+import atmega328Config from "@config/test/atmega328.json";
 
 /**
  * Интерфейс для результата генерации кода
@@ -23,927 +9,516 @@ export interface GeneratedCode {
   includes: string[];
 }
 
-/**
- * Получает информацию о пине из конфигурации платы
- */
-function getPinInfo(pinName: string): PinInfo {
-  const portPrefix = getPortFromPin(pinName); // "PB", "PC", "PD"
-  const portLetter = portPrefix.substring(1); // "B", "C", "D"
-  const bit = getBitFromPin(pinName); // 0-7
+// ============================================================
+// Новый генератор (портирован из src/config/test/test.ts)
+// Работает с:
+// - state.interrupts: { RX: { enabled: true } }
+// - флагами enableRXInterrupt: true (на уровне периферии или пинов)
+// ============================================================
 
-  // Находим порт в конфигурации
-  const portConfig = boardJson.ports.find((p) => p.id === portLetter);
-  if (!portConfig) {
-    throw new Error(`Порт ${portLetter} не найден в конфигурации`);
-  }
+type CGPeripheralKind = "pin" | "global";
 
-  return {
-    name: pinName,
-    ddr: portConfig.registers.ddr,
-    port: portConfig.registers.port,
-    pin: portConfig.registers.pin,
-    bit,
-  };
-}
-
-/**
- * Заменяет плейсхолдеры в шаблоне на реальные значения
- */
-function replacePlaceholders(
-  template: string,
-  context: Record<string, any>
-): string {
-  let result = template;
-
-  // Заменяем простые плейсхолдеры {{key}}
-  result = result.replace(/\{\{(\w+(?:\.\w+)*)\}\}/g, (match, path) => {
-    const keys = path.split(".");
-    let value = context;
-
-    for (const key of keys) {
-      if (value === null || value === undefined) {
-        return match; // Возвращаем оригинал, если путь не найден
+type CGPeripheralConfig = {
+  id: string;
+  kind: CGPeripheralKind;
+  pinMapping?: Record<string, string[]>;
+  codeGenerator: {
+    globalIncludes?: string[];
+    modeKey?: string;
+    modeMapping?: Record<string, string>;
+    valueMapping?: Record<string, Record<string | number, number>>;
+    ports?: Array<{
+      id: string;
+      name: string;
+      pins: number[];
+      registers: {
+        ddr: string;
+        port: string;
+        pin: string;
+      };
+    }>;
+    init: Record<string, string[] | Record<string, string[]>>;
+    interrupts?: Record<
+      string,
+      {
+        code: {
+          enable?: string[];
+          isr?: string[];
+        };
       }
-      value = value[key];
-    }
+    >;
+  };
+};
 
-    return value !== null && value !== undefined ? String(value) : match;
+type CGJsonConfig = {
+  meta?: { defaultFcpu?: number };
+  [peripheralName: string]: CGPeripheralConfig | any;
+};
+
+type CGUIState = {
+  peripherals: {
+    [id: string]: {
+      enabled?: boolean;
+      pins?: Record<string, Record<string, any>>;
+      interrupts?: Record<string, { enabled?: boolean }>;
+      [key: string]: any;
+    };
+  };
+};
+
+function cgApplyTemplate(
+  line: string,
+  params: Record<string, string | number>
+): string {
+  return line.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    if (!(key in params)) {
+      throw new Error(`Template param "${key}" not found`);
+    }
+    return String(params[key]);
   });
-
-  return result;
 }
 
-/**
- * Преобразует prescaler в биты для регистров
- */
-function getPrescalerBits(prescaler: number): number {
-  const prescalerMap: Record<number, number> = {
-    1: 0b001,
-    8: 0b010,
-    64: 0b011,
-    256: 0b100,
-    1024: 0b101,
-  };
-  return prescalerMap[prescaler] ?? 0b011; // По умолчанию 64
-}
+function cgApplyValueMapping(
+  state: Record<string, any>,
+  valueMapping?: Record<string, Record<string | number, number>>
+): Record<string, string | number> {
+  const params: Record<string, string | number> = { ...state };
 
-/**
- * Преобразует prescaler ADC в биты
- */
-function getADCPrescalerBits(prescaler: number): number {
-  const prescalerMap: Record<number, number> = {
-    2: 0b001,
-    4: 0b010,
-    8: 0b011,
-    16: 0b100,
-    32: 0b101,
-    64: 0b110,
-    128: 0b111,
-  };
-  return prescalerMap[prescaler] ?? 0b111; // По умолчанию 128
-}
+  if (valueMapping) {
+    for (const field in valueMapping) {
+      const map = valueMapping[field];
+      const value = state[field];
 
-/**
- * Преобразует режим UART в биты паритета
- */
-function getParityBits(parity: string): number {
-  const parityMap: Record<string, number> = {
-    NONE: 0b00,
-    EVEN: 0b10,
-    ODD: 0b11,
-  };
-  return parityMap[parity?.toUpperCase()] ?? 0b00;
-}
+      if (value === undefined || value === null) continue;
 
-/**
- * Преобразует dataBits в биты регистра
- */
-function getDataBits(dataBits: number): number {
-  if (dataBits === 5) return 0b000;
-  if (dataBits === 6) return 0b001;
-  if (dataBits === 7) return 0b010;
-  if (dataBits === 8) return 0b011;
-  if (dataBits === 9) return 0b111;
-  return 0b011; // По умолчанию 8 бит
-}
+      const stringKey = String(value);
+      if (stringKey in map) {
+        params[field] = map[stringKey];
+        continue;
+      }
 
-/**
- * Преобразует stopBits в биты регистра
- */
-function getStopBits(stopBits: number): number {
-  return stopBits === 2 ? 0b1 : 0b0;
-}
-
-/**
- * Преобразует timeout watchdog в биты
- */
-function getWatchdogTimeoutBits(timeout: number): number {
-  // timeout в миллисекундах
-  const timeoutMap: Record<number, number> = {
-    16: 0b000,
-    32: 0b001,
-    64: 0b010,
-    125: 0b011,
-    250: 0b100,
-    500: 0b101,
-    1000: 0b110,
-    2000: 0b111,
-  };
-  return timeoutMap[timeout] ?? 0b110; // По умолчанию 1 секунда
-}
-
-/**
- * Преобразует trigger внешнего прерывания в биты
- */
-function getTriggerBits(trigger: string): number {
-  const triggerMap: Record<string, number> = {
-    LOW: 0b00,
-    CHANGE: 0b01,
-    FALLING: 0b10,
-    RISING: 0b11,
-  };
-  return triggerMap[trigger?.toUpperCase()] ?? 0b10; // По умолчанию FALLING
-}
-
-/**
- * Получает номер канала таймера из имени пина и типа функции
- */
-function getTimerChannel(pinName: string, functionType: string): string {
-  // Для TIMER0: PD6 -> A, PD5 -> B
-  if (functionType.includes("TIMER0")) {
-    if (pinName === "PD6") return "A";
-    if (pinName === "PD5") return "B";
-  }
-  // Для TIMER1: PB1 -> A, PB2 -> B
-  if (functionType.includes("TIMER1")) {
-    if (pinName === "PB1") return "A";
-    if (pinName === "PB2") return "B";
-  }
-  // Для TIMER2: PB3 -> A, PD3 -> B
-  if (functionType.includes("TIMER2")) {
-    if (pinName === "PB3") return "A";
-    if (pinName === "PD3") return "B";
-  }
-  return "A"; // По умолчанию
-}
-
-/**
- * Получает номер группы PCINT из имени пина
- */
-function getPCINTGroup(pinName: string): number {
-  const portPrefix = getPortFromPin(pinName);
-  if (portPrefix === "PB") return 0;
-  if (portPrefix === "PC") return 1;
-  if (portPrefix === "PD") return 2;
-  return 0;
-}
-
-/**
- * Получает номер PCINT из имени пина
- */
-function getPCINTNumber(pinName: string): number {
-  const portPrefix = getPortFromPin(pinName);
-  const bit = getBitFromPin(pinName);
-
-  if (portPrefix === "PB") return bit; // PCINT0-5
-  if (portPrefix === "PC") return bit + 8; // PCINT8-13
-  if (portPrefix === "PD") return bit + 16; // PCINT16-23
-  return 0;
-}
-
-/**
- * Универсальная функция для преобразования значения настройки в ключ шаблона
- */
-function resolveTemplateKey(
-  peripheryConfig: any,
-  settingValue: string,
-  settings: Record<string, any>
-): string {
-  if (!settingValue) {
-    return "";
-  }
-
-  const modeMapping = peripheryConfig?.modeMapping;
-
-  // Если маппинга нет, используем значение как есть (в нижнем регистре с подчеркиваниями)
-  if (!modeMapping) {
-    return settingValue.toLowerCase().replace(/\s+/g, "_");
-  }
-
-  const mapping = modeMapping[settingValue];
-
-  // Если маппинга нет для этого значения, используем значение как есть
-  if (!mapping) {
-    return settingValue.toLowerCase().replace(/\s+/g, "_");
-  }
-
-  // Если маппинг - строка, просто возвращаем её
-  if (typeof mapping === "string") {
-    return mapping;
-  }
-
-  // Если маппинг - объект с keyBuilder
-  if (typeof mapping === "object" && mapping.keyBuilder) {
-    let key = mapping.keyBuilder;
-    const defaults = mapping.defaults || {};
-
-    // Заменяем плейсхолдеры в keyBuilder значениями из settings
-    Object.keys(defaults).forEach((param) => {
-      const value = settings[param] || defaults[param];
-      key = key.replace(`{{${param}}}`, String(value).toUpperCase());
-    });
-
-    return key;
-  }
-
-  // Fallback: используем значение как есть
-  return settingValue.toLowerCase().replace(/\s+/g, "_");
-}
-
-/**
- * Универсальная функция для поиска шаблонов с поддержкой вложенной структуры
- */
-function findTemplates(
-  modesConfig: any,
-  mode: string,
-  settings: Record<string, any>
-): string[] | null {
-  if (!modesConfig || !mode) {
-    return null;
-  }
-
-  const modeConfig = modesConfig[mode];
-
-  // Если modeConfig - массив, это простой режим (например, INPUT, INPUT_PULLUP)
-  if (Array.isArray(modeConfig)) {
-    return modeConfig;
-  }
-
-  // Если modeConfig - объект, это вложенная структура (например, OUTPUT с LOW/HIGH)
-  if (typeof modeConfig === "object" && modeConfig !== null) {
-    // Приоритет поиска:
-    // 1. initialState (для GPIO OUTPUT)
-    // 2. state (альтернативное имя)
-    // 3. Любое значение из settings, которое совпадает с ключом
-
-    if (settings.initialState && modeConfig[settings.initialState]) {
-      return modeConfig[settings.initialState];
-    }
-
-    if (settings.state && modeConfig[settings.state]) {
-      return modeConfig[settings.state];
-    }
-
-    // Пробуем найти по любому значению из settings
-    for (const value of Object.values(settings)) {
-      if (typeof value === "string" && modeConfig[value]) {
-        return modeConfig[value];
+      if (typeof value === "number" && value in map) {
+        params[field] = map[value];
+        continue;
       }
     }
+  }
 
-    // Если ничего не найдено, возвращаем null
-    return null;
+  return params;
+}
+
+function cgResolveMode(
+  state: Record<string, any>,
+  modeKey?: string,
+  modeMapping?: Record<string, string>
+): string | null {
+  if (!modeKey || !(modeKey in state)) return null;
+
+  const modeValue = state[modeKey];
+  if (!modeValue) return null;
+
+  if (modeMapping && modeValue in modeMapping) {
+    return modeMapping[modeValue];
+  }
+
+  return String(modeValue).toLowerCase().replace(/\s+/g, "_");
+}
+
+function cgGetInitTemplates(
+  initConfig: Record<string, string[] | Record<string, string[]>>,
+  mode: string | null
+): string[] | null {
+  if (mode && "$mode" in initConfig) {
+    const modeConfig = initConfig["$mode"];
+
+    if (typeof modeConfig === "object" && !Array.isArray(modeConfig)) {
+      if (mode in modeConfig) {
+        const templates = (modeConfig as Record<string, any>)[mode];
+        return Array.isArray(templates) ? templates : null;
+      }
+    }
+  }
+
+  if (!mode) {
+    for (const key in initConfig) {
+      const value = initConfig[key];
+      if (Array.isArray(value)) return value;
+    }
   }
 
   return null;
 }
 
-/**
- * Генерирует код для GPIO
- */
-function generateGPIO(
+function cgGetPortFromPin(pin: string): string {
+  // "PB0" -> "B"
+  return pin.substring(1, 2);
+}
+
+function cgGetBitFromPin(pin: string): number {
+  // "PB0" -> 0
+  return parseInt(pin.substring(2), 10);
+}
+
+function cgGetPinPortInfo(
   pinName: string,
-  settings: Record<string, any>
+  ports?: Array<{
+    id: string;
+    name: string;
+    pins: number[];
+    registers?: { ddr: string; port: string; pin: string };
+  }>
+): { port: string; pin: number; registers?: { ddr: string; port: string; pin: string } } | null {
+  const portLetter = cgGetPortFromPin(pinName);
+  const bit = cgGetBitFromPin(pinName);
+
+  if (ports) {
+    const portConfig = ports.find((p) => p.id === portLetter);
+    if (portConfig) {
+      return { port: portLetter, pin: bit, registers: portConfig.registers };
+    }
+  }
+
+  return { port: portLetter, pin: bit };
+}
+
+function cgGetPCINTParams(pinName: string): Record<string, string | number> {
+  const portLetter = cgGetPortFromPin(pinName);
+
+  let pcicr = "0";
+  if (portLetter === "B") pcicr = "0";
+  else if (portLetter === "C") pcicr = "1";
+  else if (portLetter === "D") pcicr = "2";
+
+  return { pcicr };
+}
+
+function cgGeneratePinPeripheral(
+  spec: CGPeripheralConfig,
+  state: { pins?: Record<string, Record<string, any>>; [key: string]: any },
+  defaultFcpu?: number
 ): string[] {
-  const pinInfo = getPinInfo(pinName);
-  const mode = settings.mode;
+  const lines: string[] = [];
+  const codeGen = spec.codeGenerator;
 
-  const peripheryConfig = codegenJson.gpio as any;
-  const templates = findTemplates(peripheryConfig?.modes, mode, settings);
+  if (state.pins && Object.keys(state.pins).length > 0) {
+    for (const pinName in state.pins) {
+      const pinState = state.pins[pinName];
+      const pinInfo = cgGetPinPortInfo(pinName, codeGen.ports);
+      if (!pinInfo) continue;
 
-  if (!templates || !Array.isArray(templates)) {
-    return [];
-  }
+      const mode = cgResolveMode(pinState, codeGen.modeKey, codeGen.modeMapping);
+      const templates = cgGetInitTemplates(codeGen.init, mode);
+      if (!templates) continue;
 
-  const context = {
-    pin: pinInfo,
-  };
+      const params = cgApplyValueMapping(pinState, codeGen.valueMapping);
+      (params as any).port = pinInfo.port;
+      (params as any).pin = pinInfo.pin;
 
-  return templates.map((template: string) =>
-    replacePlaceholders(template, context)
-  );
-}
+      if (spec.id === "gpio") {
+        Object.assign(params, cgGetPCINTParams(pinName));
 
-/**
- * Генерирует код для UART
- */
-function generateUART(settings: Record<string, any>, fCpu: number): string[] {
-  const mode = settings.mode || "Asynchronous";
-  const baud = settings.baud || 9600;
-  const peripheryConfig = codegenJson.uart as any;
-  const templateKey = resolveTemplateKey(peripheryConfig, mode, settings);
-  const templates = peripheryConfig?.init?.[templateKey];
+        if (codeGen.ports) {
+          const portConfig = codeGen.ports.find((p) => p.id === pinInfo.port);
+          if (portConfig && portConfig.registers) {
+            (params as any).ddr = portConfig.registers.ddr;
+            (params as any).portReg = portConfig.registers.port;
+            (params as any).pinReg = portConfig.registers.pin;
 
-  if (!templates || !Array.isArray(templates)) {
-    return [];
-  }
+            (params as any).ddrBit = `DDD${pinInfo.pin}`;
+            (params as any).portBit = `PORT${pinInfo.port}${pinInfo.pin}`;
+            (params as any).pinBit = `PIN${pinInfo.port}${pinInfo.pin}`;
+          }
+        }
+      }
 
-  const context = {
-    baud,
-    parityBits: getParityBits(settings.parity || "NONE"),
-    stopBits: getStopBits(settings.stopBits || 1),
-    dataBits: getDataBits(settings.dataBits || 8),
-  };
+      if (defaultFcpu && templates.some((t) => t.includes("F_CPU"))) {
+        (params as any).F_CPU = defaultFcpu;
+      }
 
-  return templates.map((template: string) =>
-    replacePlaceholders(template, context)
-  );
-}
+      lines.push(`// ${spec.id.toUpperCase()} ${pinName}`);
+      for (const tpl of templates) {
+        lines.push(cgApplyTemplate(tpl, params));
+      }
+    }
+  } else {
+    let templates: string[] | null = null;
 
-/**
- * Генерирует код для SPI
- */
-function generateSPI(settings: Record<string, any>): string[] {
-  const mode = settings.mode || "master";
-  const templates = (codegenJson.spi as any)?.init?.[mode];
-
-  if (!templates || !Array.isArray(templates)) {
-    return [];
-  }
-
-  // Получаем пины SPI из настроек или используем стандартные
-  const ssPin = getPinInfo(settings.ssPin || "PB2");
-  const mosiPin = getPinInfo(settings.mosiPin || "PB3");
-  const misoPin = getPinInfo(settings.misoPin || "PB4");
-  const sckPin = getPinInfo(settings.sckPin || "PB5");
-
-  const context = {
-    ssPin,
-    mosiPin,
-    misoPin,
-    sckPin,
-    cpol: settings.cpol || 0,
-    cpha: settings.cpha || 0,
-    speedBits: getPrescalerBits(settings.speed || 64),
-  };
-
-  return templates.map((template: string) =>
-    replacePlaceholders(template, context)
-  );
-}
-
-/**
- * Генерирует код для I2C
- */
-function generateI2C(settings: Record<string, any>, fCpu: number): string[] {
-  const mode = settings.mode || "master";
-  const templates = (codegenJson.i2c as any)?.init?.[mode];
-
-  if (!templates || !Array.isArray(templates)) {
-    return [];
-  }
-
-  const context = {
-    speed: settings.speed || 100000,
-    slaveAddress: settings.slaveAddress || 0x08,
-  };
-
-  return templates.map((template: string) =>
-    replacePlaceholders(template, context)
-  );
-}
-
-/**
- * Генерирует код для таймера
- */
-function generateTimer(
-  timerName: string,
-  pinName: string | null,
-  settings: Record<string, any>
-): string[] {
-  const mode = settings.mode || "Normal";
-  const peripheryConfig = (codegenJson as any)[timerName.toLowerCase()];
-  const templateMode = resolveTemplateKey(peripheryConfig, mode, settings);
-  const templates = peripheryConfig?.init?.[templateMode];
-
-  if (!templates || !Array.isArray(templates)) {
-    return [];
-  }
-
-  const context: Record<string, any> = {
-    prescalerBits: getPrescalerBits(settings.prescaler || 64),
-    compareValue: settings.compareValue || 0,
-    dutyCycle: settings.dutyCycle || 128,
-  };
-
-  // Если есть пин, добавляем информацию о нём
-  if (pinName) {
-    const pinInfo = getPinInfo(pinName);
-    context.pin = pinInfo;
-    context.channel = getTimerChannel(pinName, timerName);
-  }
-
-  return templates.map((template: string) =>
-    replacePlaceholders(template, context)
-  );
-}
-
-/**
- * Генерирует код для ADC
- */
-function generateADC(settings: Record<string, any>): string[] {
-  const mode = settings.mode || "Single";
-  const peripheryConfig = codegenJson.adc as any;
-  const templateKey = resolveTemplateKey(peripheryConfig, mode, settings);
-  const templates = peripheryConfig?.init?.[templateKey];
-
-  if (!templates || !Array.isArray(templates)) {
-    return [];
-  }
-
-  const context = {
-    referenceBits: settings.reference === "INTERNAL" ? 0b11 : 0b01, // По умолчанию AVCC
-    prescalerBits: getADCPrescalerBits(settings.prescaler || 128),
-    channels: settings.channels || [0],
-  };
-
-  // Для шаблонов с циклами по каналам
-  let result: string[] = [];
-  templates.forEach((template: string) => {
-    if (template.includes("{{#channels}}")) {
-      // Простая обработка циклов
-      const beforeLoop = template.split("{{#channels}}")[0];
-      const loopContent =
-        template.split("{{#channels}}")[1]?.split("{{/channels}}")[0] || "";
-      const afterLoop = template.split("{{/channels}}")[1] || "";
-
-      result.push(beforeLoop);
-      context.channels.forEach((channel: number) => {
-        const channelContext = { ...context, channel };
-        result.push(replacePlaceholders(loopContent, channelContext));
-      });
-      result.push(afterLoop);
+    if (state.interrupt && codeGen.init[state.interrupt]) {
+      const value = codeGen.init[state.interrupt];
+      if (Array.isArray(value)) templates = value;
     } else {
-      result.push(replacePlaceholders(template, context));
+      const mode = cgResolveMode(state, codeGen.modeKey, codeGen.modeMapping);
+      templates = cgGetInitTemplates(codeGen.init, mode);
     }
-  });
 
-  return result;
-}
+    if (templates) {
+      const params = cgApplyValueMapping(state, codeGen.valueMapping);
+      if (defaultFcpu && templates.some((t) => t.includes("F_CPU"))) {
+        (params as any).F_CPU = defaultFcpu;
+      }
 
-/**
- * Генерирует код для внешнего прерывания
- */
-function generateExternalInterrupt(
-  pinName: string,
-  settings: Record<string, any>
-): string[] {
-  // INT0 на PD2, INT1 на PD3
-  const interruptName = pinName === "PD2" ? "INT0" : "INT1";
-  const templates = (codegenJson.external_interrupt as any)?.init?.[
-    interruptName
-  ];
-
-  if (!templates || !Array.isArray(templates)) {
-    return [];
+      lines.push(`// ${spec.id.toUpperCase()}`);
+      for (const tpl of templates) {
+        lines.push(cgApplyTemplate(tpl, params));
+      }
+    }
   }
 
-  const context = {
-    triggerBits: getTriggerBits(settings.trigger || "FALLING"),
+  return lines;
+}
+
+function cgGenerateGlobalPeripheral(
+  spec: CGPeripheralConfig,
+  state: Record<string, any>,
+  defaultFcpu?: number
+): string[] {
+  if (state.enabled === false) return [];
+
+  const codeGen = spec.codeGenerator;
+  const mode = cgResolveMode(state, codeGen.modeKey, codeGen.modeMapping);
+
+  let templates: string[] | null = null;
+
+  if (state.interrupt && codeGen.init[state.interrupt]) {
+    const value = codeGen.init[state.interrupt];
+    if (Array.isArray(value)) templates = value;
+  } else {
+    templates = cgGetInitTemplates(codeGen.init, mode);
+  }
+
+  if (!templates || templates.length === 0) return [];
+
+  const params = cgApplyValueMapping(state, codeGen.valueMapping);
+  if (defaultFcpu && templates.some((t) => t.includes("F_CPU"))) {
+    (params as any).F_CPU = defaultFcpu;
+  }
+
+  const lines: string[] = [];
+  lines.push(`// ${spec.id.toUpperCase()}`);
+  for (const tpl of templates) {
+    lines.push(cgApplyTemplate(tpl, params));
+  }
+
+  return lines;
+}
+
+function cgGenerateInterrupts(
+  spec: CGPeripheralConfig,
+  state: {
+    pins?: Record<string, Record<string, any>>;
+    interrupts?: Record<string, { enabled?: boolean }>;
+    [key: string]: any;
+  }
+): { enable: string[]; isr: string[] } {
+  const enableLines: string[] = [];
+  const isrLines: string[] = [];
+
+  const codeGen = spec.codeGenerator;
+  if (!codeGen.interrupts) return { enable: enableLines, isr: isrLines };
+
+  // Поддержка двух форматов:
+  // 1) state.interrupts: { RX: { enabled: true } }
+  // 2) флаги в настройках: enableRXInterrupt: true (либо на уровне периферии, либо в настройках пинов)
+  const resolveInterruptEnabled = (interruptName: string): boolean => {
+    if (state.interrupts && interruptName in state.interrupts) {
+      return !!state.interrupts[interruptName]?.enabled;
+    }
+
+    const flagKey = `enable${interruptName}Interrupt`;
+
+    if (spec.kind === "pin" && state.pins && Object.keys(state.pins).length > 0) {
+      for (const pinName in state.pins) {
+        const pinState = state.pins[pinName];
+        if (pinState && pinState[flagKey] === true) return true;
+      }
+      return false;
+    }
+
+    if (state[flagKey] === true) return true;
+
+    const interruptKeys = Object.keys(codeGen.interrupts || {});
+    if (interruptKeys.length === 1 && state.enableInterrupt === true) return true;
+
+    return false;
   };
 
-  return templates.map((template: string) =>
-    replacePlaceholders(template, context)
-  );
-}
+  for (const interruptName in codeGen.interrupts) {
+    if (!resolveInterruptEnabled(interruptName)) continue;
 
-/**
- * Генерирует код для PCINT
- */
-function generatePCINT(
-  pinName: string,
-  settings: Record<string, any>
-): string[] {
-  const group = getPCINTGroup(pinName);
-  const number = getPCINTNumber(pinName);
-  const pinInfo = getPinInfo(pinName);
+    const interruptConfig = codeGen.interrupts[interruptName];
+    if (!interruptConfig || !interruptConfig.code) continue;
 
-  const templates = (codegenJson.pcint as any)?.init;
+    if (interruptConfig.code.enable) {
+      for (const enableLine of interruptConfig.code.enable) {
+        if (state.pins && spec.kind === "pin" && Object.keys(state.pins).length > 0) {
+          if (spec.id === "gpio" && interruptName === "PCINT") {
+            for (const pinName in state.pins) {
+              const pinInfo = cgGetPinPortInfo(pinName, codeGen.ports);
+              if (!pinInfo) continue;
 
-  if (!templates || !Array.isArray(templates)) {
-    return [];
+              const params: Record<string, string | number> = {
+                port: pinInfo.port,
+                pin: pinInfo.pin,
+                ...cgGetPCINTParams(pinName),
+              };
+
+              if (codeGen.ports) {
+                const portConfig = codeGen.ports.find((p) => p.id === pinInfo.port);
+                if (portConfig && portConfig.registers) {
+                  params.ddr = portConfig.registers.ddr;
+                  params.portReg = portConfig.registers.port;
+                  params.pinReg = portConfig.registers.pin;
+
+                  (params as any).ddrBit = `DDD${pinInfo.pin}`;
+                  (params as any).portBit = `PORT${pinInfo.port}${pinInfo.pin}`;
+                  (params as any).pinBit = `PIN${pinInfo.port}${pinInfo.pin}`;
+                }
+              }
+
+              enableLines.push(cgApplyTemplate(enableLine, params));
+            }
+          } else {
+            const params = cgApplyValueMapping(state, codeGen.valueMapping);
+            enableLines.push(cgApplyTemplate(enableLine, params));
+          }
+        } else {
+          const params = cgApplyValueMapping(state, codeGen.valueMapping);
+          enableLines.push(cgApplyTemplate(enableLine, params));
+        }
+      }
+    }
+
+    if (interruptConfig.code.isr) {
+      if (state.pins && spec.kind === "pin" && Object.keys(state.pins).length > 0) {
+        if (spec.id === "gpio" && interruptName === "PCINT") {
+          for (const pinName in state.pins) {
+            const pinInfo = cgGetPinPortInfo(pinName, codeGen.ports);
+            if (!pinInfo) continue;
+
+            const params: Record<string, string | number> = {
+              port: pinInfo.port,
+              pin: pinInfo.pin,
+              ...cgGetPCINTParams(pinName),
+            };
+
+            if (codeGen.ports) {
+              const portConfig = codeGen.ports.find((p) => p.id === pinInfo.port);
+              if (portConfig && portConfig.registers) {
+                params.ddr = portConfig.registers.ddr;
+                params.portReg = portConfig.registers.port;
+                params.pinReg = portConfig.registers.pin;
+              }
+            }
+
+            for (const isrLine of interruptConfig.code.isr) {
+              isrLines.push(cgApplyTemplate(isrLine, params));
+            }
+          }
+        } else {
+          const params = cgApplyValueMapping(state, codeGen.valueMapping);
+          for (const isrLine of interruptConfig.code.isr) {
+            isrLines.push(cgApplyTemplate(isrLine, params));
+          }
+        }
+      } else {
+        const params = cgApplyValueMapping(state, codeGen.valueMapping);
+        for (const isrLine of interruptConfig.code.isr) {
+          isrLines.push(cgApplyTemplate(isrLine, params));
+        }
+      }
+    }
   }
 
-  const context = {
-    pin: pinInfo,
-    group,
-    number,
+  return { enable: enableLines, isr: isrLines };
+}
+
+function cgGenerateFromConfig(
+  jsonConfig: CGJsonConfig,
+  uiState: CGUIState,
+  fCpuOverride?: number
+): {
+  includes: string[];
+  initLines: string[];
+  interruptEnableLines: string[];
+  isrLines: string[];
+} {
+  const initLines: string[] = [];
+  const interruptEnableLines: string[] = [];
+  const isrLines: string[] = [];
+  const includes = new Set<string>();
+
+  const defaultFcpu = fCpuOverride ?? jsonConfig.meta?.defaultFcpu;
+
+  for (const peripheralName in jsonConfig) {
+    if (peripheralName === "meta") continue;
+    // UI_PIN и прочие нерелевантные ключи в тестовом конфиге
+    if (peripheralName === "UI_PIN") continue;
+
+    const peripheralConfig = jsonConfig[peripheralName] as CGPeripheralConfig;
+    if (!peripheralConfig || !peripheralConfig.codeGenerator) continue;
+
+    // Поддержка двух вариантов ключей в uiState.peripherals:
+    // - новый: по peripheralConfig.id (например, "gpio", "watchdog_timer")
+    // - UI/старый: по имени секции в конфиге (например, "GPIO", "WATCHDOG_TIMER")
+    const state =
+      uiState.peripherals[peripheralConfig.id] ?? uiState.peripherals[peripheralName];
+    if (!state) continue;
+
+    if (peripheralConfig.codeGenerator.globalIncludes) {
+      for (const inc of peripheralConfig.codeGenerator.globalIncludes) {
+        includes.add(inc);
+      }
+    }
+
+    let peripheralInitLines: string[] = [];
+    if (peripheralConfig.kind === "pin") {
+      peripheralInitLines = cgGeneratePinPeripheral(peripheralConfig, state, defaultFcpu);
+    } else if (peripheralConfig.kind === "global") {
+      peripheralInitLines = cgGenerateGlobalPeripheral(peripheralConfig, state, defaultFcpu);
+    }
+
+    if (peripheralInitLines.length > 0) {
+      initLines.push(...peripheralInitLines);
+      initLines.push("");
+    }
+
+    const interruptCode = cgGenerateInterrupts(peripheralConfig, state);
+    if (interruptCode.enable.length > 0) interruptEnableLines.push(...interruptCode.enable);
+    if (interruptCode.isr.length > 0) {
+      isrLines.push(...interruptCode.isr);
+      includes.add("<avr/interrupt.h>");
+    }
+  }
+
+  return {
+    includes: Array.from(includes).sort(),
+    initLines,
+    interruptEnableLines,
+    isrLines,
   };
-
-  return templates.map((template: string) =>
-    replacePlaceholders(template, context)
-  );
-}
-
-/**
- * Генерирует код для Watchdog
- */
-function generateWatchdog(settings: Record<string, any>): string[] {
-  const templates = (codegenJson.watchdog as any)?.init;
-
-  if (!templates || !Array.isArray(templates)) {
-    return [];
-  }
-
-  const context = {
-    timeoutBits: getWatchdogTimeoutBits(settings.timeout || 1000),
-  };
-
-  return templates.map((template: string) =>
-    replacePlaceholders(template, context)
-  );
-}
-
-/**
- * Генерирует ISR функции
- */
-function generateISR(
-  functionType: string,
-  pinName: string | null,
-  settings: Record<string, any>
-): string[] {
-  const isrConfig = (codegenJson as any)[functionType.toLowerCase()]?.isr;
-
-  if (!isrConfig) {
-    return [];
-  }
-
-  // Определяем тип ISR
-  let isrType: string | null = null;
-
-  if (functionType.includes("TIMER0")) {
-    if (settings.interruptType === "OVF" || settings.enableOVF) {
-      isrType = "ovf";
-    } else if (settings.interruptType === "COMPA" || settings.enableCOMPA) {
-      isrType = "compa";
-    } else if (settings.interruptType === "COMPB" || settings.enableCOMPB) {
-      isrType = "compb";
-    }
-  } else if (functionType.includes("TIMER1")) {
-    if (settings.interruptType === "OVF" || settings.enableOVF) {
-      isrType = "ovf";
-    } else if (settings.interruptType === "COMPA" || settings.enableCOMPA) {
-      isrType = "compa";
-    } else if (settings.interruptType === "COMPB" || settings.enableCOMPB) {
-      isrType = "compb";
-    } else if (settings.interruptType === "CAPT" || settings.enableCAPT) {
-      isrType = "capt";
-    }
-  } else if (functionType.includes("TIMER2")) {
-    if (settings.interruptType === "OVF" || settings.enableOVF) {
-      isrType = "ovf";
-    } else if (settings.interruptType === "COMPA" || settings.enableCOMPA) {
-      isrType = "compa";
-    } else if (settings.interruptType === "COMPB" || settings.enableCOMPB) {
-      isrType = "compb";
-    }
-  } else if (functionType === "UART" || functionType === "USART") {
-    if (settings.enableRXInterrupt) {
-      isrType = "RX";
-    } else if (settings.enableTXInterrupt) {
-      isrType = "TX";
-    } else if (settings.enableUDREInterrupt) {
-      isrType = "UDRE";
-    }
-  } else if (functionType === "SPI") {
-    if (settings.enableInterrupt) {
-      return isrConfig || [];
-    }
-  } else if (functionType === "I2C" || functionType === "TWI") {
-    if (settings.enableInterrupt) {
-      return isrConfig || [];
-    }
-  } else if (functionType === "ADC") {
-    if (settings.enableInterrupt) {
-      return isrConfig || [];
-    }
-  } else if (functionType === "EXTERNAL_INTERRUPT") {
-    const interruptName = pinName === "PD2" ? "INT0" : "INT1";
-    return isrConfig?.[interruptName] || [];
-  } else if (functionType === "PCINT") {
-    const group = pinName ? getPCINTGroup(pinName) : 0;
-    const isrName = `PCINT${group}`;
-    const isrTemplates = isrConfig?.[isrName];
-    if (isrTemplates && pinName) {
-      const pinInfo = getPinInfo(pinName);
-      return isrTemplates.map((template: string) =>
-        replacePlaceholders(template, { pin: pinInfo })
-      );
-    }
-  } else if (functionType === "ANALOG_COMPARATOR") {
-    if (settings.enableInterrupt) {
-      return isrConfig || [];
-    }
-  }
-
-  if (!isrType || !isrConfig[isrType]) {
-    return [];
-  }
-
-  return isrConfig[isrType] || [];
 }
 
 /**
  * Главная функция генерации кода
  */
 export function generateInitCode(
-  selectedPinFunctions: Record<string, SelectedPinFunction[]>,
-  systemPeripherals: Record<string, SelectedPinFunction>,
-  fCpu: number
+  uiState: CGUIState,
+  fCpu?: number
 ): GeneratedCode {
-  const initCode: string[] = [];
-  const isrCode: string[] = [];
-  const includes = new Set<string>(["<Arduino.h>"]);
+  // 1) Берём конфиг и uiState напрямую (как в src/config/test/test.ts)
+  const config = atmega328Config as unknown as CGJsonConfig;
 
-  // Собираем все PCINT пины для группировки
-  const pcintPins: Array<{ pinName: string; settings: Record<string, any>; gpioMode?: string }> =
-    [];
-  const pcintGroups: Record<
-    string,
-    Array<{ pinName: string; pinInfo: PinInfo; pcintNumber: number; gpioMode?: string }>
-  > = {};
+  // 2) Генерируем наборы строк
+  const { includes, initLines, interruptEnableLines, isrLines } =
+    cgGenerateFromConfig(config, uiState, fCpu);
 
-  // Обрабатываем функции пинов
-  for (const [pinName, functions] of Object.entries(selectedPinFunctions)) {
-    for (const func of functions) {
-      const { functionType, settings } = func;
+  // 3) Формируем pins_init.h / pins_init.cpp (как ожидает projectHandlers.ts)
+  const finalIncludes = new Set<string>(["<Arduino.h>", ...includes]);
 
-      switch (functionType) {
-        case "GPIO":
-          initCode.push(...generateGPIO(pinName, settings));
-          // Поддержка обоих форматов: нового (enablePCINTInterrupt) и старого (enablePCINT)
-          if (settings.enablePCINTInterrupt || settings.enablePCINT) {
-            // Собираем информацию о PCINT пинах для последующей группировки
-            // Сохраняем режим GPIO, чтобы не дублировать настройку пина
-            pcintPins.push({ pinName, settings, gpioMode: settings.mode });
-          }
-          break;
-
-        case "UART":
-        case "USART":
-          initCode.push(...generateUART(settings, fCpu));
-          const uartISR = generateISR("UART", null, settings);
-          if (uartISR.length > 0) {
-            isrCode.push(...uartISR);
-            includes.add("<avr/interrupt.h>");
-          }
-          break;
-
-        case "SPI":
-          initCode.push(...generateSPI(settings));
-          if (settings.enableInterrupt) {
-            initCode.push(
-              ...((codegenJson.spi as any)?.interrupt || []).map(
-                (line: string) => replacePlaceholders(line, {})
-              )
-            );
-            const spiISR = generateISR("SPI", null, settings);
-            if (spiISR.length > 0) {
-              isrCode.push(...spiISR);
-              includes.add("<avr/interrupt.h>");
-            }
-          }
-          break;
-
-        case "I2C":
-        case "TWI":
-          initCode.push(...generateI2C(settings, fCpu));
-          if (settings.enableInterrupt) {
-            initCode.push(
-              ...((codegenJson.i2c as any)?.interrupt || []).map(
-                (line: string) => replacePlaceholders(line, {})
-              )
-            );
-            const i2cISR = generateISR("I2C", null, settings);
-            if (i2cISR.length > 0) {
-              isrCode.push(...i2cISR);
-              includes.add("<avr/interrupt.h>");
-            }
-          }
-          break;
-
-        case "TIMER0_PWM":
-          initCode.push(...generateTimer("timer0", pinName, settings));
-          const timer0ISR = generateISR("TIMER0", pinName, settings);
-          if (timer0ISR.length > 0) {
-            isrCode.push(...timer0ISR);
-            includes.add("<avr/interrupt.h>");
-          }
-          break;
-
-        case "TIMER1_PWM":
-          initCode.push(...generateTimer("timer1", pinName, settings));
-          const timer1ISR = generateISR("TIMER1", pinName, settings);
-          if (timer1ISR.length > 0) {
-            isrCode.push(...timer1ISR);
-            includes.add("<avr/interrupt.h>");
-          }
-          break;
-
-        case "TIMER2_PWM":
-          initCode.push(...generateTimer("timer2", pinName, settings));
-          const timer2ISR = generateISR("TIMER2", pinName, settings);
-          if (timer2ISR.length > 0) {
-            isrCode.push(...timer2ISR);
-            includes.add("<avr/interrupt.h>");
-          }
-          break;
-
-        case "ADC":
-          initCode.push(...generateADC(settings));
-          if (settings.enableInterrupt) {
-            initCode.push(
-              ...((codegenJson.adc as any)?.interrupt || []).map(
-                (line: string) => replacePlaceholders(line, {})
-              )
-            );
-            const adcISR = generateISR("ADC", null, settings);
-            if (adcISR.length > 0) {
-              isrCode.push(...adcISR);
-              includes.add("<avr/interrupt.h>");
-            }
-          }
-          break;
-
-        case "EXTERNAL_INTERRUPT":
-          initCode.push(...generateExternalInterrupt(pinName, settings));
-          const extISR = generateISR("EXTERNAL_INTERRUPT", pinName, settings);
-          if (extISR.length > 0) {
-            isrCode.push(...extISR);
-            includes.add("<avr/interrupt.h>");
-          }
-          break;
-      }
-    }
-  }
-
-  // Группируем PCINT пины по портам и генерируем код
-  if (pcintPins.length > 0) {
-    // Группируем по портам
-    pcintPins.forEach(({ pinName, settings, gpioMode }) => {
-      const pinInfo = getPinInfo(pinName);
-      const pcintNumber = getPCINTNumber(pinName);
-      const group = getPCINTGroup(pinName);
-      const groupName = `PCINT${group}`;
-
-      if (!pcintGroups[groupName]) {
-        pcintGroups[groupName] = [];
-      }
-
-      // Проверяем, нет ли уже этого пина в группе
-      if (!pcintGroups[groupName].some((p) => p.pinName === pinName)) {
-        pcintGroups[groupName].push({ pinName, pinInfo, pcintNumber, gpioMode });
-      }
-    });
-
-    // Генерируем инициализацию для каждой группы
-    Object.entries(pcintGroups).forEach(([groupName, pins]) => {
-      const group = parseInt(groupName.replace("PCINT", ""));
-      const portLetter = group === 0 ? "B" : group === 1 ? "C" : "D";
-      const pcieBit = group === 0 ? "PCIE0" : group === 1 ? "PCIE1" : "PCIE2";
-
-      // Генерируем настройку пинов только если они не были настроены как GPIO INPUT_PULLUP
-      // Для пинов, настроенных как GPIO INPUT, нужно только включить подтяжку
-      pins.forEach(({ pinInfo, gpioMode }) => {
-        if (gpioMode === "INPUT_PULLUP") {
-          // Пин уже настроен как INPUT с подтяжкой, ничего не делаем
-          return;
-        } else if (gpioMode === "INPUT") {
-          // Пин настроен как INPUT без подтяжки, нужно только включить подтяжку
-          initCode.push(
-            `${pinInfo.port} |= (1 << ${pinInfo.bit}); // Включить подтяжку на ${pinInfo.name} для PCINT`
-          );
-        } else {
-          // Пин настроен как OUTPUT или не настроен, настраиваем полностью
-          const pinSetupTemplates = (codegenJson.pcint as any)?.pinSetup
-            ?.inputPullup;
-          if (pinSetupTemplates && Array.isArray(pinSetupTemplates)) {
-            pinSetupTemplates.forEach((template: string) => {
-              initCode.push(replacePlaceholders(template, { pin: pinInfo }));
-            });
-          }
-        }
-      });
-
-      // Включаем прерывание для группы (только один раз на группу)
-      initCode.push(
-        `PCICR |= (1 << ${pcieBit}); // Включить Pin Change Interrupt для PORT${portLetter}`
-      );
-
-      // Настраиваем маску для всех пинов группы
-      const pcintMask = pins
-        .map(({ pcintNumber }) => `(1 << PCINT${pcintNumber})`)
-        .join(" | ");
-      initCode.push(
-        `PCMSK${group} |= ${pcintMask}; // Включить PCINT для выбранных пинов PORT${portLetter}`
-      );
-    });
-
-    // Генерируем ISR для каждой группы
-    Object.entries(pcintGroups).forEach(([groupName, pins]) => {
-      const group = parseInt(groupName.replace("PCINT", ""));
-      const portLetter = group === 0 ? "B" : group === 1 ? "C" : "D";
-
-      const isrCodeLines: string[] = [`ISR(${groupName}_vect) {`];
-      isrCodeLines.push(`    // Обработчик изменения пинов PORT${portLetter}`);
-      isrCodeLines.push(
-        `    uint8_t pin_state = PIN${portLetter}; // Текущее состояние порта`
-      );
-      isrCodeLines.push("");
-
-      pins.forEach(({ pinName, pinInfo, pcintNumber }, index) => {
-        isrCodeLines.push(
-          `    // Проверка изменения ${pinName} - PCINT${pcintNumber}`
-        );
-        isrCodeLines.push(
-          `    if (pin_state & (1 << PIN${portLetter}${pinInfo.bit})) {`
-        );
-        isrCodeLines.push(`        // ${pinName} стал HIGH`);
-        isrCodeLines.push(`    } else {`);
-        isrCodeLines.push(`        // ${pinName} стал LOW`);
-        isrCodeLines.push(`    }`);
-        if (index < pins.length - 1) {
-          isrCodeLines.push("");
-        }
-      });
-
-      isrCodeLines.push("}");
-      isrCode.push(isrCodeLines.join("\n"));
-      includes.add("<avr/interrupt.h>");
-    });
-  }
-
-  // Обрабатываем системные периферии
-  for (const [peripheralName, peripheral] of Object.entries(
-    systemPeripherals
-  )) {
-    const { functionType, settings } = peripheral;
-
-    switch (functionType) {
-      case "TIMER0":
-        initCode.push(...generateTimer("timer0", null, settings));
-        const timer0ISR = generateISR("TIMER0", null, settings);
-        if (timer0ISR.length > 0) {
-          isrCode.push(...timer0ISR);
-          includes.add("<avr/interrupt.h>");
-        }
-        break;
-
-      case "TIMER1":
-        initCode.push(...generateTimer("timer1", null, settings));
-        const timer1ISR = generateISR("TIMER1", null, settings);
-        if (timer1ISR.length > 0) {
-          isrCode.push(...timer1ISR);
-          includes.add("<avr/interrupt.h>");
-        }
-        break;
-
-      case "TIMER2":
-        initCode.push(...generateTimer("timer2", null, settings));
-        const timer2ISR = generateISR("TIMER2", null, settings);
-        if (timer2ISR.length > 0) {
-          isrCode.push(...timer2ISR);
-          includes.add("<avr/interrupt.h>");
-        }
-        break;
-
-      case "WATCHDOG":
-        initCode.push(...generateWatchdog(settings));
-        break;
-
-      case "ADC":
-        initCode.push(...generateADC(settings));
-        if (settings.enableInterrupt) {
-          initCode.push(
-            ...((codegenJson.adc as any)?.interrupt || []).map((line: string) =>
-              replacePlaceholders(line, {})
-            )
-          );
-          const adcISR = generateISR("ADC", null, settings);
-          if (adcISR.length > 0) {
-            isrCode.push(...adcISR);
-            includes.add("<avr/interrupt.h>");
-          }
-        }
-        break;
-    }
-  }
-
-  // Формируем заголовочный файл
   const headerCode = `#ifndef PINS_INIT_H
 #define PINS_INIT_H
 
-${Array.from(includes)
+${Array.from(finalIncludes)
   .map((inc) => `#include ${inc}`)
   .join("\n")}
 
@@ -952,23 +527,30 @@ void pins_init_all(void);
 #endif // PINS_INIT_H
 `;
 
-  // Формируем файл реализации
-  const implementationCode = `${Array.from(includes)
+  const bodyLines: string[] = [];
+  // Пустые строки оставляем как есть (не удаляем) — чтобы сохранять читаемость, как в test.ts
+  bodyLines.push(...initLines);
+  if (interruptEnableLines.length > 0) {
+    if (bodyLines.length > 0 && bodyLines[bodyLines.length - 1] !== "") bodyLines.push("");
+    bodyLines.push(...interruptEnableLines);
+    bodyLines.push("sei(); // Enable global interrupts");
+  }
+
+  const implementationCode = `${Array.from(finalIncludes)
     .map((inc) => `#include ${inc}`)
     .join("\n")}
 #include "pins_init.h"
 
 void pins_init_all(void) {
-${initCode.map((line) => `    ${line}`).join("\n")}
-${isrCode.length > 0 ? "\n    sei(); // Enable global interrupts" : ""}
+${bodyLines.map((line) => `    ${line}`).join("\n")}
 }
 
-${isrCode.length > 0 ? "\n" + isrCode.join("\n\n") : ""}
+${isrLines.length > 0 ? "\n" + isrLines.join("\n") + "\n" : ""}
 `;
 
   return {
     header: headerCode,
     implementation: implementationCode,
-    includes: Array.from(includes),
+    includes: Array.from(finalIncludes),
   };
 }

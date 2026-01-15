@@ -1,6 +1,11 @@
 import { useState, useCallback, useMemo } from "react";
 import type { SelectedPinFunction, BoardConfig, PinConfig } from "@/types/boardConfig";
-import { getPins, getPeriphery, getPeripheryPinMapping } from "@/utils/config/boardConfigHelpers";
+import {
+  getPins,
+  getPeriphery,
+  getPeripheryDefaultSettings,
+  getPeripheryPinMapping,
+} from "@/utils/config/boardConfigHelpers";
 
 /**
  * Настройки пина для периферии с пинами
@@ -290,7 +295,15 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
         // Получаем или создаем конфигурацию системной периферии
         let peripheral = newPeripherals[peripheralName] as SystemPeripheralConfig;
         if (!peripheral) {
-          peripheral = { enabled: true, interrupts: {} };
+          // Важно: если у периферии в конфиге есть ui.config.*.defaultValue,
+          // то при первом включении мы должны проставить эти значения.
+          // Иначе генератор кода может ожидать обязательные параметры (например, {{timeout}} для watchdog)
+          // и падать при создании проекта.
+          const defaultSettings = getPeripheryDefaultSettings(
+            peripheralName,
+            settings as Record<string, any>
+          );
+          peripheral = { enabled: true, interrupts: {}, ...defaultSettings, ...settings };
           newPeripherals[peripheralName] = peripheral;
         }
         
@@ -299,6 +312,19 @@ export const useProjectConfiguration = (boardConfig: BoardConfig | null) => {
         Object.assign(peripheral, { ...otherSettings, ...settings });
         if (interrupts) {
           peripheral.interrupts = interrupts;
+        }
+
+        // Если часть настроек не задана пользователем, но есть defaultValue в конфиге — добиваем дефолтами.
+        // Это защищает от ситуаций, когда периферия была добавлена "пусто", а позже используется в шаблонах.
+        const mergedForAppliesTo = { ...(peripheral as any), ...(settings as any) };
+        const defaultsAfterUpdate = getPeripheryDefaultSettings(
+          peripheralName,
+          mergedForAppliesTo
+        );
+        for (const [key, value] of Object.entries(defaultsAfterUpdate)) {
+          if ((peripheral as any)[key] === undefined) {
+            (peripheral as any)[key] = value;
+          }
         }
         
         return { peripherals: newPeripherals };

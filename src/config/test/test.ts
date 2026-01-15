@@ -1745,62 +1745,44 @@ function generateInterrupts(
     return { enable: enableLines, isr: isrLines };
   }
 
-  if (state.interrupts) {
-    for (const interruptName in state.interrupts) {
-      const interruptState = state.interrupts[interruptName];
+  // Поддержка двух форматов:
+  // 1) state.interrupts: { RX: { enabled: true } }
+  // 2) флаги в настройках: enableRXInterrupt: true (либо на уровне периферии, либо в настройках пинов)
+  const resolveInterruptEnabled = (interruptName: string): boolean => {
+    // Приоритет: новый формат state.interrupts
+    if (state.interrupts && interruptName in state.interrupts) {
+      return !!state.interrupts[interruptName]?.enabled;
+    }
 
-      if (!interruptState.enabled) continue;
+    const flagKey = `enable${interruptName}Interrupt`;
 
-      const interruptConfig = codeGen.interrupts[interruptName];
-      if (!interruptConfig || !interruptConfig.code) continue;
-
-      if (interruptConfig.code.enable) {
-        for (const enableLine of interruptConfig.code.enable) {
-          if (
-            state.pins &&
-            spec.kind === "pin" &&
-            Object.keys(state.pins).length > 0
-          ) {
-            if (spec.id === "gpio" && interruptName === "PCINT") {
-              for (const pinName in state.pins) {
-                const pinInfo = getPinPortInfo(pinName, codeGen.ports);
-                if (!pinInfo) continue;
-
-                const params: Record<string, string | number> = {
-                  port: pinInfo.port,
-                  pin: pinInfo.pin,
-                  ...getPCINTParams(pinName),
-                };
-
-                if (codeGen.ports) {
-                  const portConfig = codeGen.ports.find(
-                    (p) => p.id === pinInfo.port
-                  );
-                  if (portConfig && portConfig.registers) {
-                    params.ddr = portConfig.registers.ddr;
-                    params.portReg = portConfig.registers.port;
-                    params.pinReg = portConfig.registers.pin;
-                    
-                    params.ddrBit = `DDD${pinInfo.pin}`;
-                    params.portBit = `PORT${pinInfo.port}${pinInfo.pin}`;
-                    params.pinBit = `PIN${pinInfo.port}${pinInfo.pin}`;
-                  }
-                }
-
-                enableLines.push(applyTemplate(enableLine, params));
-              }
-            } else {
-              const params = applyValueMapping(state, codeGen.valueMapping);
-              enableLines.push(applyTemplate(enableLine, params));
-            }
-          } else {
-            const params = applyValueMapping(state, codeGen.valueMapping);
-            enableLines.push(applyTemplate(enableLine, params));
-          }
-        }
+    // Для pin-периферий: считаем прерывание включенным, если оно включено хотя бы на одном пине
+    if (spec.kind === "pin" && state.pins && Object.keys(state.pins).length > 0) {
+      for (const pinName in state.pins) {
+        const pinState = state.pins[pinName];
+        if (pinState && pinState[flagKey] === true) return true;
       }
+      return false;
+    }
 
-      if (interruptConfig.code.isr) {
+    // Для global-периферий или pin-периферий без pins: флаг хранится на уровне состояния периферии
+    if (state[flagKey] === true) return true;
+
+    // Доп. совместимость: если у периферии ровно одно прерывание, часто используют общий enableInterrupt
+    const interruptKeys = Object.keys(codeGen.interrupts || {});
+    if (interruptKeys.length === 1 && state.enableInterrupt === true) return true;
+
+    return false;
+  };
+
+  for (const interruptName in codeGen.interrupts) {
+    if (!resolveInterruptEnabled(interruptName)) continue;
+
+    const interruptConfig = codeGen.interrupts[interruptName];
+    if (!interruptConfig || !interruptConfig.code) continue;
+
+    if (interruptConfig.code.enable) {
+      for (const enableLine of interruptConfig.code.enable) {
         if (
           state.pins &&
           spec.kind === "pin" &&
@@ -1825,15 +1807,52 @@ function generateInterrupts(
                   params.ddr = portConfig.registers.ddr;
                   params.portReg = portConfig.registers.port;
                   params.pinReg = portConfig.registers.pin;
+
+                  params.ddrBit = `DDD${pinInfo.pin}`;
+                  params.portBit = `PORT${pinInfo.port}${pinInfo.pin}`;
+                  params.pinBit = `PIN${pinInfo.port}${pinInfo.pin}`;
                 }
               }
 
-              for (const isrLine of interruptConfig.code.isr) {
-                isrLines.push(applyTemplate(isrLine, params));
-              }
+              enableLines.push(applyTemplate(enableLine, params));
             }
           } else {
             const params = applyValueMapping(state, codeGen.valueMapping);
+            enableLines.push(applyTemplate(enableLine, params));
+          }
+        } else {
+          const params = applyValueMapping(state, codeGen.valueMapping);
+          enableLines.push(applyTemplate(enableLine, params));
+        }
+      }
+    }
+
+    if (interruptConfig.code.isr) {
+      if (
+        state.pins &&
+        spec.kind === "pin" &&
+        Object.keys(state.pins).length > 0
+      ) {
+        if (spec.id === "gpio" && interruptName === "PCINT") {
+          for (const pinName in state.pins) {
+            const pinInfo = getPinPortInfo(pinName, codeGen.ports);
+            if (!pinInfo) continue;
+
+            const params: Record<string, string | number> = {
+              port: pinInfo.port,
+              pin: pinInfo.pin,
+              ...getPCINTParams(pinName),
+            };
+
+            if (codeGen.ports) {
+              const portConfig = codeGen.ports.find((p) => p.id === pinInfo.port);
+              if (portConfig && portConfig.registers) {
+                params.ddr = portConfig.registers.ddr;
+                params.portReg = portConfig.registers.port;
+                params.pinReg = portConfig.registers.pin;
+              }
+            }
+
             for (const isrLine of interruptConfig.code.isr) {
               isrLines.push(applyTemplate(isrLine, params));
             }
@@ -1843,6 +1862,11 @@ function generateInterrupts(
           for (const isrLine of interruptConfig.code.isr) {
             isrLines.push(applyTemplate(isrLine, params));
           }
+        }
+      } else {
+        const params = applyValueMapping(state, codeGen.valueMapping);
+        for (const isrLine of interruptConfig.code.isr) {
+          isrLines.push(applyTemplate(isrLine, params));
         }
       }
     }
