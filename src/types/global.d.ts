@@ -117,6 +117,15 @@ declare global {
         externalPath: string;
       }>;
       getBoardUiExternalDir: () => Promise<string>;
+      listBoardUiConfigs: () => Promise<Array<{
+        id: string;
+        name: string;
+        platform: string;
+        defaultFcpu: number;
+        fcpuOptions: number[];
+        uiFileName: string;
+        imageFileName: string;
+      }>>;
       // Arduino заливка прошивки и работа с портами
       // Единственный метод для получения списка портов - использует SerialPortWatcher
       arduinoDetectPorts: () => Promise<import('./arduino').SerialPortInfo[]>;

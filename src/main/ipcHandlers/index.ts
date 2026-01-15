@@ -61,6 +61,7 @@ const ALL_HANDLERS = [
   "serial-data-get-open-ports",
   "board-ui-get-config",
   "board-ui-get-external-dir",
+  "board-ui-list-configs",
 ];
 
 /**

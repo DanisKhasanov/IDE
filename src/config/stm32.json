@@ -1,8 +1,8 @@
 {
   "meta": {
-    "mcu": "ATmega328P",
-     "platform": "arduino",
-    "board": "Arduino Uno",
+    "mcu": "STM32F103C8T6",
+    "platform": "stm32",
+    "board": "STM32F103C8T6",
     "defaultFcpu": 16000000,
     "fcpuOptions": [1000000, 8000000, 16000000, 20000000]
   },

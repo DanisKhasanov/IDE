@@ -14,7 +14,17 @@ import type { BoardConfig } from "@/types/boardConfig";
 
 
 interface BoardSelectionTabProps {
+  selectedPlatform: string;
+  platforms: string[];
+  onPlatformChange: (platform: string) => void;
   selectedBoard: string | null;
+  boardCatalog: Array<{
+    id: string;
+    name: string;
+    platform: string;
+    defaultFcpu: number;
+    fcpuOptions: number[];
+  }>;
   boardConfigs: Record<
     string,
     { name: string; fcpuOptions?: string[]; defaultFcpu: string; config: BoardConfig }
@@ -23,7 +33,7 @@ interface BoardSelectionTabProps {
   projectName: string;
   parentPath: string;
   selectedFrequency: string;
-  onBoardChange: (boardId: string | null) => void;
+  onBoardChange: (boardId: string | null) => void | Promise<void>;
   onProjectNameChange: (name: string) => void;
   onParentPathChange: (path: string) => void;
   onFrequencyChange: (frequency: string) => void;
@@ -42,7 +52,11 @@ const formatFrequency = (freq: string): string => {
 };
 
 export const BoardSelectionTab = ({
+  selectedPlatform,
+  platforms,
+  onPlatformChange,
   selectedBoard,
+  boardCatalog,
   boardConfigs,
   currentBoardConfig,
   projectName,
@@ -83,6 +97,21 @@ export const BoardSelectionTab = ({
         Выбор платы
       </Typography>
       <FormControl fullWidth>
+        <InputLabel id="platform-select-label">Платформа</InputLabel>
+        <Select
+          labelId="platform-select-label"
+          value={selectedPlatform || ""}
+          label="Платформа"
+          onChange={(e) => onPlatformChange(String(e.target.value))}
+        >
+          {platforms.map((p) => (
+            <MenuItem key={p} value={p}>
+              {p === "arduino" ? "Arduino" : p === "stm32" ? "STM32" : p}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      <FormControl fullWidth>
         <InputLabel id="board-select-label">Плата</InputLabel>
         <Select
           labelId="board-select-label"
@@ -93,11 +122,13 @@ export const BoardSelectionTab = ({
           <MenuItem value="">
             <em>Не выбрано</em>
           </MenuItem>
-          {Object.entries(boardConfigs).map(([id, board]) => (
-            <MenuItem key={id} value={id}>
-              {board.name}
-            </MenuItem>
-          ))}
+          {boardCatalog
+            .filter((b) => b.platform === selectedPlatform)
+            .map((b) => (
+              <MenuItem key={b.id} value={b.id}>
+                {b.name}
+              </MenuItem>
+            ))}
         </Select>
       </FormControl>
       <FormControl fullWidth disabled={!selectedBoard}>
@@ -108,11 +139,14 @@ export const BoardSelectionTab = ({
           label="Частота CPU"
           onChange={(e) => onFrequencyChange(e.target.value)}
         >
-          {selectedBoard && boardConfigs[selectedBoard]?.fcpuOptions?.map((freq) => (
-            <MenuItem key={freq} value={freq}>
-              {formatFrequency(freq)} Hz
-            </MenuItem>
-          ))}
+          {selectedBoard &&
+            (
+              boardCatalog.find((b) => b.id === selectedBoard)?.fcpuOptions || []
+            ).map((freq) => (
+              <MenuItem key={String(freq)} value={String(freq)}>
+                {formatFrequency(String(freq))} Hz
+              </MenuItem>
+            ))}
         </Select>
       </FormControl>
 

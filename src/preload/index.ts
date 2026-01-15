@@ -96,5 +96,6 @@ export const electronAPI = {
   // API для UI-конфигов плат (json)
   getBoardUiConfig: configAPI.getBoardUiConfig,
   getBoardUiExternalDir: configAPI.getBoardUiExternalDir,
+  listBoardUiConfigs: configAPI.listBoardUiConfigs,
 };
 

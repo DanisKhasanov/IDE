@@ -43,11 +43,23 @@ const NewProjectModal = ({
   const [projectName, setProjectName] = useState("");
   const [parentPath, setParentPath] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState<string>("arduino");
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [selectedFrequency, setSelectedFrequency] = useState<string>("");
   const [conflicts, setConflicts] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<0 | 1 | 2>(0);
   const { showError, showWarning } = useSnackbar();
+
+  const [boardCatalog, setBoardCatalog] = useState<
+    Array<{
+      id: string;
+      name: string;
+      platform: string;
+      defaultFcpu: number;
+      fcpuOptions: number[];
+    }>
+  >([]);
+  const [platforms, setPlatforms] = useState<string[]>([]);
 
   const [boardConfigs, setBoardConfigs] = useState<
     Record<string, { name: string; fcpuOptions?: string[]; defaultFcpu: string; config: any }>
@@ -63,34 +75,23 @@ const NewProjectModal = ({
 
     const load = async () => {
       try {
-        const result = await window.electronAPI.getBoardUiConfig("uno");
+        const list = await window.electronAPI.listBoardUiConfigs();
         if (cancelled) return;
 
-        setBoardUiConfig(result.config);
-        setUiConfigLoadInfo({
-          source: result.source,
-          externalDir: result.externalDir,
-          externalPath: result.externalPath,
-        });
+        const normalized = (list || []).map((b) => ({
+          id: String(b.id),
+          name: String(b.name),
+          platform: String(b.platform || "arduino"),
+          defaultFcpu: Number(b.defaultFcpu),
+          fcpuOptions: Array.isArray(b.fcpuOptions)
+            ? b.fcpuOptions.map((n) => Number(n)).filter((n) => Number.isFinite(n))
+            : [],
+        }));
 
-        const boardInfo = getBoardInfo(result.config);
-
-        setBoardConfigs({
-          uno: {
-            name: boardInfo.name,
-            fcpuOptions: boardInfo.fcpuOptions,
-            defaultFcpu: boardInfo.frequency,
-            config: {
-              id: boardInfo.id,
-              name: boardInfo.name,
-              frequency: boardInfo.frequency,
-              image: boardInfo.image,
-              pins: getPins(result.config),
-              peripherals: {},
-              conflicts: getConflicts(),
-            },
-          },
-        });
+        setBoardCatalog(normalized);
+        const uniquePlatforms = Array.from(new Set(normalized.map((b) => b.platform))).sort();
+        setPlatforms(uniquePlatforms);
+        setSelectedPlatform(uniquePlatforms[0] || "arduino");
       } catch (e) {
         console.error("Не удалось загрузить UI-конфиг платы:", e);
       }
@@ -195,8 +196,8 @@ const NewProjectModal = ({
     });
 
     // Проверяем каждый конфликт из конфигурации
-    const conflicts = getConflicts();
-    const pins = getPins();
+    const conflicts = currentBoardConfig.conflicts || [];
+    const pins = currentBoardConfig.pins || [];
 
     conflicts.forEach((conflict: ConflictRule) => {
       // Проверяем, активна ли периферия, которая вызывает конфликт И использует пины из конфликта
@@ -311,6 +312,7 @@ const NewProjectModal = ({
         boardId: selectedBoard,
         fCpu: fCpuValue,
         peripherals: peripherals,
+        platform: selectedPlatform,
       };
 
       const project = await window.electronAPI.createNewProject(
@@ -485,25 +487,74 @@ const NewProjectModal = ({
             >
               {activeTab === 0 ? (
                 <BoardSelectionTab
+                  selectedPlatform={selectedPlatform}
+                  platforms={platforms}
+                  onPlatformChange={(platform) => {
+                    setSelectedPlatform(platform);
+                    setSelectedBoard(null);
+                    setSelectedFrequency("");
+                    resetAll();
+                  }}
                   selectedBoard={selectedBoard}
+                  boardCatalog={boardCatalog}
                   boardConfigs={boardConfigs}
                   currentBoardConfig={currentBoardConfig}
                   projectName={projectName}
                   parentPath={parentPath}
                   selectedFrequency={selectedFrequency}
-                  onBoardChange={(boardId) => {
+                  onBoardChange={async (boardId) => {
                     setSelectedBoard(boardId);
-                    // Обновляем частоту при смене платы
-                    if (boardId) {
-                      const boardConfig = boardConfigs[boardId];
-                      if (boardConfig) {
-                        // Используем defaultFcpu из конфига как значение по умолчанию
-                        setSelectedFrequency(boardConfig.defaultFcpu);
-                      }
+
+                    if (!boardId) {
+                      setSelectedFrequency("");
+                      resetAll();
+                      return;
+                    }
+
+                    const catalogItem = boardCatalog.find((b) => b.id === boardId);
+                    if (catalogItem) {
+                      setSelectedFrequency(String(catalogItem.defaultFcpu));
                     } else {
                       setSelectedFrequency("");
                     }
-                    resetAll();
+
+                    try {
+                      const result = await window.electronAPI.getBoardUiConfig(boardId);
+                      setBoardUiConfig(result.config);
+                      setUiConfigLoadInfo({
+                        source: result.source,
+                        externalDir: result.externalDir,
+                        externalPath: result.externalPath,
+                      });
+
+                      const boardInfo = getBoardInfo(result.config);
+                      setBoardConfigs((prev) => ({
+                        ...prev,
+                        [boardId]: {
+                          name: boardInfo.name,
+                          fcpuOptions: boardInfo.fcpuOptions,
+                          defaultFcpu: boardInfo.frequency,
+                          config: {
+                            id: boardId,
+                            name: boardInfo.name,
+                            frequency: boardInfo.frequency,
+                            image: boardInfo.image,
+                            pins: getPins(result.config),
+                            peripherals: {},
+                            conflicts: getConflicts(result.config),
+                          },
+                        },
+                      }));
+                    } catch (e) {
+                      console.error("Не удалось загрузить UI-конфиг выбранной платы:", e);
+                      showError(
+                        e instanceof Error
+                          ? e.message
+                          : "Не удалось загрузить UI-конфиг выбранной платы"
+                      );
+                    } finally {
+                      resetAll();
+                    }
                   }}
                   onProjectNameChange={setProjectName}
                   onParentPathChange={setParentPath}

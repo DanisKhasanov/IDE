@@ -373,9 +373,9 @@ export const getPeripheryPinMapping = (
  * @returns Массив объектов конфликтов с полной информацией о условиях активации
  * @note В новом формате конфликты находятся внутри каждой периферии в поле ui.conflicts
  */
-export const getConflicts = (): ConflictRule[] => {
+export const getConflicts = (configArg?: any): ConflictRule[] => {
   const conflicts: ConflictRule[] = [];
-  const config = getConfigOrThrow() as Record<string, any>;
+  const config = getConfigOrThrow(configArg) as Record<string, any>;
 
   // Проходим по всем перифериям и собираем конфликты
   Object.keys(config).forEach((key) => {
@@ -400,8 +400,8 @@ export const getConflicts = (): ConflictRule[] => {
 };
 
 // Получаем все периферии с пинами (kind === "pin")
-export const getPinPeripheries = (): string[] => {
-  const config = getConfigOrThrow() as any;
+export const getPinPeripheries = (configArg?: any): string[] => {
+  const config = getConfigOrThrow(configArg) as any;
   return Object.keys(config).filter((key) => {
     if (key === "meta" || key === "UI_PIN") return false;
     const periphery = config[key];
@@ -410,8 +410,8 @@ export const getPinPeripheries = (): string[] => {
 };
 
 // Получаем все системные периферии (kind === "global")
-export const getSystemPeripheries = (): string[] => {
-  const config = getConfigOrThrow() as any;
+export const getSystemPeripheries = (configArg?: any): string[] => {
+  const config = getConfigOrThrow(configArg) as any;
   return Object.keys(config).filter((key) => {
     if (key === "meta" || key === "UI_PIN") return false;
     const periphery = config[key];

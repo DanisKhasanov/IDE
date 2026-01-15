@@ -10,6 +10,16 @@ type BoardUiConfigResponse = {
   externalPath: string;
 };
 
+type BoardUiCatalogItem = {
+  id: string; // стабильный id (используется UI)
+  name: string; // отображаемое имя
+  platform: string; // например: arduino | stm32
+  defaultFcpu: number;
+  fcpuOptions: number[];
+  uiFileName: string; // имя json файла
+  imageFileName: string; // имя картинки (может быть общим)
+};
+
 function getExternalBoardUiDir(): string {
   // Требование: в prod хотим папку рядом с .app, например:
   // <...>/IDE.app
@@ -41,18 +51,12 @@ function getExternalBoardUiDir(): string {
   return path.join(path.dirname(resolvedExe), "CONFIG");
 }
 
-function mapBoardNameToUiFile(boardName: string): string {
-  // Сейчас UI использует формат src/config/atmega328.json (Arduino Uno).
-  // Расширять можно, добавив новые маппинги.
-  const normalized = (boardName || "uno").toLowerCase();
-  if (normalized === "uno" || normalized === "arduino uno") return "atmega328.json";
-  return "atmega328.json";
-}
-
-function mapBoardNameToImageFile(boardName: string): string {
-  const normalized = (boardName || "uno").toLowerCase();
-  if (normalized === "uno" || normalized === "arduino uno") return "image.png";
-  return "image.png";
+function slugifyId(input: string): string {
+  return String(input || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 async function fileExists(p: string): Promise<boolean> {
@@ -81,8 +85,8 @@ async function ensureConfigDirAndReadme(configDir: string): Promise<void> {
 
 ## Что нужно сделать
 
-- Положите сюда файл **atmega328.json**
-- Положите сюда файл **image.png**
+- Положите сюда один или несколько файлов **\`*.json\`** с UI-конфигами плат
+- Положите сюда изображения плат (**\`*.png\`**) — по умолчанию используется \`image.png\`
 
 Итоговый путь должен быть таким (пример):
 
@@ -101,6 +105,99 @@ function getDevBoardUiConfigPath(uiFileName: string): string {
 function getDevBoardImagePath(imageFileName: string): string {
   // Dev режим: берём JSON и фото строго из src/config
   return path.join(process.cwd(), "src", "config", imageFileName);
+}
+
+function getDevConfigDir(): string {
+  return path.join(process.cwd(), "src", "config");
+}
+
+async function listJsonFiles(dir: string): Promise<string[]> {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  return entries
+    .filter((e) => e.isFile() && e.name.toLowerCase().endsWith(".json"))
+    .map((e) => e.name);
+}
+
+function inferPlatform(json: any, uiFileName: string): string {
+  const metaPlatform = json?.meta?.platform;
+  if (typeof metaPlatform === "string" && metaPlatform.trim()) {
+    return metaPlatform.trim().toLowerCase();
+  }
+  const fileLower = String(uiFileName || "").toLowerCase();
+  const mcuLower = String(json?.meta?.mcu || "").toLowerCase();
+  if (fileLower.includes("stm32") || mcuLower.includes("stm32")) return "stm32";
+  return "arduino";
+}
+
+function resolveBoardId(json: any, uiFileName: string): string {
+  const meta = json?.meta || {};
+  const explicit =
+    (typeof meta.boardId === "string" && meta.boardId.trim()) ? meta.boardId.trim() :
+    (typeof meta.id === "string" && meta.id.trim()) ? meta.id.trim() :
+    undefined;
+
+  // Совместимость с текущим UI: Arduino Uno должен быть "uno"
+  const boardName = String(meta.board || "");
+  if (uiFileName === "atmega328.json") return "uno";
+  if (boardName.toLowerCase() === "arduino uno") return "uno";
+
+  if (explicit) return slugifyId(explicit);
+
+  const base = path.basename(uiFileName, ".json");
+  const fromName = slugifyId(boardName);
+  return fromName || slugifyId(base) || "board";
+}
+
+function resolveImageFileName(json: any): string {
+  const meta = json?.meta || {};
+  const fromMeta =
+    (typeof meta.imageFile === "string" && meta.imageFile.trim()) ? meta.imageFile.trim() :
+    (typeof meta.image === "string" && meta.image.trim()) ? meta.image.trim() :
+    "";
+  return fromMeta || "image.png";
+}
+
+function resolveFcpuOptions(json: any): { defaultFcpu: number; fcpuOptions: number[] } {
+  const meta = json?.meta || {};
+  const def =
+    typeof meta.defaultFcpu === "number"
+      ? meta.defaultFcpu
+      : typeof meta.defaultFcpu === "string"
+        ? Number(meta.defaultFcpu)
+        : 16000000;
+  const optsRaw = Array.isArray(meta.fcpuOptions) ? meta.fcpuOptions : [def];
+  const opts = optsRaw
+    .map((v: any) => (typeof v === "number" ? v : Number(v)))
+    .filter((v: number) => Number.isFinite(v));
+  return { defaultFcpu: Number.isFinite(def) ? def : 16000000, fcpuOptions: opts.length ? opts : [16000000] };
+}
+
+async function buildCatalogFromDir(dir: string): Promise<BoardUiCatalogItem[]> {
+  const files = await listJsonFiles(dir);
+  const items: BoardUiCatalogItem[] = [];
+
+  for (const uiFileName of files) {
+    try {
+      const jsonPath = path.join(dir, uiFileName);
+      const json = await readJson(jsonPath);
+      const id = resolveBoardId(json, uiFileName);
+      const name = String(json?.meta?.board || id);
+      const platform = inferPlatform(json, uiFileName);
+      const imageFileName = resolveImageFileName(json);
+      const { defaultFcpu, fcpuOptions } = resolveFcpuOptions(json);
+      items.push({ id, name, platform, defaultFcpu, fcpuOptions, uiFileName, imageFileName });
+    } catch (e) {
+      // Пропускаем битые/невалидные json, чтобы UI не падал целиком
+      console.warn(`Не удалось прочитать UI-конфиг платы: ${uiFileName}`, e);
+    }
+  }
+
+  // Стабильная сортировка: сначала по платформе, затем по имени
+  return items.sort((a, b) => {
+    const p = a.platform.localeCompare(b.platform);
+    if (p !== 0) return p;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 async function getProdExternalPaths(
@@ -133,28 +230,50 @@ export function registerBoardUiConfigHandlers(): void {
     return getExternalBoardUiDir();
   });
 
+  ipcMain.handle("board-ui-list-configs", async (): Promise<BoardUiCatalogItem[]> => {
+    // Dev: src/config, Prod: рядом с IDE.app папка CONFIG
+    const dir = app.isPackaged ? getExternalBoardUiDir() : getDevConfigDir();
+    // Для удобства в dev тоже создаём папку CONFIG и README с инструкцией для продакшена
+    await ensureConfigDirAndReadme(getExternalBoardUiDir());
+    if (!(await fileExists(dir))) return [];
+    return buildCatalogFromDir(dir);
+  });
+
   ipcMain.handle(
     "board-ui-get-config",
-    async (_event, boardName: string = "uno"): Promise<BoardUiConfigResponse> => {
-      const uiFileName = mapBoardNameToUiFile(boardName);
-      const imageFileName = mapBoardNameToImageFile(boardName);
+    async (_event, boardId: string = "uno"): Promise<BoardUiConfigResponse> => {
+      const dir = app.isPackaged ? getExternalBoardUiDir() : getDevConfigDir();
+      // Для удобства в dev тоже создаём папку CONFIG и README с инструкцией для продакшена
+      await ensureConfigDirAndReadme(getExternalBoardUiDir());
+
+      const catalog = (await fileExists(dir)) ? await buildCatalogFromDir(dir) : [];
+      const normalizedId = slugifyId(boardId || "uno") || "uno";
+
+      const selected =
+        catalog.find((c) => c.id === normalizedId) ||
+        (normalizedId === "uno" ? catalog.find((c) => c.id === "uno") : undefined) ||
+        catalog[0];
+
+      if (!selected) {
+        throw new Error(`Не найдено ни одного UI-конфига платы в директории: ${dir}`);
+      }
+
+      const uiFileName = selected.uiFileName;
+      const imageFileName = selected.imageFileName;
 
       // Dev: строго из src/config (json+png)
       if (!app.isPackaged) {
         const jsonPath = getDevBoardUiConfigPath(uiFileName);
         const imagePath = getDevBoardImagePath(imageFileName);
-    // Для удобства в dev тоже создаём папку CONFIG и README с инструкцией для продакшена
-    await ensureConfigDirAndReadme(getExternalBoardUiDir());
         if (!(await fileExists(jsonPath))) {
           throw new Error(`Не найден UI-конфиг платы (dev): ${jsonPath}`);
         }
-        if (!(await fileExists(imagePath))) {
-          throw new Error(`Не найдено изображение платы (dev): ${imagePath}`);
-        }
         const config = await readJson(jsonPath);
         // В dev удобнее использовать путь, который отдаёт Vite:
-        // src/config/image.png доступен как /src/config/image.png
-        config.image = `/src/config/${imageFileName}`;
+        // src/config/<file> доступен как /src/config/<file>
+        if (await fileExists(imagePath)) {
+          config.image = `/src/config/${imageFileName}`;
+        }
         return { config, source: "external", externalDir: path.dirname(jsonPath), externalPath: jsonPath };
       }
 
