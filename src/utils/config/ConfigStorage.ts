@@ -3,11 +3,18 @@ import path from 'node:path';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
 
+export interface ProjectConfiguration {
+  boardId: string;
+  fCpu: string;
+  peripherals: Record<string, any>;
+}
+
 export interface ProjectState {
   expandedFolders: string[];
   openedFiles: Array<{ path: string; id: string }>;
   activeFileId: string | null;
   isTerminalVisible?: boolean;
+  projectConfiguration?: ProjectConfiguration;
 }
 
 export interface IDEConfig {
@@ -375,6 +382,35 @@ export const getGraphicalInitVisible = async (): Promise<boolean> => {
 export const setGraphicalInitVisible = async (visible: boolean): Promise<void> => {
   const config = await loadConfig();
   config.isGraphicalInitVisible = visible;
+  await saveConfig(config);
+};
+
+// Получение конфигурации проекта
+export const getProjectConfiguration = async (projectPath: string): Promise<ProjectConfiguration | null> => {
+  const config = await loadConfig();
+  const projectState = config.projects[projectPath];
+  return projectState?.projectConfiguration || null;
+};
+
+// Сохранение конфигурации проекта
+export const saveProjectConfiguration = async (
+  projectPath: string,
+  projectConfiguration: ProjectConfiguration
+): Promise<void> => {
+  const config = await loadConfig();
+  const currentState = config.projects[projectPath] || {
+    expandedFolders: [],
+    openedFiles: [],
+    activeFileId: null,
+    isTerminalVisible: false,
+  };
+
+  config.projects[projectPath] = {
+    ...currentState,
+    projectConfiguration,
+  };
+  config.lastProjectPath = projectPath;
+
   await saveConfig(config);
 };
 

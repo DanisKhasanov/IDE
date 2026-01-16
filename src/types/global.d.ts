@@ -49,6 +49,11 @@ type ProjectState = {
   expandedFolders: string[];
   openedFiles: Array<{ path: string; id: string }>;
   activeFileId: string | null;
+  projectConfiguration?: {
+    boardId: string;
+    fCpu: string;
+    peripherals: Record<string, any>;
+  };
 };
 
 declare global {
@@ -71,6 +76,11 @@ declare global {
       // Методы для работы с конфигурацией
       getProjectState: (projectPath: string) => Promise<ProjectState | null>;
       saveProjectState: (projectPath: string, state: Partial<ProjectState>) => Promise<void>;
+      getProjectConfiguration: (projectPath: string) => Promise<{
+        boardId: string;
+        fCpu: string;
+        peripherals: Record<string, any>;
+      } | null>;
       getLastProjectPath: () => Promise<string | null>;
       loadLastProject: () => Promise<OpenedProjectPayload | null>;
       // Методы для работы с несколькими проектами

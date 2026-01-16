@@ -23,6 +23,7 @@ const ALL_HANDLERS = [
   "get-project-tree",
   "get-project-state",
   "save-project-state",
+  "get-project-configuration",
   "get-last-project-path",
   "load-last-project",
   "get-open-projects",

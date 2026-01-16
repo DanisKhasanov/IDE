@@ -13,7 +13,6 @@ type BoardUiConfigResponse = {
 type BoardUiCatalogItem = {
   id: string; // стабильный id (используется UI)
   name: string; // отображаемое имя
-  platform: string; // например: arduino | stm32
   defaultFcpu: number;
   fcpuOptions: number[];
   uiFileName: string; // имя json файла
@@ -119,13 +118,14 @@ async function listJsonFiles(dir: string): Promise<string[]> {
 }
 
 function inferPlatform(json: any, uiFileName: string): string {
-  const metaPlatform = json?.meta?.platform;
-  if (typeof metaPlatform === "string" && metaPlatform.trim()) {
-    return metaPlatform.trim().toLowerCase();
-  }
-  const fileLower = String(uiFileName || "").toLowerCase();
-  const mcuLower = String(json?.meta?.mcu || "").toLowerCase();
-  if (fileLower.includes("stm32") || mcuLower.includes("stm32")) return "stm32";
+  // Определяем платформу только из MCU
+  const mcu = String(json?.meta?.mcu || "").trim();
+  const mcuLower = mcu.toLowerCase();
+  
+  // Если в MCU есть stm32, то платформа stm32
+  if (mcuLower.includes("stm32")) return "stm32";
+  
+  // По умолчанию arduino (для AVR и других)
   return "arduino";
 }
 
@@ -182,20 +182,17 @@ async function buildCatalogFromDir(dir: string): Promise<BoardUiCatalogItem[]> {
       const json = await readJson(jsonPath);
       const id = resolveBoardId(json, uiFileName);
       const name = String(json?.meta?.board || id);
-      const platform = inferPlatform(json, uiFileName);
       const imageFileName = resolveImageFileName(json);
       const { defaultFcpu, fcpuOptions } = resolveFcpuOptions(json);
-      items.push({ id, name, platform, defaultFcpu, fcpuOptions, uiFileName, imageFileName });
+      items.push({ id, name, defaultFcpu, fcpuOptions, uiFileName, imageFileName });
     } catch (e) {
       // Пропускаем битые/невалидные json, чтобы UI не падал целиком
       console.warn(`Не удалось прочитать UI-конфиг платы: ${uiFileName}`, e);
     }
   }
 
-  // Стабильная сортировка: сначала по платформе, затем по имени
+  // Стабильная сортировка по имени
   return items.sort((a, b) => {
-    const p = a.platform.localeCompare(b.platform);
-    if (p !== 0) return p;
     return a.name.localeCompare(b.name);
   });
 }

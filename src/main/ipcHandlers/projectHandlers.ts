@@ -10,6 +10,8 @@ import {
   getOpenProjects,
   addOpenProject,
   removeOpenProject,
+  saveProjectConfiguration,
+  getProjectConfiguration,
   type ProjectState,
 } from "@utils/config/ConfigStorage";
 import { buildProjectTree, createProjectData } from "@utils/project/ProjectUtils";
@@ -191,6 +193,16 @@ export function registerProjectHandlers(): void {
       }
     }
   );
+
+  // Получение конфигурации проекта
+  ipcMain.handle("get-project-configuration", async (_event, projectPath: string) => {
+    try {
+      return await getProjectConfiguration(projectPath);
+    } catch (error) {
+      console.error("Ошибка получения конфигурации проекта:", error);
+      return null;
+    }
+  });
 
   // Получение последнего пути проекта
   ipcMain.handle("get-last-project-path", async () => {
@@ -520,6 +532,21 @@ void loop() {
         projectManager.setCurrentProjectPath(projectPath);
         await saveLastProjectPath(projectPath);
         await addOpenProject(projectPath);
+
+        // Сохраняем конфигурацию проекта, если она была передана
+        if (normalizedPinConfig && normalizedPinConfig.boardId && normalizedPinConfig.fCpu) {
+          try {
+            await saveProjectConfiguration(projectPath, {
+              boardId: normalizedPinConfig.boardId,
+              fCpu: normalizedPinConfig.fCpu,
+              peripherals: normalizedPinConfig.peripherals || {},
+            });
+            console.log(`[ConfigStorage] Сохранена конфигурация проекта: ${projectPath}, плата: ${normalizedPinConfig.boardId}`);
+          } catch (error) {
+            console.error("[ConfigStorage] Ошибка сохранения конфигурации проекта:", error);
+            // Не прерываем создание проекта, но логируем ошибку
+          }
+        }
 
         // Строим дерево проекта
         const children = await buildProjectTree(projectPath, projectPath);

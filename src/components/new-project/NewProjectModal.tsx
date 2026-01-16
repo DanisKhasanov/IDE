@@ -43,7 +43,6 @@ const NewProjectModal = ({
   const [projectName, setProjectName] = useState("");
   const [parentPath, setParentPath] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-  const [selectedPlatform, setSelectedPlatform] = useState<string>("arduino");
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [selectedFrequency, setSelectedFrequency] = useState<string>("");
   const [conflicts, setConflicts] = useState<string[]>([]);
@@ -54,12 +53,10 @@ const NewProjectModal = ({
     Array<{
       id: string;
       name: string;
-      platform: string;
       defaultFcpu: number;
       fcpuOptions: number[];
     }>
   >([]);
-  const [platforms, setPlatforms] = useState<string[]>([]);
 
   const [boardConfigs, setBoardConfigs] = useState<
     Record<string, { name: string; fcpuOptions?: string[]; defaultFcpu: string; config: any }>
@@ -81,7 +78,6 @@ const NewProjectModal = ({
         const normalized = (list || []).map((b) => ({
           id: String(b.id),
           name: String(b.name),
-          platform: String(b.platform || "arduino"),
           defaultFcpu: Number(b.defaultFcpu),
           fcpuOptions: Array.isArray(b.fcpuOptions)
             ? b.fcpuOptions.map((n) => Number(n)).filter((n) => Number.isFinite(n))
@@ -89,9 +85,6 @@ const NewProjectModal = ({
         }));
 
         setBoardCatalog(normalized);
-        const uniquePlatforms = Array.from(new Set(normalized.map((b) => b.platform))).sort();
-        setPlatforms(uniquePlatforms);
-        setSelectedPlatform(uniquePlatforms[0] || "arduino");
       } catch (e) {
         console.error("Не удалось загрузить UI-конфиг платы:", e);
       }
@@ -312,7 +305,6 @@ const NewProjectModal = ({
         boardId: selectedBoard,
         fCpu: fCpuValue,
         peripherals: peripherals,
-        platform: selectedPlatform,
       };
 
       const project = await window.electronAPI.createNewProject(
@@ -487,14 +479,6 @@ const NewProjectModal = ({
             >
               {activeTab === 0 ? (
                 <BoardSelectionTab
-                  selectedPlatform={selectedPlatform}
-                  platforms={platforms}
-                  onPlatformChange={(platform) => {
-                    setSelectedPlatform(platform);
-                    setSelectedBoard(null);
-                    setSelectedFrequency("");
-                    resetAll();
-                  }}
                   selectedBoard={selectedBoard}
                   boardCatalog={boardCatalog}
                   boardConfigs={boardConfigs}

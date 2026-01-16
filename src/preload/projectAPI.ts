@@ -106,4 +106,9 @@ export const projectAPI = {
   getProjectSourceFiles: async (projectPath: string) => {
     return safeInvoke("get-project-source-files", projectPath);
   },
+
+  // Получение конфигурации проекта (boardId, fCpu, peripherals)
+  getProjectConfiguration: async (projectPath: string) => {
+    return safeInvoke("get-project-configuration", projectPath);
+  },
 };
