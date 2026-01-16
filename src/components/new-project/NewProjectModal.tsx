@@ -33,12 +33,22 @@ type NewProjectModalProps = {
   open: boolean;
   onClose: () => void;
   onProjectCreate: (projectPath: string) => void;
+  editMode?: boolean;
+  editProjectPath?: string | null;
+  initialConfig?: {
+    boardId: string;
+    fCpu: string;
+    peripherals: Record<string, any>;
+  } | null;
 };
 
 const NewProjectModal = ({
   open,
   onClose,
   onProjectCreate,
+  editMode = false,
+  editProjectPath = null,
+  initialConfig = null,
 }: NewProjectModalProps) => {
   const [projectName, setProjectName] = useState("");
   const [parentPath, setParentPath] = useState("");
@@ -101,6 +111,7 @@ const NewProjectModal = ({
   // Используем единый hook для управления настройками
   const {
     configuration,
+    setConfiguration,
     selectedPin,
     selectedPeripheral,
     selectPin,
@@ -119,17 +130,88 @@ const NewProjectModal = ({
   // Деструктурируем для удобства использования
   const { peripherals } = configuration;
 
+  // Загрузка конфигурации при открытии в режиме редактирования
+  useEffect(() => {
+    if (open && editMode && initialConfig) {
+      // Устанавливаем плату и частоту
+      setSelectedBoard(initialConfig.boardId);
+      setSelectedFrequency(initialConfig.fCpu.replace("L", ""));
+      // В режиме редактирования начинаем с вкладки "Периферии"
+      setActiveTab(1);
+      
+      // Загружаем конфигурацию платы
+      const loadBoardConfig = async () => {
+        try {
+          const result = await window.electronAPI.getBoardUiConfig(initialConfig.boardId);
+          setBoardUiConfig(result.config);
+          setUiConfigLoadInfo({
+            source: result.source,
+            externalDir: result.externalDir,
+            externalPath: result.externalPath,
+          });
+
+          const boardInfo = getBoardInfo(result.config);
+          setBoardConfigs((prev) => ({
+            ...prev,
+            [initialConfig.boardId]: {
+              name: boardInfo.name,
+              fcpuOptions: boardInfo.fcpuOptions,
+              defaultFcpu: boardInfo.frequency,
+              config: {
+                id: initialConfig.boardId,
+                name: boardInfo.name,
+                frequency: boardInfo.frequency,
+                image: boardInfo.image,
+                pins: getPins(result.config),
+                peripherals: {},
+                conflicts: getConflicts(result.config),
+              },
+            },
+          }));
+
+          // Устанавливаем загруженную конфигурацию периферий
+          setConfiguration({
+            peripherals: initialConfig.peripherals || {},
+          });
+        } catch (e) {
+          console.error("Не удалось загрузить UI-конфиг платы:", e);
+          showError(
+            e instanceof Error
+              ? e.message
+              : "Не удалось загрузить UI-конфиг платы"
+          );
+        }
+      };
+
+      loadBoardConfig();
+    } else if (open && !editMode) {
+      // Сбрасываем состояние при открытии в режиме создания
+      setProjectName("");
+      setParentPath("");
+      setSelectedBoard(null);
+      setSelectedFrequency("");
+      resetAll();
+      setConflicts([]);
+      setActiveTab(0);
+    }
+  }, [open, editMode, initialConfig, setConfiguration, showError]);
+
   // Вычисляемые значения для управления вкладками
   const isFolderSelected = !!parentPath && parentPath.trim() !== "";
   const isProjectNameEntered = !!projectName && projectName.trim() !== "";
-  const isProjectInfoComplete = isFolderSelected && isProjectNameEntered;
+  const isProjectInfoComplete = editMode ? true : (isFolderSelected && isProjectNameEntered);
 
   // Сбрасываем активную вкладку на "Проект", если папка или название проекта не заполнены
   useEffect(() => {
-    if (!isProjectInfoComplete && activeTab !== 0) {
+    if (editMode) {
+      // В режиме редактирования всегда начинаем с вкладки "Периферии"
+      if (activeTab === 0) {
+        setActiveTab(1);
+      }
+    } else if (!isProjectInfoComplete && activeTab !== 0) {
       setActiveTab(0);
     }
-  }, [isProjectInfoComplete, activeTab]);
+  }, [isProjectInfoComplete, activeTab, editMode]);
 
   // Сбрасываем выбранную периферию при переключении табов
   useEffect(() => {
@@ -283,53 +365,96 @@ const NewProjectModal = ({
   };
 
   const handleCreate = async () => {
-    if (!selectedBoard || !parentPath || !projectName || !projectName.trim()) {
-      return;
-    }
-
-    setIsCreating(true);
-    try {
-      if (!window.electronAPI || !window.electronAPI.createNewProject) {
-        console.error("createNewProject не доступен");
+    if (editMode) {
+      // Режим редактирования: обновляем конфигурацию существующего проекта
+      if (!selectedBoard || !editProjectPath) {
         return;
       }
 
-      // Подготавливаем конфигурацию для передачи
-      // Новая структура уже в нужном формате
-      // Добавляем суффикс "L" к частоте, если его нет (формат для компилятора)
-      const fCpuValue = selectedFrequency.endsWith("L") 
-        ? selectedFrequency 
-        : `${selectedFrequency}L`;
-      
-      const pinConfig = {
-        boardId: selectedBoard,
-        fCpu: fCpuValue,
-        peripherals: peripherals,
-      };
+      setIsCreating(true);
+      try {
+        // Подготавливаем конфигурацию для сохранения
+        const fCpuValue = selectedFrequency.endsWith("L") 
+          ? selectedFrequency 
+          : `${selectedFrequency}L`;
+        
+        const projectConfiguration = {
+          boardId: selectedBoard,
+          fCpu: fCpuValue,
+          peripherals: peripherals,
+        };
 
-      const project = await window.electronAPI.createNewProject(
-        parentPath,
-        projectName.trim(),
-        pinConfig
-      );
-      if (project) {
-        window.dispatchEvent(new CustomEvent("project-list-changed"));
-        // Отправляем событие для автоматического открытия main.cpp
-        window.dispatchEvent(
-          new CustomEvent("open-main-cpp", {
-            detail: { projectPath: project.path },
-          })
+        // Сохраняем конфигурацию через API
+        if (window.electronAPI?.getProjectConfiguration) {
+          // Используем saveProjectState для обновления конфигурации
+          await window.electronAPI.saveProjectState(editProjectPath, {
+            projectConfiguration,
+          });
+
+          // Также нужно обновить файлы инициализации в проекте
+          // TODO: Регенерировать pins_init.h и pins_init.cpp с новыми настройками
+          
+          window.dispatchEvent(new CustomEvent("project-list-changed"));
+          handleClose();
+        }
+      } catch (error) {
+        console.error("Ошибка обновления конфигурации проекта:", error);
+        showError(
+          error instanceof Error ? error.message : "Ошибка обновления конфигурации проекта"
         );
-        onProjectCreate(project.path);
-        handleClose();
+      } finally {
+        setIsCreating(false);
       }
-    } catch (error) {
-      console.error("Ошибка создания проекта:", error);
-      showError(
-        error instanceof Error ? error.message : "Ошибка создания проекта"
-      );
-    } finally {
-      setIsCreating(false);
+    } else {
+      // Режим создания нового проекта
+      if (!selectedBoard || !parentPath || !projectName || !projectName.trim()) {
+        return;
+      }
+
+      setIsCreating(true);
+      try {
+        if (!window.electronAPI || !window.electronAPI.createNewProject) {
+          console.error("createNewProject не доступен");
+          return;
+        }
+
+        // Подготавливаем конфигурацию для передачи
+        // Новая структура уже в нужном формате
+        // Добавляем суффикс "L" к частоте, если его нет (формат для компилятора)
+        const fCpuValue = selectedFrequency.endsWith("L") 
+          ? selectedFrequency 
+          : `${selectedFrequency}L`;
+        
+        const pinConfig = {
+          boardId: selectedBoard,
+          fCpu: fCpuValue,
+          peripherals: peripherals,
+        };
+
+        const project = await window.electronAPI.createNewProject(
+          parentPath,
+          projectName.trim(),
+          pinConfig
+        );
+        if (project) {
+          window.dispatchEvent(new CustomEvent("project-list-changed"));
+          // Отправляем событие для автоматического открытия main.cpp
+          window.dispatchEvent(
+            new CustomEvent("open-main-cpp", {
+              detail: { projectPath: project.path },
+            })
+          );
+          onProjectCreate(project.path);
+          handleClose();
+        }
+      } catch (error) {
+        console.error("Ошибка создания проекта:", error);
+        showError(
+          error instanceof Error ? error.message : "Ошибка создания проекта"
+        );
+      } finally {
+        setIsCreating(false);
+      }
     }
   };
 
@@ -407,7 +532,7 @@ const NewProjectModal = ({
           pb: 1,
         }}
       >
-        Новый проект
+        {editMode ? "Редактирование настроек проекта" : "Новый проект"}
         <IconButton aria-label="close" onClick={handleClose}>
           <CloseIcon />
         </IconButton>
@@ -449,17 +574,19 @@ const NewProjectModal = ({
 
             {/* Вкладки */}
             <Tabs
-              value={activeTab}
+              value={editMode ? (activeTab - 1) : activeTab}
               onChange={(_, newValue) => {
                 // Не позволяем переключаться на другие вкладки, если папка или название проекта не заполнены
                 if (!isProjectInfoComplete && newValue !== 0) {
                   return;
                 }
-                setActiveTab(newValue as 0 | 1 | 2);
+                // В режиме редактирования индексы табов сдвинуты на 1 (нет вкладки "Проект")
+                const actualTab = editMode ? (newValue + 1) : newValue;
+                setActiveTab(actualTab as 0 | 1 | 2);
               }}
               sx={{ borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
             >
-              <Tab label="Проект" />
+              {!editMode && <Tab label="Проект" />}
               <Tab label="Периферии" disabled={!isProjectInfoComplete} />
               <Tab
                 label="Системные периферии"
@@ -477,7 +604,7 @@ const NewProjectModal = ({
                 minHeight: 0,
               }}
             >
-              {activeTab === 0 ? (
+              {!editMode && activeTab === 0 ? (
                 <BoardSelectionTab
                   selectedBoard={selectedBoard}
                   boardCatalog={boardCatalog}
@@ -633,28 +760,36 @@ const NewProjectModal = ({
         </Button>
         <Button
           onClick={
-            activeTab === 0
-              ? () => setActiveTab(1)
-              : activeTab === 1
-                ? () => setActiveTab(2)
-                : handleCreate
+            editMode
+              ? handleCreate
+              : activeTab === 0
+                ? () => setActiveTab(1)
+                : activeTab === 1
+                  ? () => setActiveTab(2)
+                  : handleCreate
           }
           variant="contained"
           disabled={
-            activeTab === 0
-              ? !isProjectInfoComplete || !selectedBoard
-              : !selectedBoard ||
-                !parentPath ||
-                !projectName ||
-                !projectName.trim() ||
-                isCreating
+            editMode
+              ? !selectedBoard || isCreating
+              : activeTab === 0
+                ? !isProjectInfoComplete || !selectedBoard
+                : !selectedBoard ||
+                  !parentPath ||
+                  !projectName ||
+                  !projectName.trim() ||
+                  isCreating
           }
         >
-          {activeTab === 0 || activeTab === 1
-            ? "Далее"
-            : isCreating
-              ? "Создание..."
-              : "Создать проект"}
+          {editMode
+            ? isCreating
+              ? "Сохранение..."
+              : "Сохранить"
+            : activeTab === 0 || activeTab === 1
+              ? "Далее"
+              : isCreating
+                ? "Создание..."
+                : "Создать проект"}
         </Button>
       </DialogActions>
     </Dialog>

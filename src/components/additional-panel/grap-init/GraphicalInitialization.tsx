@@ -1,10 +1,9 @@
 import { useMemo, useState, useEffect } from "react";
 import { Box, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import OpenInFullIcon from "@mui/icons-material/OpenInFull";
 import { PinsListPanel } from "@/components/common/PinsListPanel";
-import type {
-  SelectedPinFunction,
-} from "@/types/boardConfig";
+import NewProjectModal from "@/components/new-project/NewProjectModal";
 import { getBoardInfo, getPins, getConflicts } from "@/utils/config/boardConfigHelpers";
 
 interface GraphicalInitializationProps {
@@ -32,14 +31,29 @@ const GraphicalInitialization: React.FC<GraphicalInitializationProps> = ({
 
   const [boardConfigState] = useState(boardConfig);
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
-  const [selectedPinFunctions] = useState<
-    Record<string, SelectedPinFunction[]>
-  >({});
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [projectConfig, setProjectConfig] = useState<{
+    boardId: string;
+    fCpu: string;
+    peripherals: Record<string, any>;
+  } | null>(null);
 
   // Загрузка конфигурации пинов из проекта (если есть)
   useEffect(() => {
-    // TODO: Загрузить конфигурацию пинов из проекта, если она сохранена
-    // Пока используем пустую конфигурацию
+    const loadProjectConfig = async () => {
+      if (currentProjectPath && window.electronAPI?.getProjectConfiguration) {
+        try {
+          const config = await window.electronAPI.getProjectConfiguration(currentProjectPath);
+          if (config) {
+            setProjectConfig(config);
+          }
+        } catch (error) {
+          console.error("Ошибка загрузки конфигурации проекта:", error);
+        }
+      }
+    };
+
+    loadProjectConfig();
   }, [currentProjectPath]);
 
   const handlePinClick = (pinName: string) => {
@@ -49,6 +63,29 @@ const GraphicalInitialization: React.FC<GraphicalInitializationProps> = ({
   const handleFunctionSelect = () => {
     // В режиме просмотра не добавляем функции, только показываем информацию
     // Можно добавить логику для редактирования в будущем
+  };
+
+  const handleEditClick = () => {
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditModalClose = () => {
+    setIsEditModalOpen(false);
+  };
+
+  const handleEditProjectCreate = async (projectPath: string) => {
+    // После сохранения конфигурации перезагружаем её
+    if (currentProjectPath && window.electronAPI?.getProjectConfiguration) {
+      try {
+        const config = await window.electronAPI.getProjectConfiguration(currentProjectPath);
+        if (config) {
+          setProjectConfig(config);
+        }
+      } catch (error) {
+        console.error("Ошибка загрузки конфигурации проекта:", error);
+      }
+    }
+    setIsEditModalOpen(false);
   };
 
   return (
@@ -62,24 +99,37 @@ const GraphicalInitialization: React.FC<GraphicalInitializationProps> = ({
         position: "relative",
       }}
     >
-      {onClose && (
-        <Box
-          sx={{
-            position: "absolute",
-            top: 4,
-            right: 4,
-            zIndex: 1,
-          }}
-        >
+      <Box
+        sx={{
+          position: "absolute",
+          top: 4,
+          right: 4,
+          zIndex: 1,
+          display: "flex",
+          gap: 0.5,
+        }}
+      >
+        {currentProjectPath && (
+          <IconButton
+            size="small"
+            onClick={handleEditClick}
+            title="Редактировать настройки проекта"
+            sx={{ p: 0.5 }}
+          >
+            <OpenInFullIcon fontSize="small" />
+          </IconButton>
+        )}
+        {onClose && (
           <IconButton
             size="small"
             onClick={onClose}
             title="Скрыть панель графической инициализации"
+            sx={{ p: 0.5 }}
           >
             <CloseIcon fontSize="small" />
           </IconButton>
-        </Box>
-      )}
+        )}
+      </Box>
       <Box
         sx={{
           flex: 1,
@@ -97,12 +147,24 @@ const GraphicalInitialization: React.FC<GraphicalInitializationProps> = ({
         <PinsListPanel
           boardConfig={boardConfigState}
           selectedPin={selectedPin}
-          selectedPinFunctions={selectedPinFunctions}
+          peripherals={projectConfig?.peripherals || {}}
           onPinClick={handlePinClick}
           onFunctionSelect={handleFunctionSelect}
           size="small"
         />
       </Box>
+
+      {/* Модальное окно редактирования настроек проекта */}
+      {currentProjectPath && (
+        <NewProjectModal
+          open={isEditModalOpen}
+          onClose={handleEditModalClose}
+          onProjectCreate={handleEditProjectCreate}
+          editMode={true}
+          editProjectPath={currentProjectPath}
+          initialConfig={projectConfig}
+        />
+      )}
     </Box>
   );
 };
