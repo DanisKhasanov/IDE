@@ -33,6 +33,7 @@ export const electronAPI = {
   refreshProjectTree: projectAPI.refreshProjectTree,
   getProjectSourceFiles: projectAPI.getProjectSourceFiles,
   getProjectConfiguration: projectAPI.getProjectConfiguration,
+  regenerateProjectFiles: projectAPI.regenerateProjectFiles,
 
   // API для работы с файлами
   saveFile: fileAPI.saveFile,

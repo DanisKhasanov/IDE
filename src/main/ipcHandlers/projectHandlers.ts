@@ -18,6 +18,7 @@ import { buildProjectTree, createProjectData } from "@utils/project/ProjectUtils
 import { projectManager } from "@main/managers/ProjectManager";
 import { windowManager } from "@main/managers/WindowManager";
 import type { ProjectPinConfig } from "../../types/boardConfig";
+import { regenerateProjectFiles } from "@utils/codegen/CodeUpdateUtils";
 
 /**
  * Получение пути к Arduino Core из resources/arduino-core
@@ -380,6 +381,7 @@ export function registerProjectHandlers(): void {
       projectName: string,
       pinConfig?: ProjectPinConfig
     ) => {
+      let projectPath: string | null = null;
       try {
         if (!projectName || !projectName.trim()) {
           throw new Error("Название проекта не может быть пустым");
@@ -396,19 +398,119 @@ export function registerProjectHandlers(): void {
         }
 
         // Создаем путь к новому проекту
-        const projectPath = path.join(parentPath, projectName.trim());
+        projectPath = path.join(parentPath, projectName.trim());
 
         // Проверяем, не существует ли уже папка с таким именем
         if (existsSync(projectPath)) {
           throw new Error("Папка с таким названием уже существует");
         }
 
-        // Создаем папку проекта
+        // Нормализуем pinConfig (иногда может прилетать строкой из IPC/хранилищ)
+        let normalizedPinConfig: any = pinConfig as any;
+        if (typeof normalizedPinConfig === "string") {
+          try {
+            normalizedPinConfig = JSON.parse(normalizedPinConfig);
+          } catch {
+            // оставляем как есть — ниже сработает дефолтная генерация
+          }
+        }
+        if (
+          normalizedPinConfig &&
+          typeof normalizedPinConfig === "object" &&
+          typeof normalizedPinConfig.peripherals === "string"
+        ) {
+          try {
+            normalizedPinConfig.peripherals = JSON.parse(
+              normalizedPinConfig.peripherals
+            );
+          } catch {
+            // оставляем как есть
+          }
+        }
+
+        // Генерируем код инициализации ПЕРЕД созданием папки
+        let mainCode: string;
+        let generatedCode: { header: string; implementation: string } | null = null;
+        
+        if (
+          normalizedPinConfig &&
+          normalizedPinConfig.selectedPinFunctions &&
+          normalizedPinConfig.systemPeripherals
+        ) {
+          // Старый формат конфигурации больше не поддерживаем (только uiState.peripherals)
+          throw new Error(
+            "Устаревший формат pinConfig (selectedPinFunctions/systemPeripherals) больше не поддерживается. Используйте pinConfig.peripherals."
+          );
+        } else if (normalizedPinConfig && normalizedPinConfig.peripherals) {
+          // Новый формат: pinConfig.peripherals -> uiState.peripherals (как в src/config/test/test.ts)
+          const { generateInitCode } = await import("../../utils/codegen/CodeGenUtils");
+
+          const fCpu = parseInt(
+            String(normalizedPinConfig.fCpu || "16000000").replace("L", ""),
+            10
+          );
+          const peripherals = normalizedPinConfig.peripherals as Record<string, any>;
+      
+
+          generatedCode = await generateInitCode({ peripherals }, fCpu);
+
+          console.log("Сгенерированы файлы инициализации пинов (из pinConfig.peripherals)");
+
+          // Генерируем main.cpp с маркерами для сохранения пользовательского кода
+          mainCode = `// АВТО-ГЕНЕРАЦИЯ: НАЧАЛО_ИНКЛУДОВ
+#include <Arduino.h>
+#include "pins_init.h"
+// АВТО-ГЕНЕРАЦИЯ: КОНЕЦ_ИНКЛУДОВ
+
+void setup() {
+  // АВТО-ГЕНЕРАЦИЯ: НАЧАЛО_ИНИТ_ПИНОВ
+  pins_init_all();
+  // АВТО-ГЕНЕРАЦИЯ: КОНЕЦ_ИНИТ_ПИНОВ
+  
+}
+
+void loop() {
+  // Основной цикл
+  
+}
+`;
+        } else {
+          // Базовый код по умолчанию (без конфигурации пинов)
+          mainCode = `// АВТО-ГЕНЕРАЦИЯ: НАЧАЛО_ИНКЛУДОВ
+#include <Arduino.h>
+// АВТО-ГЕНЕРАЦИЯ: КОНЕЦ_ИНКЛУДОВ
+
+void setup() {
+  // Инициализация
+
+  }
+
+void loop() {
+  // Основной цикл
+  
+}
+`;
+        }
+
+        // Только после успешной генерации кода создаем папку проекта
         await fs.mkdir(projectPath, { recursive: true });
 
         // Создаем папку src
         const srcPath = path.join(projectPath, "src");
         await fs.mkdir(srcPath, { recursive: true });
+
+        // Записываем сгенерированные файлы
+        if (generatedCode) {
+          const pinsInitHeaderPath = path.join(srcPath, "pins_init.h");
+          const pinsInitCppPath = path.join(srcPath, "pins_init.cpp");
+
+          await fs.writeFile(pinsInitHeaderPath, generatedCode.header, "utf-8");
+          await fs.writeFile(pinsInitCppPath, generatedCode.implementation, "utf-8");
+        }
+
+        // Создаем базовую структуру проекта (файл main.cpp в папке src)
+        const mainCppPath = path.join(srcPath, "main.cpp");
+        await fs.writeFile(mainCppPath, mainCode, "utf-8");
 
         // Копируем папки cores и variants из resources/arduino-core согласно документации
         try {
@@ -438,101 +540,6 @@ export function registerProjectHandlers(): void {
           // Не прерываем создание проекта, но логируем ошибку
         }
 
-        // Нормализуем pinConfig (иногда может прилетать строкой из IPC/хранилищ)
-        let normalizedPinConfig: any = pinConfig as any;
-        if (typeof normalizedPinConfig === "string") {
-          try {
-            normalizedPinConfig = JSON.parse(normalizedPinConfig);
-          } catch {
-            // оставляем как есть — ниже сработает дефолтная генерация
-          }
-        }
-        if (
-          normalizedPinConfig &&
-          typeof normalizedPinConfig === "object" &&
-          typeof normalizedPinConfig.peripherals === "string"
-        ) {
-          try {
-            normalizedPinConfig.peripherals = JSON.parse(
-              normalizedPinConfig.peripherals
-            );
-          } catch {
-            // оставляем как есть
-          }
-        }
-
-        // Генерируем код инициализации
-        let mainCode: string;
-        if (
-          normalizedPinConfig &&
-          normalizedPinConfig.selectedPinFunctions &&
-          normalizedPinConfig.systemPeripherals
-        ) {
-          // Старый формат конфигурации больше не поддерживаем (только uiState.peripherals)
-          throw new Error(
-            "Устаревший формат pinConfig (selectedPinFunctions/systemPeripherals) больше не поддерживается. Используйте pinConfig.peripherals."
-          );
-        } else if (normalizedPinConfig && normalizedPinConfig.peripherals) {
-          // Новый формат: pinConfig.peripherals -> uiState.peripherals (как в src/config/test/test.ts)
-          const { generateInitCode } = await import("../../utils/codegen/CodeGenUtils");
-
-          const fCpu = parseInt(
-            String(normalizedPinConfig.fCpu || "16000000").replace("L", ""),
-            10
-          );
-          const peripherals = normalizedPinConfig.peripherals as Record<string, any>;
-      
-
-          const generatedCode = await generateInitCode({ peripherals }, fCpu);
-
-          // Создаем файлы pins_init.h и pins_init.cpp
-          const pinsInitHeaderPath = path.join(srcPath, "pins_init.h");
-          const pinsInitCppPath = path.join(srcPath, "pins_init.cpp");
-
-          await fs.writeFile(pinsInitHeaderPath, generatedCode.header, "utf-8");
-          await fs.writeFile(pinsInitCppPath, generatedCode.implementation, "utf-8");
-
-          console.log("Сгенерированы файлы инициализации пинов (из pinConfig.peripherals)");
-
-          // Генерируем main.cpp с подключением заголовочного файла
-          mainCode = `#include <Arduino.h>
-#include "pins_init.h"
-
-void setup() {
-  // Инициализация пинов
-  pins_init_all();
-}
-
-void loop() {
-  // Основной цикл
-  
-}
-`;
-        } else {
-          // Базовый код по умолчанию
-          mainCode = `#include <Arduino.h>
-
-void setup() {
-  // Инициализация
-
-  }
-
-void loop() {
-  // Основной цикл
-  
-}
-`;
-        }
-
-        // Создаем базовую структуру проекта (файл main.cpp в папке src)
-        const mainCppPath = path.join(srcPath, "main.cpp");
-        await fs.writeFile(mainCppPath, mainCode, "utf-8");
-
-        // Открываем новый проект
-        projectManager.setCurrentProjectPath(projectPath);
-        await saveLastProjectPath(projectPath);
-        await addOpenProject(projectPath);
-
         // Сохраняем конфигурацию проекта, если она была передана
         if (normalizedPinConfig && normalizedPinConfig.boardId && normalizedPinConfig.fCpu) {
           try {
@@ -548,6 +555,11 @@ void loop() {
           }
         }
 
+        // Открываем новый проект
+        projectManager.setCurrentProjectPath(projectPath);
+        await saveLastProjectPath(projectPath);
+        await addOpenProject(projectPath);
+
         // Строим дерево проекта
         const children = await buildProjectTree(projectPath, projectPath);
         const projectData = createProjectData(projectPath, children);
@@ -557,6 +569,8 @@ void loop() {
 
         return projectData;
       } catch (error) {
+    
+    
         console.error("Ошибка создания нового проекта:", error);
         throw error;
       }
@@ -589,15 +603,40 @@ void loop() {
         // Обновляем проект в Map
         projectManager.addProject(targetProjectPath, projectData);
 
-        // Отправляем событие обновления списка проектов
-        const mainWindow = windowManager.getMainWindow();
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send("project-list-changed");
-        }
+        // Не отправляем project-list-changed здесь, так как вызывающий код
+        // должен отправить project-tree-updated с обновленными данными
+        // Это предотвращает перезагрузку всех проектов и сохраняет обновленное дерево
 
         return projectData;
       } catch (error) {
         console.error("Ошибка обновления дерева проекта:", error);
+        throw error;
+      }
+    }
+  );
+
+  // Регенерация файлов проекта с сохранением пользовательского кода
+  ipcMain.handle(
+    "regenerate-project-files",
+    async (
+      _event,
+      projectPath: string,
+      pinConfig: { boardId: string; fCpu: string; peripherals: Record<string, any> }
+    ) => {
+      try {
+        const { generateInitCode } = await import("../../utils/codegen/CodeGenUtils");
+        
+        const fCpu = parseInt(String(pinConfig.fCpu || "16000000").replace("L", ""), 10);
+        const peripherals = pinConfig.peripherals as Record<string, any>;
+
+        const generatedCode = await generateInitCode({ peripherals }, fCpu);
+        
+        // Регенерируем файлы с сохранением пользовательского кода
+        await regenerateProjectFiles(projectPath, generatedCode);
+
+        return { success: true };
+      } catch (error) {
+        console.error("Ошибка регенерации файлов проекта:", error);
         throw error;
       }
     }

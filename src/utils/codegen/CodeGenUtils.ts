@@ -558,11 +558,15 @@ export function generateInitCode(
     const headerCode = `#ifndef PINS_INIT_H
 #define PINS_INIT_H
 
+// АВТО-ГЕНЕРАЦИЯ: НАЧАЛО_ИНКЛУДОВ
 ${Array.from(finalIncludes)
   .map((inc) => `#include ${inc}`)
   .join("\n")}
+// АВТО-ГЕНЕРАЦИЯ: КОНЕЦ_ИНКЛУДОВ
 
+// АВТО-ГЕНЕРАЦИЯ: НАЧАЛО_ОБЪЯВЛЕНИЙ
 void pins_init_all(void);
+// АВТО-ГЕНЕРАЦИЯ: КОНЕЦ_ОБЪЯВЛЕНИЙ
 
 #endif // PINS_INIT_H
 `;
@@ -576,17 +580,20 @@ void pins_init_all(void);
       bodyLines.push("sei(); // Enable global interrupts");
     }
 
-    const implementationCode = `${Array.from(finalIncludes)
+    const implementationCode = `// АВТО-ГЕНЕРАЦИЯ: НАЧАЛО_ИНКЛУДОВ
+${Array.from(finalIncludes)
     .map((inc) => `#include ${inc}`)
     .join("\n")}
 #include "pins_init.h"
+// АВТО-ГЕНЕРАЦИЯ: КОНЕЦ_ИНКЛУДОВ
 
+// АВТО-ГЕНЕРАЦИЯ: НАЧАЛО_ФУНКЦИИ_PINS_INIT
 void pins_init_all(void) {
 ${bodyLines.map((line) => `    ${line}`).join("\n")}
 }
+// АВТО-ГЕНЕРАЦИЯ: КОНЕЦ_ФУНКЦИИ_PINS_INIT
 
-${isrLines.length > 0 ? "\n" + isrLines.join("\n") + "\n" : ""}
-`;
+${isrLines.length > 0 ? `// АВТО-ГЕНЕРАЦИЯ: НАЧАЛО_ISR\n${isrLines.join("\n")}\n// АВТО-ГЕНЕРАЦИЯ: КОНЕЦ_ISR\n` : ""}`;
 
     return {
       header: headerCode,

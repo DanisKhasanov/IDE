@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Box, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import OpenInFullIcon from "@mui/icons-material/OpenInFull";
@@ -37,18 +37,35 @@ const GraphicalInitialization: React.FC<GraphicalInitializationProps> = ({
     fCpu: string;
     peripherals: Record<string, any>;
   } | null>(null);
+  
+  // Используем ref для отслеживания актуального пути проекта и предотвращения race condition
+  const currentProjectPathRef = useRef<string | null | undefined>(currentProjectPath);
 
   // Загрузка конфигурации пинов из проекта (если есть)
   useEffect(() => {
+    // Обновляем ref при изменении currentProjectPath
+    currentProjectPathRef.current = currentProjectPath;
+    
+    // Сбрасываем конфигурацию при смене проекта
+    setProjectConfig(null);
+    
     const loadProjectConfig = async () => {
-      if (currentProjectPath && window.electronAPI?.getProjectConfiguration) {
+      const projectPathToLoad = currentProjectPathRef.current;
+      
+      if (projectPathToLoad && window.electronAPI?.getProjectConfiguration) {
         try {
-          const config = await window.electronAPI.getProjectConfiguration(currentProjectPath);
-          if (config) {
+          const config = await window.electronAPI.getProjectConfiguration(projectPathToLoad);
+          
+          // Проверяем, что путь проекта не изменился во время загрузки
+          if (currentProjectPathRef.current === projectPathToLoad && config) {
             setProjectConfig(config);
           }
         } catch (error) {
           console.error("Ошибка загрузки конфигурации проекта:", error);
+          // Если произошла ошибка, сбрасываем конфигурацию
+          if (currentProjectPathRef.current === projectPathToLoad) {
+            setProjectConfig(null);
+          }
         }
       }
     };

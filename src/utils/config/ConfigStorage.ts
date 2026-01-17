@@ -282,7 +282,14 @@ export const saveProjectState = async (
   config.projects[projectPath] = { ...currentState, ...state };
   config.lastProjectPath = projectPath;
 
-  await saveConfig(config);
+  // Если сохраняется projectConfiguration, сохраняем немедленно (без debounce)
+  // чтобы гарантировать сохранение критичных данных
+  const isCriticalUpdate = !!state.projectConfiguration;
+  if (isCriticalUpdate) {
+    await saveConfigToFile(config, false);
+  } else {
+    await saveConfig(config);
+  }
 };
 
 export const getLastProjectPath = async (): Promise<string | null> => {
@@ -411,6 +418,9 @@ export const saveProjectConfiguration = async (
   };
   config.lastProjectPath = projectPath;
 
-  await saveConfig(config);
+  // Сохраняем без debounce, чтобы гарантировать сохранение критичных данных
+  await saveConfigToFile(config, false);
 };
+
+
 

@@ -81,6 +81,11 @@ declare global {
         fCpu: string;
         peripherals: Record<string, any>;
       } | null>;
+      regenerateProjectFiles: (projectPath: string, pinConfig: {
+        boardId: string;
+        fCpu: string;
+        peripherals: Record<string, any>;
+      }) => Promise<{ success: boolean }>;
       getLastProjectPath: () => Promise<string | null>;
       loadLastProject: () => Promise<OpenedProjectPayload | null>;
       // Методы для работы с несколькими проектами

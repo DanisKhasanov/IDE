@@ -62,6 +62,11 @@ export const projectAPI = {
       openedFiles: Array<{ path: string; id: string }>;
       activeFileId: string | null;
       isTerminalVisible?: boolean;
+      projectConfiguration?: {
+        boardId: string;
+        fCpu: string;
+        peripherals: Record<string, any>;
+      };
     }>
   ) => {
     return safeInvoke("save-project-state", projectPath, state);
@@ -110,5 +115,13 @@ export const projectAPI = {
   // Получение конфигурации проекта (boardId, fCpu, peripherals)
   getProjectConfiguration: async (projectPath: string) => {
     return safeInvoke("get-project-configuration", projectPath);
+  },
+
+  // Регенерация файлов проекта с сохранением пользовательского кода
+  regenerateProjectFiles: async (
+    projectPath: string,
+    pinConfig: { boardId: string; fCpu: string; peripherals: Record<string, any> }
+  ) => {
+    return safeInvoke("regenerate-project-files", projectPath, pinConfig);
   },
 };

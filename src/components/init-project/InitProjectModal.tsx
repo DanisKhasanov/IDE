@@ -391,10 +391,75 @@ const NewProjectModal = ({
             projectConfiguration,
           });
 
-          // Также нужно обновить файлы инициализации в проекте
-          // TODO: Регенерировать pins_init.h и pins_init.cpp с новыми настройками
+          // Регенерируем файлы с сохранением пользовательского кода
+          if (window.electronAPI?.regenerateProjectFiles) {
+            try {
+              const regenerateResult = await window.electronAPI.regenerateProjectFiles(editProjectPath, {
+                boardId: selectedBoard,
+                fCpu: fCpuValue,
+                peripherals: peripherals,
+              });
+
+              if (!regenerateResult?.success) {
+                console.warn("regenerateProjectFiles вернул неожиданный результат:", regenerateResult);
+              }
+
+              // Обновляем дерево проекта после регенерации файлов
+              if (window.electronAPI?.refreshProjectTree) {
+                try {
+                  // Увеличиваем задержку для обеспечения записи файлов на диск
+                  // Особенно важно после регенерации, когда файловая система может быть медленнее
+                  // Используем более длительную задержку для гарантии записи всех файлов
+                  await new Promise((resolve) => setTimeout(resolve, 800));
+                  
+                  // Проверяем, что проект открыт перед обновлением дерева
+                  const openProjects = await window.electronAPI.getOpenProjects();
+                  const isProjectOpen = openProjects.some((p) => p.path === editProjectPath);
+                  
+                  if (!isProjectOpen) {
+                    console.warn("Проект не открыт, пропускаем обновление дерева:", editProjectPath);
+                    // Если проект не открыт, просто отправляем событие для перезагрузки
+                    window.dispatchEvent(new CustomEvent("project-list-changed"));
+                  } else {
+                    // Обновляем дерево проекта
+                    const updatedProject = await window.electronAPI.refreshProjectTree(editProjectPath);
+                    
+                    // Отправляем кастомное событие с обновленным деревом проекта
+                    if (updatedProject) {
+                      console.log("Дерево проекта обновлено после редактирования:", updatedProject.path);
+                      window.dispatchEvent(
+                        new CustomEvent("project-tree-updated", {
+                          detail: updatedProject,
+                        })
+                      );
+                    } else {
+                      console.warn("refreshProjectTree вернул null, используем fallback");
+                      // Если refreshProjectTree вернул null, используем fallback
+                      window.dispatchEvent(new CustomEvent("project-list-changed"));
+                    }
+                  }
+                } catch (error) {
+                  console.error("Ошибка обновления дерева проекта:", error);
+                  // В случае ошибки все равно отправляем событие для перезагрузки
+                  window.dispatchEvent(new CustomEvent("project-list-changed"));
+                }
+              } else {
+                // Если refreshProjectTree недоступен, используем fallback
+                console.warn("refreshProjectTree недоступен, используем fallback");
+                window.dispatchEvent(new CustomEvent("project-list-changed"));
+              }
+            } catch (error) {
+              console.error("Ошибка регенерации файлов проекта:", error);
+              // В случае ошибки регенерации все равно пытаемся обновить дерево
+              window.dispatchEvent(new CustomEvent("project-list-changed"));
+              throw error; // Пробрасываем ошибку дальше
+            }
+          } else {
+            // Если regenerateProjectFiles недоступен, отправляем событие для перезагрузки
+            console.warn("regenerateProjectFiles недоступен, используем fallback");
+            window.dispatchEvent(new CustomEvent("project-list-changed"));
+          }
           
-          window.dispatchEvent(new CustomEvent("project-list-changed"));
           handleClose();
         }
       } catch (error) {
