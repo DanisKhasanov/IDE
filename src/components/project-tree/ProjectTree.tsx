@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Card, CardContent, List, Box, IconButton } from "@mui/material";
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import SearchIcon from "@mui/icons-material/Search";
-import NewProjectModal from "@/components/new-project/NewProjectModal";
+import InitProjectModal from "@/components/init-project/InitProjectModal";
 import {
   useProjectTree,
   useExpandedFolders,
@@ -287,7 +287,7 @@ const ProjectTree = ({
       />
 
       {/* Модальное окно создания нового проекта */}
-      <NewProjectModal
+      <InitProjectModal
         open={isNewProjectModalOpen}
         onClose={handleNewProjectClose}
         onProjectCreate={handleNewProjectCreate}

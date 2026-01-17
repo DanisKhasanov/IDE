@@ -4,7 +4,7 @@ import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import CodeEditorPanel from "@/components/code-editor/CodeEditorPanel";
 import AdditionalPanel from "@/components/additional-panel/AdditionalPanel";
 import ProjectTree from "@/components/project-tree/ProjectTree";
-import NewProjectModal from "@/components/new-project/NewProjectModal";
+import InitProjectModal from "@/components/init-project/InitProjectModal";
 import ToolchainSetupModal from "@/components/common/ToolchainSetupModal";
 import { GuiSettingsPage } from "@/components/additional-panel/gui/GuiSettingsPage";
 import {
@@ -343,7 +343,7 @@ const App = () => {
         </Box>
 
         {/* Модальное окно создания нового проекта */}
-        <NewProjectModal
+        <InitProjectModal
           open={isOpen}
           onClose={handleClose}
           onProjectCreate={handleProjectCreate}

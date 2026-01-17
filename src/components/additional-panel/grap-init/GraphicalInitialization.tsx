@@ -3,7 +3,7 @@ import { Box, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import OpenInFullIcon from "@mui/icons-material/OpenInFull";
 import { PinsListPanel } from "@/components/common/PinsListPanel";
-import NewProjectModal from "@/components/new-project/NewProjectModal";
+import InitProjectModal from "@/components/init-project/InitProjectModal";
 import { getBoardInfo, getPins, getConflicts } from "@/utils/config/boardConfigHelpers";
 
 interface GraphicalInitializationProps {
@@ -151,12 +151,13 @@ const GraphicalInitialization: React.FC<GraphicalInitializationProps> = ({
           onPinClick={handlePinClick}
           onFunctionSelect={handleFunctionSelect}
           size="small"
+          readOnly={true}
         />
       </Box>
 
       {/* Модальное окно редактирования настроек проекта */}
       {currentProjectPath && (
-        <NewProjectModal
+        <InitProjectModal
           open={isEditModalOpen}
           onClose={handleEditModalClose}
           onProjectCreate={handleEditProjectCreate}

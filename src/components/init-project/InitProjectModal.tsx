@@ -17,7 +17,7 @@ import type { SelectedPinFunction, PinConfig, ConflictRule } from "@/types/board
 import { BoardSelectionTab } from "./BoardSelectionTab";
 import { PeripheralsTab } from "./PeripheralsTab";
 import { SystemPeripheralsTab } from "./SystemPeripheralsTab";
-import { PinsListPanel } from "../common/PinsListPanel";
+import { PinsListPanel } from "@/components/common/PinsListPanel";
 import { useSnackbar } from "@/contexts/SnackbarContext";
 import {
   getBoardInfo,

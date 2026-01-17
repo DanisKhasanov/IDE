@@ -208,6 +208,7 @@ interface PinsListPanelProps {
     functionType?: string
   ) => void;
   size?: "small" | "medium";
+  readOnly?: boolean; // Если true, пины не кликабельны
 }
 
 /**
@@ -255,6 +256,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
   onFunctionSelect,
   onFunctionRemove,
   size = "medium",
+  readOnly = false,
 }) => {
   // Преобразуем новую структуру в старый формат для совместимости
   const selectedPinFunctions = convertPeripheralsToSelectedPinFunctions(peripherals);
@@ -411,7 +413,7 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
                     delete pinRefs.current[pinId];
                   }
                 }}
-                onClick={(e) => handlePinClick(e, pin)}
+                onClick={readOnly ? undefined : (e) => handlePinClick(e, pin)}
                 sx={{
                   position: "absolute",
                   left: `${pin.position.x + PIN_AREA_WIDTH / 2}%`,
@@ -422,9 +424,9 @@ export const PinsListPanel: React.FC<PinsListPanelProps> = ({
                   alignItems: "center",
                   gap: "5px",
                   flexDirection: getPinSide(pin.position.x) === "left" ? "row-reverse" : "row",
-                  cursor: "pointer",
+                  cursor: readOnly ? "default" : "pointer",
                   padding: "2px",
-                  "&:hover": {
+                  "&:hover": readOnly ? {} : {
                     transform: "translate(-80%, -50%) scale(1.1)",
                   },
                 }}
